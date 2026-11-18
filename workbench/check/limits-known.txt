@@ -1,0 +1,7 @@
+# Известные нарушения лимитов канона: путь строк_кода строк_шапки.
+# Снимок 07.11.2026 при лимитах 512 строк кода и 32 строки шапки (workbench/check/limits.saltic).
+# Правит автор: строку убирают, когда файл привели в норму; числа поднимать нельзя.
+registry/adapters/uefi_x86_64/intel_gpu/intel_gpu.saltic 236 57
+registry/adapters/uefi_x86_64/intel_gpu/intel_gpu/render.saltic 171 44
+registry/adapters/uefi_x86_64/qca9377/qca9377/join.saltic 260 34
+registry/adapters/uefi_x86_64/qca9377/qca9377/rings.saltic 200 35
