@@ -1,0 +1,20 @@
+{
+  "title": "files — файлы через прошивку UEFI: тома, папки, чтение, запись, BOOTX64.EFI",
+  "saltic_version": "в составе Saltic (ветка 22.11.2026)",
+  "author": "Зэф",
+  "role": "adapter",
+  "lifetime": "библиотека адаптеров (живёт с программой)",
+  "deadline": "нет: вызовы синхронные",
+  "effects": "пишет на диск через протоколы Simple File System и File",
+  "hardware": "любой ПК с UEFI",
+  "identifiers": "нет",
+  "own_version": "1",
+  "protocols": "UEFI",
+  "architectures": "x86_64-uefi",
+  "primitives": "тома и папки, открыть, создать, записать, прочитать (load_file), установить загрузчик",
+  "depends_on": "firmware, net",
+  "environment": "только UEFI-программы Acer и ПК с UEFI",
+  "state": "рабочий: на нём агент Acer, сохранения программ и шрифты uiengine на Acer; переехал из Saltic 22.11.2026",
+  "log": "нет: ошибки — ошибкой вызывающему",
+  "filled_by": "агентом по коду, 22.11.2026; автор проверяет"
+}

@@ -1,0 +1,20 @@
+{
+  "title": "net — сетевые помощники: кадры, адреса, байты пакетов; dhcp — адрес по DHCP",
+  "saltic_version": "в составе Saltic (ветка 22.11.2026)",
+  "author": "Зэф",
+  "role": "adapter",
+  "lifetime": "библиотека адаптеров (живёт с программой)",
+  "deadline": "нет: вызовы синхронные",
+  "effects": "нет своих: только разбор и сборка байтов в памяти",
+  "hardware": "любой ПК с UEFI",
+  "identifiers": "нет",
+  "own_version": "1",
+  "protocols": "UEFI",
+  "architectures": "x86_64-uefi",
+  "primitives": "кадр и адреса Ethernet/IP/UDP, текст байтов; dhcp — запрос и ответ",
+  "depends_on": "firmware, craft.text",
+  "environment": "только UEFI-программы Acer и ПК с UEFI",
+  "state": "рабочий: на нём сеть агента Acer и драйверы rtl8111, qca9377; переехал из Saltic 22.11.2026",
+  "log": "нет: ошибки — ошибкой вызывающему",
+  "filled_by": "агентом по коду, 22.11.2026; автор проверяет"
+}

@@ -37,7 +37,7 @@ use registry.libraries.fonts.raster
 use registry.adapters.uefi_x86_64.firmware.firmware
 use registry.adapters.uefi_x86_64.firmware.firmware.uefi
 use registry.libraries.graphics.graphics
-use os.target.uefi_x86_64.agent.programs
+use registry.adapters.uefi_x86_64.files.files
 
 LIMIT = 524288
 PAGE = 4096
@@ -62,7 +62,7 @@ Typeface = Box {
 skill load(base, name) {
     @pages = LIMIT / PAGE
     @place = uefi.pages_in_window(base, pages)
-    programs.load_file(base, str.concat(FOLDER, name), place, LIMIT)
+    files.load_file(base, str.concat(FOLDER, name), place, LIMIT)
     firmware.guest(place, base)
     out Typeface { font = ttf.open(ttf.from_memory(place - base)), place = place, pages = pages }
 }
@@ -76,7 +76,7 @@ Sheet = Box {
 skill load_icons(base) {
     @pages = LIMIT / PAGE
     @place = uefi.pages_in_window(base, pages)
-    @length = programs.load_file(base, str.concat(FOLDER, ICONS), place, LIMIT)
+    @length = files.load_file(base, str.concat(FOLDER, ICONS), place, LIMIT)
     firmware.guest(place, base)
     out Sheet { set = icons.open(ttf.from_memory(place - base), length), place = place, pages = pages }
 }
