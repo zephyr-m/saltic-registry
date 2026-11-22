@@ -1,0 +1,21 @@
+-- optimize — оптимизация градиентом: ты считаешь градиент, оптимизатор
+-- делает шаг (функции в Saltic значениями пока не передаются). Жильцы:
+-- descent (спуск с моментом), adam (Adam).
+--
+-- descent_with(rate, momentum) -> descent.Descent; adam_with(rate) -> adam.Adam
+
+use registry.libraries.optimize.descent
+use registry.libraries.optimize.adam
+
+skill descent_with(rate, momentum) {
+    out descent.Descent {
+        rate = 0.0 + rate,
+        momentum = 0.0 + momentum
+    }
+}
+
+skill adam_with(rate) {
+    out adam.Adam {
+        rate = 0.0 + rate
+    }
+}

@@ -1,0 +1,35 @@
+-- descent — градиентный спуск с моментом: скорость v = momentum · v − rate · g,
+-- параметры θ = θ + v. momentum 0 — обычный спуск. Параметры и градиенты —
+-- группы дробных одной длины; состояние (скорость) живёт в Box.
+--
+-- Descent { rate, momentum, velocity } — step(params, grads) -> новые параметры
+--     part(a, i) -> дробное
+
+use core.group
+
+Descent = Box {
+    rate = 0.01,
+    momentum = 0.0,
+    velocity = []
+
+    skill part(a, i) {
+        out 0.0 + group.get(a, i)
+    }
+
+    skill step(params, grads) {
+        (group.count(velocity) == 0) {
+            drum (group.count(params)) {
+                velocity = group.add(velocity, 0.0)
+            }
+        }
+        @moved = []
+        @speeds = []
+        drum (group.count(params)) {
+            @v = momentum * part(velocity, beat) - rate * part(grads, beat)
+            speeds = group.add(speeds, v)
+            moved = group.add(moved, part(params, beat) + v)
+        }
+        velocity = speeds
+        out moved
+    }
+}

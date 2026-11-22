@@ -1,0 +1,108 @@
+-- optimize — проверка оптимизаторов: 40 шагов спуска с моментом и Adam на
+-- одной последовательности градиентов — против реализации на Python по
+-- формулам (cases.saltic, делает workbench/references/optimize.py); и поиск
+-- минимума: чаша (x − 3)² + 10·(y + 2)² — оба приходят в (3, −2); Розенброк
+-- (1 − x)² + 100·(y − x²)² — Adam приходит в (1, 1).
+--
+-- Probe { slow, smart, bowl_adam, valley } — near(a, b, width) -> |a − b| ≤ width
+--     same(got, want) -> поэлементно с допуском CLOSE
+--     bowl(point) / curved(point) -> градиенты чаши и Розенброка
+--     replay() -> [спуск сошёлся, Adam сошёлся]; down_bowl() / down_valley() — поиск
+-- program() -> none; TestsFailed
+-- CLOSE — допуск сверки шагов
+
+use core.group
+use core.fraction
+use craft.testing
+use registry.libraries.optimize.optimize
+use registry.libraries.optimize.descent
+use registry.libraries.optimize.adam
+use registry.libraries.optimize.checks.cases
+
+CLOSE = 0.000000001
+
+Probe = Box {
+    slow = descent.Descent {},
+    smart = adam.Adam {},
+    bowl_adam = adam.Adam {},
+    valley = adam.Adam {}
+
+    skill near(a, b, width) {
+        @gap = a - b
+        (gap < 0.0) {
+            gap = 0.0 - gap
+        }
+        out ((gap > width) == no)
+    }
+
+    skill same(got, want) {
+        drum (group.count(got)) {
+            (near(slow.part(got, beat), slow.part(want, beat), CLOSE) == no) {
+                out no
+            }
+        }
+        out yes
+    }
+
+    skill bowl(point) {
+        out [2.0 * (slow.part(point, 0) - 3.0), 20.0 * (slow.part(point, 1) + 2.0)]
+    }
+
+    skill curved(point) {
+        @x = slow.part(point, 0)
+        @y = slow.part(point, 1)
+        out [-2.0 * (1.0 - x) - 400.0 * x * (y - x * x), 200.0 * (y - x * x)]
+    }
+
+    skill replay() {
+        slow.rate = 0.1
+        slow.momentum = 0.9
+        smart.rate = 0.05
+        @a = cases.START
+        @b = cases.START
+        drum (cases.GRADS) {
+            a = slow.step(a, beat)
+            b = smart.step(b, beat)
+        }
+        out [same(a, cases.DESCENT_END), same(b, cases.ADAM_END)]
+    }
+
+    skill down_bowl() {
+        @walker = optimize.descent_with(0.04, 0.5)
+        bowl_adam.rate = 0.05
+        @p = [0.0, 0.0]
+        @q = [0.0, 0.0]
+        drum (2000) {
+            p = walker.step(p, bowl(p))
+            q = bowl_adam.step(q, bowl(q))
+        }
+        out [p, q]
+    }
+
+    skill down_valley() {
+        valley.rate = 0.002
+        @p = [-1.2, 1.0]
+        drum (20000) {
+            p = valley.step(p, curved(p))
+        }
+        out p
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @replayed = probe.replay()
+    suite = testing.test_yes(suite, "спуск с моментом: 40 шагов как у Python", group.get(replayed, 0))
+    suite = testing.test_yes(suite, "Adam: 40 шагов как у Python", group.get(replayed, 1))
+    @ends = probe.down_bowl()
+    @p = group.get(ends, 0)
+    @q = group.get(ends, 1)
+    suite = testing.test_yes(suite, "спуск: чаша — минимум (3, −2)", probe.same([0.0 + group.get(p, 0), 0.0 + group.get(p, 1)], [3.0, -2.0]))
+    suite = testing.test_yes(suite, "Adam: чаша — x около 3", probe.near(0.0 + group.get(q, 0), 3.0, 0.001))
+    suite = testing.test_yes(suite, "Adam: чаша — y около −2", probe.near(0.0 + group.get(q, 1), -2.0, 0.001))
+    @r = probe.down_valley()
+    suite = testing.test_yes(suite, "Adam: Розенброк — x около 1", probe.near(0.0 + group.get(r, 0), 1.0, 0.01))
+    suite = testing.test_yes(suite, "Adam: Розенброк — y около 1", probe.near(0.0 + group.get(r, 1), 1.0, 0.02))
+    out testing.test_finish(suite)
+}
