@@ -1,0 +1,78 @@
+-- vector — проверка векторов по эталонам Python (cases.saltic, делает
+-- make.py) с относительной точностью CLOSE, плюс свойства: векторное
+-- произведение перпендикулярно обоим, единичный — длины 1, нулевой — нулевой.
+--
+-- Probe { space } — check(row) -> yes, если случай сошёлся
+--     same(got, row, from) -> yes, если got[i] ≈ row[from + i]
+-- program() -> none; TestsFailed
+-- CLOSE — допустимая относительная ошибка
+
+use io
+use core.group
+use core.fraction
+use craft.testing
+use registry.libraries.vector.vector
+use registry.libraries.vector.checks.cases
+
+CLOSE = 0.000000000001
+
+Probe = Box {
+    space = vector.Vector {}
+
+    skill same(got, row, from) {
+        drum (group.count(got)) {
+            (fraction.near(space.part(got, beat), space.part(row, from + beat), CLOSE) == no) {
+                out no
+            }
+        }
+        out yes
+    }
+
+    skill check(row) {
+        @kind = group.get(row, 0)
+        @a = [space.part(row, 1), space.part(row, 2), space.part(row, 3)]
+        @b = [space.part(row, 4), space.part(row, 5), space.part(row, 6)]
+        (kind == "plus") {
+            out same(space.plus(a, b), row, 7)
+        }
+        (kind == "minus") {
+            out same(space.minus(a, b), row, 7)
+        }
+        (kind == "dot") {
+            out same([space.dot(a, b)], row, 7)
+        }
+        (kind == "cross") {
+            out same(space.cross(a, b), row, 7)
+        }
+        (kind == "unit") {
+            out same(space.unit(a), row, 7)
+        }
+        out same(space.along(a, b, space.part(row, 7)), row, 8)
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @space = vector.Vector {}
+    @wrong = 0
+    drum (cases.CASES) {
+        (probe.check(beat) == no) {
+            wrong = wrong + 1
+            @kind = group.get(beat, 0)
+            io.show("  расхождение: {kind}")
+        }
+    }
+    @count = group.count(cases.CASES)
+    io.show("vector: случаев {count}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "всё как у Python в пределах 1e-12", wrong, 0)
+    @a = [3.0, -4.0, 12.0]
+    @b = [1.0, 2.0, -0.5]
+    @c = space.cross(a, b)
+    suite = testing.test_yes(suite, "a × b перпендикулярно a", fraction.near(space.dot(c, a), 0.0, CLOSE))
+    suite = testing.test_yes(suite, "a × b перпендикулярно b", fraction.near(space.dot(c, b), 0.0, CLOSE))
+    suite = testing.test_yes(suite, "длина (3, −4, 12) — 13", fraction.near(space.length(a), 13.0, CLOSE))
+    suite = testing.test_yes(suite, "единичный — длины 1", fraction.near(space.length(space.unit(a)), 1.0, CLOSE))
+    suite = testing.test_yes(suite, "нулевой остаётся нулевым", fraction.near(space.length(space.unit([0.0, 0.0, 0.0])), 0.0, CLOSE))
+    out testing.test_finish(suite)
+}
