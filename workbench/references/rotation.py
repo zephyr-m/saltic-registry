@@ -1,7 +1,7 @@
 # Эталоны для rotation — независимым способом, без кватернионов: формула
 # Родрига v·cosθ + (k×v)·sinθ + k·(k·v)·(1 − cosθ) и её матрица. Пишет
 # cases.saltic — группу CASES. Зерно закреплено:
-#   python3 registry/libraries/rotation/checks/make.py
+#   python3 workbench/references/rotation.py
 # turn     — [«turn», ось, угол, вектор, ответ]
 # compose  — [«compose», ось1, угол1, ось2, угол2, вектор, ответ] — сначала 1, потом 2
 # halfway  — [«halfway», ось, угол, доля t, вектор, ответ] — поворот на t · угол
@@ -9,7 +9,7 @@
 import math, random, os
 from decimal import Decimal
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "registry", "libraries", "rotation", "checks")
 rng = random.Random(2026_11_22)
 
 def lit(x):
@@ -53,7 +53,7 @@ for _ in range(10):
     axis, angle = vec(), ang()
     rows.append(["matrix"] + axis + [angle] + matrix(axis, angle))
 
-lines = ["-- cases — эталоны для rotation по формуле Родрига (делает make.py, руками не править).", "", "CASES = ["]
+lines = ["-- cases — эталоны для rotation по формуле Родрига (делает workbench/references/rotation.py, руками не править).", "", "CASES = ["]
 for i, row in enumerate(rows):
     tail = "," if i < len(rows) - 1 else ""
     lines.append('    ["' + row[0] + '", ' + ", ".join(lit(x) for x in row[1:]) + "]" + tail)

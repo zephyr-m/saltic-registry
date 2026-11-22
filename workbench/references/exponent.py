@@ -4,11 +4,11 @@
 # записью без «e», в пределах 1e−40 … 1e40, чтобы литералы были короткими.
 # Входы сначала округляются до 50 значимых бит — ровно как их держит
 # core.fraction, — и Python считает от того же x, что и Saltic.
-#   python3 registry/libraries/exponent/checks/make.py
+#   python3 workbench/references/exponent.py
 import math, random, os
 from decimal import Decimal
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "registry", "libraries", "exponent", "checks")
 rng = random.Random(2026_11_22)
 
 BITS = 50
@@ -54,7 +54,7 @@ for _ in range(25):
 for x, y in [(2.0, 10.0), (2.0, -3.0), (-2.0, 3.0), (-2.0, 4.0), (9.0, 0.5), (10.0, 20.0), (1.0001, 10000.0), (5.0, 0.0), (0.0, 3.0), (1.5, -2.0)]:
     cases.append(("raised", x, y, x ** y))
 
-lines = ["-- cases — эталоны Python math для exponent (делает make.py, руками не править).", "", "CASES = ["]
+lines = ["-- cases — эталоны Python math для exponent (делает workbench/references/exponent.py, руками не править).", "", "CASES = ["]
 cases = [(name, held(x), held(y), None) for name, x, y, _ in cases]
 def answer(name, x, y):
     if name == "exp": return math.exp(x)

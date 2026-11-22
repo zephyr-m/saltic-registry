@@ -1,13 +1,13 @@
 {
   "title": "exponent — степени и логарифмы",
   "saltic_version": "в составе Saltic (ветка 22.11.2026)",
-  "own_version": "1",
+  "own_version": "2",
   "author": "Зэф",
   "role": "library",
   "purpose": "exp, log, log2, log10 и степень x^y на дробных Saltic, без родных операций — как синус и корень в ядре",
   "depends_on": "нет (core.fraction)",
   "architectures": "64-битные цели (у них есть дробные)",
-  "state": "рабочий: 230 случаев по эталонам Python math с относительной точностью 1e−13 и 8 точных случаев и ошибок (checks/exponent.saltic, эталоны — checks/make.py)",
+  "state": "рабочий: 230 случаев по эталонам Python math с относительной точностью 1e−13 и 8 точных случаев и ошибок (checks/exponent.saltic, эталоны — workbench/references/exponent.py реестра)",
   "log": "нет: ошибки — ValueOutsideRange значением",
   "filled_by": "агентом по коду, 22.11.2026; автор проверяет"
 }

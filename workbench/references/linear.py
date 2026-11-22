@@ -1,12 +1,12 @@
 # Эталоны для linear: точные дроби Python (fractions) — определитель и решение
 # A·x = b на целых матрицах считаются без единой ошибки округления. Пишет
 # cases.saltic — группу CASES [[n, a00 … a(n−1)(n−1), b0 … b(n−1), det, x0 …]].
-#   python3 registry/libraries/linear/checks/make.py
+#   python3 workbench/references/linear.py
 import random, os
 from fractions import Fraction
 from decimal import Decimal
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "registry", "libraries", "linear", "checks")
 rng = random.Random(2026_11_22)
 
 def lit(x):
@@ -55,7 +55,7 @@ while len(rows) < 30:
     x = solve(m, b)
     rows.append([n] + [c for row in m for c in row] + b + [d] + x)
 
-lines = ["-- cases — эталоны для linear, точные дроби Python (делает make.py, руками не править).", "", "CASES = ["]
+lines = ["-- cases — эталоны для linear, точные дроби Python (делает workbench/references/linear.py, руками не править).", "", "CASES = ["]
 for i, row in enumerate(rows):
     tail = "," if i < len(rows) - 1 else ""
     lines.append("    [" + str(row[0]) + ", " + ", ".join(lit(float(v)) for v in row[1:]) + "]" + tail)

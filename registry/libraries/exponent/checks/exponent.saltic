@@ -1,5 +1,5 @@
 -- exponent — проверка степеней и логарифмов по эталонам Python math: каждый
--- случай из cases.saltic (делает make.py) — с относительной точностью CLOSE.
+-- случай из cases.saltic (делает workbench/references/exponent.py) — с относительной точностью CLOSE.
 -- Плюс точные случаи и ошибки. Расхождения печатаются.
 --
 -- program() -> none; TestsFailed

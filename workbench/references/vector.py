@@ -1,10 +1,10 @@
 # Эталоны для vector: Python считает те же действия на double, зерно
 # закреплено. Пишет cases.saltic — группу CASES [[действие, a…, b…, ответ…]].
-#   python3 registry/libraries/vector/checks/make.py
+#   python3 workbench/references/vector.py
 import math, random, os
 from decimal import Decimal
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "registry", "libraries", "vector", "checks")
 rng = random.Random(2026_11_22)
 
 def lit(x):
@@ -26,7 +26,7 @@ for _ in range(30):
     t = rng.uniform(-10.0, 10.0)
     rows.append(["along"] + a + b + [t] + [a[i] + b[i] * t for i in range(3)])
 
-lines = ["-- cases — эталоны для vector (делает make.py, руками не править).", "", "CASES = ["]
+lines = ["-- cases — эталоны для vector (делает workbench/references/vector.py, руками не править).", "", "CASES = ["]
 for i, row in enumerate(rows):
     tail = "," if i < len(rows) - 1 else ""
     lines.append('    ["' + row[0] + '", ' + ", ".join(lit(x) for x in row[1:]) + "]" + tail)

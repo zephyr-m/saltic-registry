@@ -1,13 +1,13 @@
 {
   "title": "vector — векторы в 3D",
   "saltic_version": "в составе Saltic (ветка 22.11.2026)",
-  "own_version": "1",
+  "own_version": "2",
   "author": "Зэф",
   "role": "library",
   "purpose": "сложение, разность, умножение на число, скалярное и векторное произведение, длина, единичный вектор, точка луча — для трассировки, 3D, физики и датчиков",
   "depends_on": "нет (core.fraction)",
   "architectures": "64-битные цели (у них есть дробные)",
-  "state": "рабочий: 180 случаев по эталонам Python (1e−12) и 5 свойств (checks/vector.saltic, эталоны — checks/make.py); переехал из «Кристалла» saltic-soft",
+  "state": "рабочий: 180 случаев по эталонам Python (1e−12) и 5 свойств (checks/vector.saltic, эталоны — workbench/references/vector.py реестра); переехал из «Кристалла» saltic-soft",
   "log": "нет",
   "filled_by": "агентом по коду, 22.11.2026; автор проверяет"
 }

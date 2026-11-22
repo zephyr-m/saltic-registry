@@ -1,4 +1,4 @@
--- cases — эталоны Python math для exponent (делает make.py, руками не править).
+-- cases — эталоны Python math для exponent (делает workbench/references/exponent.py, руками не править).
 
 CASES = [
     ["exp", 85.5731314610664, 0.0, 14586086768269182000000000000000000000.0],

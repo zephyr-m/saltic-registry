@@ -1,13 +1,13 @@
 # Случаи для сверки ieee754 с железом: Python (x86-64, IEEE 754 без сброса
 # субнормальных) считает a op b. Зерно закреплено — файлы воспроизводятся:
-#   python3 registry/libraries/ieee754/checks/cases/make.py
+#   python3 workbench/references/ieee754.py
 # Строка: «операция a b ответ», числа — биты в hex старшим вперёд; NaN — слово
 # NAN (биты NaN у разных машин разные, сверяется только «это NaN»).
 # float32: считаем в double и округляем в float32 — для + − × ÷ это точно
 # (53 ≥ 2·24 + 2, двойное округление не мешает).
 import math, random, struct, os
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "registry", "libraries", "ieee754", "checks", "cases")
 COUNT = 1000
 
 def pick_bits(rng, width):

@@ -1,5 +1,5 @@
 -- linear — проверка разложений: определитель и решение A·x = b против точных
--- дробей Python (cases.saltic, делает make.py), и свойства на каждой матрице:
+-- дробей Python (cases.saltic, делает workbench/references/linear.py), и свойства на каждой матрице:
 -- L·U = P·A, A·A⁻¹ = I, Q·R = A и QᵀQ = I, U·diag(σ)·Vᵀ = A и VᵀV = I,
 -- σ по убыванию; прямоугольная 5×3 — для QR и SVD; ошибки.
 --
