@@ -1,0 +1,187 @@
+-- sha512 — хеш SHA-512 (FIPS 180-4). Слово 64 бита — пара [hi, lo] из двух
+-- 32-битных обычных чисел (наши числа — 61 бит): сложение с переносом,
+-- сдвиги и вращения через половинки. 64-битные цели.
+--
+-- Sha512 {} — digest(message) -> 64 байта хеша
+--     hex(buffer) -> шестнадцатеричная запись строчными
+--     plus(a, b) / xor3(a, b, c) / rotr(x, n) / shr(x, n) / choose(e, f, g) / half /
+--     major(a, b, c) / padded(message) / words(block, at) /
+--     compress(state, block, at) — внутри
+-- K — константы раундов; START — начальное состояние; MASK — 32 бита;
+-- BLOCK — байт в блоке; HEX — цифры
+
+use core.num
+use core.str
+use core.bytes
+use core.group
+
+MASK = 4294967295
+BLOCK = 128
+HEX = "0123456789abcdef"
+START = [[1779033703, 4089235720], [3144134277, 2227873595], [1013904242, 4271175723], [2773480762, 1595750129], [1359893119, 2917565137], [2600822924, 725511199], [528734635, 4215389547], [1541459225, 327033209]]
+K = [
+    [1116352408, 3609767458], [1899447441, 602891725], [3049323471, 3964484399], [3921009573, 2173295548],
+    [961987163, 4081628472], [1508970993, 3053834265], [2453635748, 2937671579], [2870763221, 3664609560],
+    [3624381080, 2734883394], [310598401, 1164996542], [607225278, 1323610764], [1426881987, 3590304994],
+    [1925078388, 4068182383], [2162078206, 991336113], [2614888103, 633803317], [3248222580, 3479774868],
+    [3835390401, 2666613458], [4022224774, 944711139], [264347078, 2341262773], [604807628, 2007800933],
+    [770255983, 1495990901], [1249150122, 1856431235], [1555081692, 3175218132], [1996064986, 2198950837],
+    [2554220882, 3999719339], [2821834349, 766784016], [2952996808, 2566594879], [3210313671, 3203337956],
+    [3336571891, 1034457026], [3584528711, 2466948901], [113926993, 3758326383], [338241895, 168717936],
+    [666307205, 1188179964], [773529912, 1546045734], [1294757372, 1522805485], [1396182291, 2643833823],
+    [1695183700, 2343527390], [1986661051, 1014477480], [2177026350, 1206759142], [2456956037, 344077627],
+    [2730485921, 1290863460], [2820302411, 3158454273], [3259730800, 3505952657], [3345764771, 106217008],
+    [3516065817, 3606008344], [3600352804, 1432725776], [4094571909, 1467031594], [275423344, 851169720],
+    [430227734, 3100823752], [506948616, 1363258195], [659060556, 3750685593], [883997877, 3785050280],
+    [958139571, 3318307427], [1322822218, 3812723403], [1537002063, 2003034995], [1747873779, 3602036899],
+    [1955562222, 1575990012], [2024104815, 1125592928], [2227730452, 2716904306], [2361852424, 442776044],
+    [2428436474, 593698344], [2756734187, 3733110249], [3204031479, 2999351573], [3329325298, 3815920427],
+    [3391569614, 3928383900], [3515267271, 566280711], [3940187606, 3454069534], [4118630271, 4000239992],
+    [116418474, 1914138554], [174292421, 2731055270], [289380356, 3203993006], [460393269, 320620315],
+    [685471733, 587496836], [852142971, 1086792851], [1017036298, 365543100], [1126000580, 2618297676],
+    [1288033470, 3409855158], [1501505948, 4234509866], [1607167915, 987167468], [1816402316, 1246189591]
+]
+
+Sha512 = Box {
+    skill plus(a, b) {
+        @low = group.get(a, 1) + group.get(b, 1)
+        @high = group.get(a, 0) + group.get(b, 0) + num.shift_right(low, 32)
+        out [num.and(high, MASK), num.and(low, MASK)]
+    }
+
+    skill xor3(a, b, c) {
+        out [num.xor(num.xor(group.get(a, 0), group.get(b, 0)), group.get(c, 0)), num.xor(num.xor(group.get(a, 1), group.get(b, 1)), group.get(c, 1))]
+    }
+
+    skill shr(x, n) {
+        @high = group.get(x, 0)
+        @low = group.get(x, 1)
+        (n >= 32) {
+            out [0, num.shift_right(high, n - 32)]
+        }
+        out [num.shift_right(high, n), num.or(num.shift_right(low, n), num.shift_left(num.and(high, num.power2(n) - 1), 32 - n))]
+    }
+
+    skill rotr(x, n) {
+        @high = group.get(x, 0)
+        @low = group.get(x, 1)
+        (n >= 32) {
+            high = group.get(x, 1)
+            low = group.get(x, 0)
+            n = n - 32
+        }
+        (n == 0) {
+            out [high, low]
+        }
+        @top = num.or(num.shift_right(high, n), num.shift_left(num.and(low, num.power2(n) - 1), 32 - n))
+        @bottom = num.or(num.shift_right(low, n), num.shift_left(num.and(high, num.power2(n) - 1), 32 - n))
+        out [top, bottom]
+    }
+
+    skill choose(e, f, g) {
+        @high = num.xor(num.and(group.get(e, 0), group.get(f, 0)), num.and(num.xor(group.get(e, 0), MASK), group.get(g, 0)))
+        @low = num.xor(num.and(group.get(e, 1), group.get(f, 1)), num.and(num.xor(group.get(e, 1), MASK), group.get(g, 1)))
+        out [high, low]
+    }
+
+    skill major(a, b, c) {
+        @high = num.xor(num.xor(num.and(group.get(a, 0), group.get(b, 0)), num.and(group.get(a, 0), group.get(c, 0))), num.and(group.get(b, 0), group.get(c, 0)))
+        @low = num.xor(num.xor(num.and(group.get(a, 1), group.get(b, 1)), num.and(group.get(a, 1), group.get(c, 1))), num.and(group.get(b, 1), group.get(c, 1)))
+        out [high, low]
+    }
+
+    skill padded(message) {
+        @size = bytes.count(message)
+        @total = (size + 17 + BLOCK - 1) / BLOCK * BLOCK
+        @made = bytes.new(total)
+        drum (size) {
+            bytes.set(made, beat, bytes.get(message, beat))
+        }
+        bytes.set(made, size, 128)
+        @bits = size * 8
+        drum (8) {
+            bytes.set(made, total - 1 - beat, bits % 256)
+            bits = bits / 256
+        }
+        out made
+    }
+
+    skill half(block, at) {
+        out ((bytes.get(block, at) * 256 + bytes.get(block, at + 1)) * 256 + bytes.get(block, at + 2)) * 256 + bytes.get(block, at + 3)
+    }
+
+    skill words(block, at) {
+        @w = []
+        drum (16) {
+            @base = at + beat * 8
+            w = group.add(w, [half(block, base), half(block, base + 4)])
+        }
+        drum (64) {
+            @t = beat + 16
+            @x = group.get(w, t - 15)
+            @y = group.get(w, t - 2)
+            @low = xor3(rotr(x, 1), rotr(x, 8), shr(x, 7))
+            @high = xor3(rotr(y, 19), rotr(y, 61), shr(y, 6))
+            w = group.add(w, plus(plus(group.get(w, t - 16), low), plus(group.get(w, t - 7), high)))
+        }
+        out w
+    }
+
+    skill compress(state, block, at) {
+        @w = words(block, at)
+        @a = group.get(state, 0)
+        @b = group.get(state, 1)
+        @c = group.get(state, 2)
+        @d = group.get(state, 3)
+        @e = group.get(state, 4)
+        @f = group.get(state, 5)
+        @g = group.get(state, 6)
+        @h = group.get(state, 7)
+        drum (80) {
+            @big_e = xor3(rotr(e, 14), rotr(e, 18), rotr(e, 41))
+            @first = plus(plus(plus(h, big_e), plus(choose(e, f, g), group.get(K, beat))), group.get(w, beat))
+            @second = plus(xor3(rotr(a, 28), rotr(a, 34), rotr(a, 39)), major(a, b, c))
+            h = g
+            g = f
+            f = e
+            e = plus(d, first)
+            d = c
+            c = b
+            b = a
+            a = plus(first, second)
+        }
+        out [plus(group.get(state, 0), a), plus(group.get(state, 1), b), plus(group.get(state, 2), c), plus(group.get(state, 3), d), plus(group.get(state, 4), e), plus(group.get(state, 5), f), plus(group.get(state, 6), g), plus(group.get(state, 7), h)]
+    }
+
+    skill digest(message) {
+        @data = padded(message)
+        @state = START
+        drum (bytes.count(data) / BLOCK) {
+            state = compress(state, data, beat * BLOCK)
+        }
+        @made = bytes.new(64)
+        drum (8) {
+            @word = group.get(state, beat)
+            @place = beat * 8
+            @high = group.get(word, 0)
+            @low = group.get(word, 1)
+            drum (4) {
+                bytes.set(made, place + 3 - beat, num.and(high, 255))
+                bytes.set(made, place + 7 - beat, num.and(low, 255))
+                high = num.shift_right(high, 8)
+                low = num.shift_right(low, 8)
+            }
+        }
+        out made
+    }
+
+    skill hex(buffer) {
+        @parts = []
+        drum (bytes.count(buffer)) {
+            @value = bytes.get(buffer, beat)
+            parts = group.add(parts, str.slice(HEX, value / 16, value / 16 + 1))
+            parts = group.add(parts, str.slice(HEX, value % 16, value % 16 + 1))
+        }
+        out str.join(parts, "")
+    }
+}
