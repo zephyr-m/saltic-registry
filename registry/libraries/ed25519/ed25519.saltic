@@ -1,0 +1,206 @@
+-- ed25519 — подпись Ed25519 (RFC 8032): кривая Эдвардса −x² + y² = 1 + d·x²·y²
+-- над полем p = 2^255 − 19 (жилец x25519.field), точки — расширенные
+-- координаты [X, Y, Z, T], сложение — полная формула RFC 8032 (удвоение — оно
+-- же). Хеш — SHA-512. Секрет — 32 байта зерна, открытый ключ — 32 байта,
+-- подпись — 64 байта R ‖ S. Не за постоянное время.
+--
+-- Ed25519 { space, hash, math, known, origin } — space — field.Field, hash —
+--     sha512.Sha512, math — magnitude.Magnitude; known — константы кривой и
+--     origin — базовая точка, считаются один раз при первом обращении
+--     public_of(seed) -> открытый ключ; sign(seed, message) -> подпись
+--     verify(public, message, signature) -> yes, если подпись верна
+--     plus(p, q) / times(k, p) / encode(p) / decode(buffer, from) — точки;
+--     decode — BadPoint, если байты не точка
+--     base() -> базовая точка; constant(i) -> d, 2d, √−1, L (i = 0…3)
+--     scalar(buffer, from, count) -> магнитуда младшим байтом вперёд
+--     joined(parts) -> склейка буферов; secret(seed) -> [a, префикс];
+--     from_hex(text) -> буфер
+-- BASE_Y — y базовой точки (4/5), ORDER — L, CURVE_D — d = −121665/121666,
+-- TWICE_D — 2d, ROOT_MINUS_ONE — √−1 = 2^((p − 1)/4): младшим вперёд в hex,
+-- посчитаны заранее (workbench/references/ed25519.py их сверяет)
+
+use core.num
+use core.str
+use core.bytes
+use core.group
+use registry.libraries.bignum.magnitude
+use registry.libraries.x25519.field
+use registry.libraries.sha512.sha512
+
+BASE_Y = "5866666666666666666666666666666666666666666666666666666666666666"
+ORDER = "edd3f55c1a631258d69cf7a2def9de1400000000000000000000000000000010"
+CURVE_D = "a3785913ca4deb75abd841414d0a700098e879777940c78c73fe6f2bee6c0352"
+TWICE_D = "59f1b226949bd6eb56b183829a14e00030d1f3eef2808e19e7fcdf56dcd90624"
+ROOT_MINUS_ONE = "b0a00e4a271beec478e42fad0618432fa7d7fb3d99004d2b0bdfc14f8024832b"
+
+Ed25519 = Box {
+    space = field.Field {},
+    hash = sha512.Sha512 {},
+    math = magnitude.Magnitude {},
+    known = [],
+    origin = []
+
+    skill from_hex(text) {
+        @made = bytes.new(str.bytes(text) / 2)
+        drum (bytes.count(made)) {
+            bytes.set(made, beat, num.hex_value(str.get(text, beat * 2)) * 16 + num.hex_value(str.get(text, beat * 2 + 1)))
+        }
+        out made
+    }
+
+    skill scalar(buffer, from, count) {
+        @value = []
+        drum (count) {
+            value = math.sum(math.scaled(value, 256), math.of(bytes.get(buffer, from + count - 1 - beat)))
+        }
+        out value
+    }
+
+    skill constant(name) {
+        (group.count(known) == 0) {
+            known = [scalar(from_hex(CURVE_D), 0, 32), scalar(from_hex(TWICE_D), 0, 32), scalar(from_hex(ROOT_MINUS_ONE), 0, 32), scalar(from_hex(ORDER), 0, 32)]
+        }
+        out group.get(known, name)
+    }
+
+    skill plus(p, q) {
+        @two_d = constant(1)
+        @a = space.mul(space.sub(group.get(p, 1), group.get(p, 0)), space.sub(group.get(q, 1), group.get(q, 0)))
+        @b = space.mul(space.add(group.get(p, 1), group.get(p, 0)), space.add(group.get(q, 1), group.get(q, 0)))
+        @c = space.mul(space.mul(group.get(p, 3), two_d), group.get(q, 3))
+        @d = space.mul(space.add(group.get(p, 2), group.get(p, 2)), group.get(q, 2))
+        @e = space.sub(b, a)
+        @f = space.sub(d, c)
+        @g = space.add(d, c)
+        @h = space.add(b, a)
+        out [space.mul(e, f), space.mul(g, h), space.mul(f, g), space.mul(e, h)]
+    }
+
+    skill times(k, p) {
+        @result = [[], math.of(1), math.of(1), []]
+        @top = math.bits(k)
+        drum (top) {
+            result = plus(result, result)
+            (math.bit(k, top - 1 - beat) == 1) {
+                result = plus(result, p)
+            }
+        }
+        out result
+    }
+
+    skill encode(p) {
+        @back = space.inverse(group.get(p, 2))
+        @x = space.mul(group.get(p, 0), back)
+        @y = space.mul(group.get(p, 1), back)
+        @made = space.bytes_of(y)
+        (math.bit(x, 0) == 1) {
+            bytes.set(made, 31, num.or(bytes.get(made, 31), 128))
+        }
+        out made
+    }
+
+    skill decode(buffer, from) {
+        @raw = bytes.slice(buffer, from, from + 32)
+        @sign = num.shift_right(bytes.get(raw, 31), 7)
+        bytes.set(raw, 31, num.and(bytes.get(raw, 31), 127))
+        @y = space.number(raw, 0)
+        ((math.order(y, space.prime()) < 0) == no) {
+            out error.BadPoint
+        }
+        @yy = space.mul(y, y)
+        @u = space.sub(yy, math.of(1))
+        @v = space.add(space.mul(constant(0), yy), math.of(1))
+        @v3 = space.mul(space.mul(v, v), v)
+        @v7 = space.mul(space.mul(v3, v3), v)
+        @exponent = group.get(math.split_small(math.difference(space.prime(), math.of(5)), 8), 0)
+        @x = space.mul(space.mul(u, v3), space.power_of(space.mul(u, v7), exponent))
+        @check = space.mul(v, space.mul(x, x))
+        @root = (math.order(check, u) == 0)
+        (math.order(check, space.sub([], u)) == 0) {
+            x = space.mul(x, constant(2))
+            root = yes
+        }
+        (root == no) {
+            out error.BadPoint
+        }
+        ((group.count(x) == 0) ○ (sign == 1)) {
+            out error.BadPoint
+        }
+        ((math.bit(x, 0) == sign) == no) {
+            x = space.sub([], x)
+        }
+        out [x, y, math.of(1), space.mul(x, y)]
+    }
+
+    skill base() {
+        (group.count(origin) == 0) {
+            origin = decode(from_hex(BASE_Y), 0)
+        }
+        out origin
+    }
+
+    skill joined(parts) {
+        @total = 0
+        drum (parts) {
+            total = total + bytes.count(beat)
+        }
+        @made = bytes.new(total)
+        @at = 0
+        drum (parts) {
+            @piece = beat
+            drum (bytes.count(piece)) {
+                bytes.set(made, at + beat, bytes.get(piece, beat))
+            }
+            at = at + bytes.count(piece)
+        }
+        out made
+    }
+
+    skill secret(seed) {
+        @h = hash.digest(seed)
+        @low = bytes.slice(h, 0, 32)
+        bytes.set(low, 0, num.and(bytes.get(low, 0), 248))
+        bytes.set(low, 31, num.or(num.and(bytes.get(low, 31), 127), 64))
+        out [scalar(low, 0, 32), bytes.slice(h, 32, 64)]
+    }
+
+    skill public_of(seed) {
+        out encode(times(group.get(secret(seed), 0), base()))
+    }
+
+    skill sign(seed, message) {
+        @parts = secret(seed)
+        @a = group.get(parts, 0)
+        @public = encode(times(a, base()))
+        @r = group.get(math.split(scalar(hash.digest(joined([group.get(parts, 1), message])), 0, 64), constant(3)), 1)
+        @big_r = encode(times(r, base()))
+        @k = group.get(math.split(scalar(hash.digest(joined([big_r, public, message])), 0, 64), constant(3)), 1)
+        @s = group.get(math.split(math.sum(r, math.product(k, a)), constant(3)), 1)
+        out joined([big_r, space.bytes_of(s)])
+    }
+
+    skill verify(public, message, signature) {
+        ((bytes.count(signature) == 64) == no) {
+            out no
+        }
+        @s = scalar(signature, 32, 32)
+        ((math.order(s, constant(3)) < 0) == no) {
+            out no
+        }
+        @point_a = decode(public, 0) rescue |err| {
+            out no
+        }
+        @point_r = decode(signature, 0) rescue |err| {
+            out no
+        }
+        @k = group.get(math.split(scalar(hash.digest(joined([bytes.slice(signature, 0, 32), public, message])), 0, 64), constant(3)), 1)
+        @left = encode(times(s, base()))
+        @right = encode(plus(point_r, times(k, point_a)))
+        drum (32) {
+            ((bytes.get(left, beat) == bytes.get(right, beat)) == no) {
+                out no
+            }
+        }
+        out yes
+    }
+}

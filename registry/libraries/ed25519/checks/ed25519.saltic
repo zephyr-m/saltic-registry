@@ -1,0 +1,80 @@
+-- ed25519 — проверка подписи против OpenSSL (cases.saltic, делает
+-- workbench/references/ed25519.py): открытый ключ и подпись бит в бит
+-- (Ed25519 детерминирован), своя подпись проверяется; испорченное
+-- сообщение, подпись и чужой ключ — не проходят; пустое сообщение — своя
+-- подпись проходит (OpenSSL pkeyutl пустое не подписывает).
+--
+-- Probe { sign } — hex(buffer) -> текст; check(row) -> yes, если сошлось
+-- program() -> none; TestsFailed
+-- HEX — цифры
+
+use io
+use core.str
+use core.num
+use core.bytes
+use core.group
+use craft.testing
+use registry.libraries.ed25519.ed25519
+use registry.libraries.ed25519.checks.cases
+
+HEX = "0123456789abcdef"
+
+Probe = Box {
+    sign = ed25519.Ed25519 {}
+
+    skill hex(buffer) {
+        @parts = []
+        drum (bytes.count(buffer)) {
+            @value = bytes.get(buffer, beat)
+            parts = group.add(parts, str.slice(HEX, value / 16, value / 16 + 1))
+            parts = group.add(parts, str.slice(HEX, value % 16, value % 16 + 1))
+        }
+        out str.join(parts, "")
+    }
+
+    skill check(row) {
+        @seed = sign.from_hex(group.get(row, 0))
+        @message = sign.from_hex(group.get(row, 2))
+        ((hex(sign.public_of(seed)) == group.get(row, 1)) == no) {
+            out no
+        }
+        ((hex(sign.sign(seed, message)) == group.get(row, 3)) == no) {
+            out no
+        }
+        out sign.verify(sign.from_hex(group.get(row, 1)), message, sign.from_hex(group.get(row, 3)))
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @sign = ed25519.Ed25519 {}
+    @wrong = 0
+    drum (cases.CASES) {
+        (probe.check(beat) == no) {
+            wrong = wrong + 1
+            @seed = group.get(beat, 0)
+            io.show("  расхождение: зерно {seed}")
+        }
+    }
+    @count = group.count(cases.CASES)
+    io.show("ed25519: случаев {count}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "ключи и подписи как у OpenSSL, проверка проходит", wrong, 0)
+    @row = group.get(cases.CASES, 2)
+    @public = sign.from_hex(group.get(row, 1))
+    @message = sign.from_hex(group.get(row, 2))
+    @signature = sign.from_hex(group.get(row, 3))
+    bytes.set(message, 0, num.xor(bytes.get(message, 0), 1))
+    suite = testing.test_no(suite, "испорченное сообщение не проходит", sign.verify(public, message, signature))
+    bytes.set(message, 0, num.xor(bytes.get(message, 0), 1))
+    bytes.set(signature, 40, num.xor(bytes.get(signature, 40), 1))
+    suite = testing.test_no(suite, "испорченная подпись не проходит", sign.verify(public, message, signature))
+    bytes.set(signature, 40, num.xor(bytes.get(signature, 40), 1))
+    @other = sign.from_hex(group.get(group.get(cases.CASES, 3), 1))
+    suite = testing.test_no(suite, "чужой ключ не проходит", sign.verify(other, message, signature))
+    suite = testing.test_yes(suite, "целая подпись проходит", sign.verify(public, message, signature))
+    @seed = sign.from_hex(group.get(row, 0))
+    @empty = bytes.new(0)
+    suite = testing.test_yes(suite, "пустое сообщение: своя подпись проходит", sign.verify(public, empty, sign.sign(seed, empty)))
+    out testing.test_finish(suite)
+}

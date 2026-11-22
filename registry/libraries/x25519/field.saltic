@@ -1,0 +1,82 @@
+-- field — поле по модулю p = 2^255 − 19 на цифрах bignum (magnitude): общее
+-- у кривой Монтгомери (x25519) и кривой Эдвардса (ed25519). Приведение —
+-- low + 19 · high, потому что 2^255 ≡ 19. Числа — магнитуды; 32 байта —
+-- младшим вперёд. Не за постоянное время.
+--
+-- Field { math } — math — magnitude.Magnitude
+--     prime() -> p; reduced(value) -> value mod p
+--     add(a, b) / sub(a, b) / mul(a, b) -> по модулю p
+--     power_of(a, exponent) -> a^exponent mod p (exponent — магнитуда)
+--     inverse(a) -> a^(p − 2); number(buffer, from) -> 32 байта с from →
+--     магнитуда; bytes_of(value) -> 32 байта
+
+use core.bytes
+use core.group
+use registry.libraries.bignum.magnitude
+
+Field = Box {
+    math = magnitude.Magnitude {}
+
+    skill prime() {
+        out math.difference(math.two_to(255), math.of(19))
+    }
+
+    skill reduced(value) {
+        @result = value
+        drum (3) {
+            @parts = math.cut_bits(result, 255)
+            result = math.sum(group.get(parts, 1), math.product(group.get(parts, 0), math.of(19)))
+        }
+        ((math.order(result, prime()) < 0) == no) {
+            result = math.difference(result, prime())
+        }
+        out result
+    }
+
+    skill add(a, b) {
+        out reduced(math.sum(a, b))
+    }
+
+    skill sub(a, b) {
+        out reduced(math.difference(math.sum(a, prime()), reduced(b)))
+    }
+
+    skill mul(a, b) {
+        out reduced(math.product(a, b))
+    }
+
+    skill power_of(a, exponent) {
+        @result = math.of(1)
+        @top = math.bits(exponent)
+        drum (top) {
+            result = mul(result, result)
+            (math.bit(exponent, top - 1 - beat) == 1) {
+                result = mul(result, a)
+            }
+        }
+        out result
+    }
+
+    skill inverse(a) {
+        out power_of(a, math.difference(prime(), math.of(2)))
+    }
+
+    skill number(buffer, from) {
+        @value = []
+        drum (32) {
+            value = math.sum(math.scaled(value, 256), math.of(bytes.get(buffer, from + 31 - beat)))
+        }
+        out value
+    }
+
+    skill bytes_of(value) {
+        @made = bytes.new(32)
+        @rest = value
+        drum (32) {
+            @parts = math.split_small(rest, 256)
+            bytes.set(made, beat, group.get(parts, 1))
+            rest = group.get(parts, 0)
+        }
+        out made
+    }
+}

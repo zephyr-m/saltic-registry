@@ -1,87 +1,26 @@
 -- x25519 — обмен ключами X25519 (RFC 7748): лестница Монтгомери на кривой
--- Curve25519, арифметика по модулю p = 2^255 − 19 на цифрах bignum
--- (magnitude), приведение — low + 19 · high, потому что 2^255 ≡ 19. Секрет,
--- открытый ключ и общий секрет — 32 байта младшим вперёд.
+-- Curve25519, поле по модулю p = 2^255 − 19 — жилец field (общий с ed25519).
+-- Секрет, открытый ключ и общий секрет — 32 байта младшим вперёд.
 -- Не за постоянное время: от атак по времени не защищён.
 --
--- X25519 { math } — math — magnitude.Magnitude
+-- X25519 { space, math } — space — field.Field (поле по модулю p), math —
+--     magnitude.Magnitude
 --     public_of(secret) -> открытый ключ: секрет · точка 9
 --     shared(secret, peer) -> общий секрет; WeakKey, если вышел ноль
 --     multiply(scalar, point) -> scalar · point (оба по 32 байта)
---     number(buffer) / bytes_of(value) -> магнитуда ↔ 32 байта; prime() -> p
---     reduced(value) / add(a, b) / sub(a, b) / mul(a, b) / inverse(a) —
---     поле по модулю p
 -- A24 — (486662 − 2) / 4; WeakKey — общий секрет вышел нулём
 
 use core.num
 use core.bytes
 use core.group
 use registry.libraries.bignum.magnitude
+use registry.libraries.x25519.field
 
 A24 = 121665
 
 X25519 = Box {
+    space = field.Field {},
     math = magnitude.Magnitude {}
-
-    skill prime() {
-        out math.difference(math.two_to(255), math.of(19))
-    }
-
-    skill reduced(value) {
-        @result = value
-        drum (3) {
-            @parts = math.cut_bits(result, 255)
-            result = math.sum(group.get(parts, 1), math.product(group.get(parts, 0), math.of(19)))
-        }
-        ((math.order(result, prime()) < 0) == no) {
-            result = math.difference(result, prime())
-        }
-        out result
-    }
-
-    skill add(a, b) {
-        out reduced(math.sum(a, b))
-    }
-
-    skill sub(a, b) {
-        out reduced(math.difference(math.sum(a, prime()), b))
-    }
-
-    skill mul(a, b) {
-        out reduced(math.product(a, b))
-    }
-
-    skill inverse(a) {
-        @exponent = math.difference(prime(), math.of(2))
-        @result = math.of(1)
-        @top = math.bits(exponent)
-        drum (top) {
-            result = mul(result, result)
-            (math.bit(exponent, top - 1 - beat) == 1) {
-                result = mul(result, a)
-            }
-        }
-        out result
-    }
-
-    skill number(buffer) {
-        @value = []
-        drum (32) {
-            value = math.sum(math.scaled(value, 256), math.of(bytes.get(buffer, 31 - beat)))
-        }
-        out value
-    }
-
-    skill bytes_of(value) {
-        @made = bytes.new(32)
-        @rest = value
-        drum (32) {
-            @parts = math.split_small(rest, 256)
-            bytes.set(made, beat, group.get(parts, 1))
-            rest = group.get(parts, 0)
-        }
-        out made
-    }
 
     skill multiply(scalar, point) {
         @k = bytes.slice(scalar, 0, 32)
@@ -89,13 +28,13 @@ X25519 = Box {
         bytes.set(k, 31, num.or(num.and(bytes.get(k, 31), 127), 64))
         @u = bytes.slice(point, 0, 32)
         bytes.set(u, 31, num.and(bytes.get(u, 31), 127))
-        @x1 = reduced(number(u))
+        @x1 = space.reduced(space.number(u, 0))
         @x2 = math.of(1)
         @z2 = []
         @x3 = x1
         @z3 = math.of(1)
         @swap = 0
-        @scalar_bits = number(k)
+        @scalar_bits = space.number(k, 0)
         drum (255) {
             @t = 254 - beat
             @bit = math.bit(scalar_bits, t)
@@ -108,27 +47,27 @@ X25519 = Box {
                 z3 = kept_z
             }
             swap = bit
-            @a = add(x2, z2)
-            @aa = mul(a, a)
-            @b = sub(x2, z2)
-            @bb = mul(b, b)
-            @e = sub(aa, bb)
-            @c = add(x3, z3)
-            @d = sub(x3, z3)
-            @da = mul(d, a)
-            @cb = mul(c, b)
-            @plus = add(da, cb)
-            @minus = sub(da, cb)
-            x3 = mul(plus, plus)
-            z3 = mul(x1, mul(minus, minus))
-            x2 = mul(aa, bb)
-            z2 = mul(e, add(aa, mul(math.of(A24), e)))
+            @a = space.add(x2, z2)
+            @aa = space.mul(a, a)
+            @b = space.sub(x2, z2)
+            @bb = space.mul(b, b)
+            @e = space.sub(aa, bb)
+            @c = space.add(x3, z3)
+            @d = space.sub(x3, z3)
+            @da = space.mul(d, a)
+            @cb = space.mul(c, b)
+            @plus = space.add(da, cb)
+            @minus = space.sub(da, cb)
+            x3 = space.mul(plus, plus)
+            z3 = space.mul(x1, space.mul(minus, minus))
+            x2 = space.mul(aa, bb)
+            z2 = space.mul(e, space.add(aa, space.mul(math.of(A24), e)))
         }
         (swap == 1) {
             x2 = x3
             z2 = z3
         }
-        out bytes_of(mul(x2, inverse(z2)))
+        out space.bytes_of(space.mul(x2, space.inverse(z2)))
     }
 
     skill public_of(secret) {
