@@ -1,0 +1,123 @@
+-- random — проверка генератора: последовательность бит в бит против
+-- xoshiro128** на Си (cases.saltic, делает workbench/references/random.py);
+-- распределения — статистикой на COUNT выборках с допуском 5σ: below(10) —
+-- хи-квадрат (9 степеней, порог 40 ≈ 0.99995), uniform — среднее 1/2 и
+-- дисперсия 1/12, normal(3, 2), exponential(2) — среднее 1/2, poisson(4) —
+-- среднее и дисперсия 4; shuffled — перестановка; poisson выше предела —
+-- ValueOutsideRange.
+--
+-- Probe { stats, dice } — near(a, b, width) -> |a − b| ≤ width
+--     sample(kind) -> COUNT значений распределения kind из dice
+--     too_much() -> poisson(100) — должна быть ошибка
+-- program() -> none; TestsFailed
+-- COUNT — выборка
+
+use io
+use core.group
+use core.fraction
+use craft.testing
+use registry.libraries.random.random
+use registry.libraries.random.checks.cases
+use registry.libraries.statistics.statistics
+
+COUNT = 50000
+
+Probe = Box {
+    stats = statistics.Statistics {},
+    dice = random.Random {}
+
+    skill near(a, b, width) {
+        @gap = a - b
+        (gap < 0.0) {
+            gap = 0.0 - gap
+        }
+        out ((gap > width) == no)
+    }
+
+    skill sample(kind) {
+        @made = []
+        drum (COUNT) {
+            pick {
+                (kind == "uniform") {
+                    made = group.add(made, dice.uniform())
+                }
+                (kind == "normal") {
+                    made = group.add(made, dice.normal(3.0, 2.0))
+                }
+                (kind == "exponential") {
+                    made = group.add(made, dice.exponential(2.0))
+                }
+                {
+                    made = group.add(made, fraction.from(dice.poisson(4.0)))
+                }
+            }
+        }
+        out made
+    }
+
+    skill too_much() {
+        out dice.poisson(100.0)
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @stats = statistics.Statistics {}
+    @maker = random.Random {}
+    @wrong = 0
+    drum (cases.CASES) {
+        @row = beat
+        @source = maker.seeded(group.get(row, 0))
+        drum (20) {
+            ((source.next() == group.get(row, 1 + beat)) == no) {
+                wrong = wrong + 1
+            }
+        }
+    }
+    @count = group.count(cases.CASES)
+    io.show("random: засевов {count}, неверных слов {wrong}")
+    suite = testing.test_equal(suite, "последовательность как у xoshiro128** на Си", wrong, 0)
+    probe.dice = maker.seeded(2026)
+    @source = maker.seeded(2026)
+    @bins = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    drum (COUNT) {
+        @b = source.below(10)
+        bins = group.replaced(bins, b, group.get(bins, b) + 1)
+    }
+    @expected = fraction.from(COUNT / 10)
+    @chi = 0.0
+    drum (10) {
+        @gap = fraction.from(group.get(bins, beat)) - expected
+        chi = chi + gap * gap / expected
+    }
+    @shown = fraction.text(chi)
+    io.show("random: хи-квадрат below(10) = {shown}")
+    suite = testing.test_yes(suite, "below(10) равномерно (хи-квадрат < 40)", chi < 40.0)
+    @flat = probe.sample("uniform")
+    suite = testing.test_yes(suite, "uniform: среднее 1/2", probe.near(stats.mean(flat), 0.5, 0.0065))
+    suite = testing.test_yes(suite, "uniform: дисперсия 1/12", probe.near(stats.variance(flat), 0.08333333333333333, 0.002))
+    suite = testing.test_yes(suite, "uniform: всё в [0, 1)", (stats.least(flat) >= 0.0) ○ (stats.most(flat) < 1.0))
+    @bell = probe.sample("normal")
+    suite = testing.test_yes(suite, "normal(3, 2): среднее 3", probe.near(stats.mean(bell), 3.0, 0.045))
+    suite = testing.test_yes(suite, "normal(3, 2): отклонение 2", probe.near(stats.deviation(bell), 2.0, 0.05))
+    @wait = probe.sample("exponential")
+    suite = testing.test_yes(suite, "exponential(2): среднее 1/2", probe.near(stats.mean(wait), 0.5, 0.012))
+    @counts = probe.sample("poisson")
+    suite = testing.test_yes(suite, "poisson(4): среднее 4", probe.near(stats.mean(counts), 4.0, 0.045))
+    suite = testing.test_yes(suite, "poisson(4): дисперсия 4", probe.near(stats.variance(counts), 4.0, 0.25))
+    @deck = source.shuffled([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    @seen = 0
+    drum (10) {
+        (group.contains(deck, beat) == yes) {
+            seen = seen + 1
+        }
+    }
+    suite = testing.test_equal(suite, "shuffled — перестановка", seen, 10)
+    @big = "нет"
+    probe.too_much() rescue |err| {
+        big = "{err}"
+    }
+    suite = testing.test_equal(suite, "poisson(100) — ValueOutsideRange", big, "ValueOutsideRange")
+    out testing.test_finish(suite)
+}

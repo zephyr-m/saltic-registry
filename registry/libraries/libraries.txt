@@ -23,3 +23,4 @@ x25519     registry/libraries/x25519/x25519
 sha512     registry/libraries/sha512/sha512
 ed25519    registry/libraries/ed25519/ed25519
 statistics registry/libraries/statistics/statistics
+random     registry/libraries/random/random

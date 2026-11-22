@@ -1,0 +1,148 @@
+-- random — случайные числа: генератор xoshiro128** (Блэкман и Винья) на
+-- 32-битных словах (умножения только на 5 и 9 — влезает в наши числа),
+-- засев — счётчик золотого сечения через перемешивание fmix32 (как в
+-- MurmurHash3). Не для криптографии. Распределения — на дробных: 64-битные
+-- цели; целые — на всех.
+--
+-- Random { state, math } — state — четыре 32-битных слова, math —
+--     exponent.Exponent
+--     seeded(n) -> Random с засевом из числа n; next() -> следующее слово
+--     below(n) -> целое 0 … n − 1 без перекоса (отбрасывание хвоста)
+--     uniform() -> дробное в [0, 1) с шагом 2^−48; between(low, high) — в [low, high)
+--     normal(mean, deviation) — Бокс — Мюллер; exponential(rate) — −ln(1 − u)/rate
+--     poisson(rate) — Кнут, rate ≤ POISSON_MOST (иначе ValueOutsideRange)
+--     shuffled(items) -> перемешанная копия (Фишер — Йейтс)
+--     rotl(x, k) / mul32(a, b) / mix(x) — внутри
+-- MASK — 32 бита; GOLDEN — 0x9e3779b9; POISSON_MOST — предел rate у poisson;
+-- STEP — 2^−48
+
+use core.num
+use core.group
+use core.fraction
+use registry.libraries.exponent.exponent
+
+MASK = 4294967295
+GOLDEN = 2654435769
+POISSON_MOST = 50.0
+STEP = 0.000000000000003552713678800501
+
+Random = Box {
+    state = [1, 2, 3, 4],
+    math = exponent.Exponent {}
+
+    skill rotl(x, k) {
+        out num.or(num.and(num.shift_left(num.and(x, num.power2(32 - k) - 1), k), MASK), num.shift_right(x, 32 - k))
+    }
+
+    skill mul32(a, b) {
+        @a_low = num.and(a, 65535)
+        @a_high = num.shift_right(a, 16)
+        @b_low = num.and(b, 65535)
+        @b_high = num.shift_right(b, 16)
+        @cross = num.and(a_high * b_low + a_low * b_high, 65535)
+        out num.and(num.shift_left(cross, 16) + a_low * b_low, MASK)
+    }
+
+    skill mix(x) {
+        @z = num.xor(x, num.shift_right(x, 16))
+        z = mul32(z, 2246822507)
+        z = num.xor(z, num.shift_right(z, 13))
+        z = mul32(z, 3266489909)
+        out num.xor(z, num.shift_right(z, 16))
+    }
+
+    skill seeded(n) {
+        @counter = num.and(n, MASK)
+        @words = []
+        drum (4) {
+            counter = num.and(counter + GOLDEN, MASK)
+            words = group.add(words, mix(counter))
+        }
+        out Random {
+            state = words
+        }
+    }
+
+    skill next() {
+        @s0 = group.get(state, 0)
+        @s1 = group.get(state, 1)
+        @s2 = group.get(state, 2)
+        @s3 = group.get(state, 3)
+        @result = num.and(rotl(num.and(s1 * 5, MASK), 7) * 9, MASK)
+        @t = num.and(num.shift_left(num.and(s1, num.power2(23) - 1), 9), MASK)
+        s2 = num.xor(s2, s0)
+        s3 = num.xor(s3, s1)
+        s1 = num.xor(s1, s2)
+        s0 = num.xor(s0, s3)
+        s2 = num.xor(s2, t)
+        s3 = rotl(s3, 11)
+        state = [s0, s1, s2, s3]
+        out result
+    }
+
+    skill below(n) {
+        @threshold = (MASK + 1 - n) % n
+        always {
+            @r = next()
+            (r >= threshold) {
+                out r % n
+            }
+        }
+        out 0
+    }
+
+    skill uniform() {
+        @high = num.shift_right(next(), 8)
+        @low = num.shift_right(next(), 8)
+        out fraction.from(high * 16777216 + low) * STEP
+    }
+
+    skill between(low, high) {
+        @start = 0.0 + low
+        @width = (0.0 + high) - start
+        out start + width * uniform()
+    }
+
+    skill normal(mean, deviation) {
+        @u = 1.0 - uniform()
+        @v = uniform()
+        @ln = 0.0 + math.log(u)
+        @radius = fraction.sqrt(-2.0 * ln)
+        out (0.0 + mean) + (0.0 + deviation) * radius * fraction.cos(2.0 * fraction.PI * v)
+    }
+
+    skill exponential(rate) {
+        @ln = 0.0 + math.log(1.0 - uniform())
+        out (0.0 - ln) / (0.0 + rate)
+    }
+
+    skill poisson(rate) {
+        ((0.0 + rate) > POISSON_MOST) {
+            out error.ValueOutsideRange
+        }
+        @limit = 0.0 + math.exp(0.0 - (0.0 + rate))
+        @k = 0
+        @p = uniform()
+        always {
+            ((p > limit) == no) {
+                leave
+            }
+            k = k + 1
+            p = p * uniform()
+        }
+        out k
+    }
+
+    skill shuffled(items) {
+        @result = items
+        @n = group.count(items)
+        drum (n - 1) {
+            @i = n - 1 - beat
+            @j = below(i + 1)
+            @kept = group.get(result, i)
+            result = group.replaced(result, i, group.get(result, j))
+            result = group.replaced(result, j, kept)
+        }
+        out result
+    }
+}
