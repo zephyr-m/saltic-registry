@@ -1,0 +1,20 @@
+{
+  "title": "wayland — окно Saltic на композиторе Wayland: холст, ввод, протокол",
+  "saltic_version": "в составе Saltic (ветка 22.11.2026)",
+  "author": "Зэф",
+  "role": "adapter",
+  "lifetime": "библиотека адаптеров (живёт с программой)",
+  "deadline": "нет: вызовы синхронные",
+  "effects": "говорит с композитором через сокет Wayland, общая память кадра",
+  "hardware": "любой Linux с Wayland",
+  "identifiers": "нет",
+  "own_version": "1",
+  "protocols": "—",
+  "architectures": "x86_64 (Linux)",
+  "primitives": "окно заданного размера, холст graphics, события ввода в ядро событий, показать кадр",
+  "depends_on": "graphics, input",
+  "environment": "программы на этом компьютере (Linux)",
+  "state": "рабочий: на нём «Сцена», «Бастион», SalticIDE, Полигон, почта; переехал из Saltic 22.11.2026",
+  "log": "нет: ошибки — ошибкой вызывающему",
+  "filled_by": "агентом по коду, 22.11.2026; автор проверяет"
+}

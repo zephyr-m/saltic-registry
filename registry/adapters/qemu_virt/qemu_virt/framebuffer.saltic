@@ -6,7 +6,6 @@
 -- framebuffer_load(framebuffer, x, y) -> цвет пикселя
 -- framebuffer_place(pair) -> address пары [hi, lo] (буфер хранится парой: на rv32i
 --     address в поле Box не влезает в обычное число)
--- open_screen() -> graphics.Screen (ink) на кадровом буфере — экран для двухцветной графики
 
 use core.mem
 use core.num
@@ -15,7 +14,6 @@ use core.usize
 use core.group
 use core.address
 use registry.adapters.qemu_virt.qemu_virt.fw_cfg
-use registry.libraries.ink.graphics
 
 FRAMEBUFFER_ADDRESS = [34048, 0]
 FRAMEBUFFER_WIDTH = 1920
@@ -39,13 +37,4 @@ skill framebuffer_store(framebuffer, x, y, color) {
 skill framebuffer_load(framebuffer, x, y) {
     @offset = y * FRAMEBUFFER_STRIDE + x * 4
     out num.from(mem.load32(framebuffer_place(framebuffer), usize.from(offset)))
-}
-
-skill open_screen() {
-    @memory = framebuffer_open()
-    out graphics.Screen {
-        memory = memory,
-        width = FRAMEBUFFER_WIDTH,
-        height = FRAMEBUFFER_HEIGHT
-    }
 }

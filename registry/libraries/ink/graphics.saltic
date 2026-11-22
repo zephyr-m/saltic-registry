@@ -1,9 +1,10 @@
--- graphics — двухцветная растровая графика (Ink) на Screen { memory, width, height } — экран
--- открывает драйвер (qemu_virt.framebuffer.open_screen): кремовый фон
+-- graphics — двухцветная растровая графика поверх кадрового буфера qemu-virt
+-- (qemu_virt.framebuffer): кремовый фон
 -- и какао-передний план (Ink). Координаты в пикселях, выход за экран — тихо.
 --
 -- Ink — BACKGROUND / FOREGROUND
 -- Screen { memory, width, height }
+-- graphics_open() -> Screen; ошибки framebuffer_open
 -- graphics_color(ink) -> число цвета
 -- graphics_pixel(screen, x, y, ink) — точка
 -- graphics_toggle_pixel(screen, x, y) — инверсия точки (курсор мыши)
@@ -15,6 +16,7 @@
 -- graphics_abs(value) -> модуль числа
 
 use core.mem
+use registry.adapters.qemu_virt.qemu_virt.framebuffer
 use core.usize
 use core.u32
 
@@ -30,6 +32,15 @@ Screen = Box {
     memory = [],
     width = 0,
     height = 0
+}
+
+skill graphics_open() {
+    @memory = framebuffer.framebuffer_open()
+    out Screen {
+        memory = memory,
+        width = framebuffer.FRAMEBUFFER_WIDTH,
+        height = framebuffer.FRAMEBUFFER_HEIGHT
+    }
 }
 
 

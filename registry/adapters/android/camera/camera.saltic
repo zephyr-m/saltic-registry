@@ -31,7 +31,7 @@ use core.bytes
 use core.group
 use core.usize
 use core.address
-use os.target.android.clib
+use registry.adapters.android.clib.clib
 
 WIDE = 640
 HIGH = 480

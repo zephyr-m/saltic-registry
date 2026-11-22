@@ -16,3 +16,5 @@ gop        registry/adapters/uefi_x86_64/gop/gop
 net        registry/adapters/uefi_x86_64/net/net
 files      registry/adapters/uefi_x86_64/files/files
 qemu_virt  registry/adapters/qemu_virt/qemu_virt
+clib       registry/adapters/android/clib/clib
+wayland    registry/adapters/linux/wayland/wayland
