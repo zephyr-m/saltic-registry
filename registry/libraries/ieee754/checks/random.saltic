@@ -1,0 +1,75 @@
+-- random — сверка ieee754 с железом на случайных числах: cases/f32.txt и
+-- cases/f64.txt (по тысяче «операция a b ответ», делает cases/make.py на
+-- Python с закреплённым зерном). Каждый случай считается и сравнивается
+-- бит в бит; у NaN — только «это NaN». Расхождения печатаются (первые LIMIT).
+-- Запуск — из корня реестра (just checks).
+--
+-- Sweep { bits, calc, shown } — сверка одного файла
+--     run(suite, path, layout, name) -> testing.Testing
+--     result(op, a, b) -> float.Float
+-- program() -> none; TestsFailed
+-- LIMIT — сколько расхождений показать
+
+use io
+use io.file
+use core.str
+use core.group
+use craft.testing
+use registry.libraries.ieee754.ieee754
+use registry.libraries.ieee754.float
+use registry.libraries.ieee754.coder
+use registry.libraries.ieee754.arithmetic
+
+LIMIT = 10
+
+Sweep = Box {
+    bits = coder.Coder {},
+    calc = arithmetic.Arithmetic {},
+    shown = 0
+
+    skill result(op, a, b) {
+        (op == "+") {
+            out calc.sum(a, b)
+        }
+        (op == "-") {
+            out calc.difference(a, b)
+        }
+        (op == "*") {
+            out calc.product(a, b)
+        }
+        out calc.ratio(a, b)
+    }
+
+    skill run(suite, path, layout, name) {
+        @wrong = 0
+        @total = 0
+        drum (str.lines(file.read(path))) {
+            @parts = str.split(beat, " ")
+            @op = group.get(parts, 0)
+            @expected = group.get(parts, 3)
+            @made = result(op, bits.read(layout, group.get(parts, 1)), bits.read(layout, group.get(parts, 2)))
+            @got = bits.hex_of(made)
+            (made.kind == float.Kind.NAN) {
+                got = "NAN"
+            }
+            total = total + 1
+            ((got == expected) == no) {
+                wrong = wrong + 1
+                (shown < LIMIT) {
+                    io.show("  расхождение {name}: {beat} — у нас {got}")
+                    shown = shown + 1
+                }
+            }
+        }
+        io.show("{name}: случаев {total}, расхождений {wrong}")
+        out testing.test_equal(suite, "{name}: всё как у железа", wrong, 0)
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @sweep = Sweep {}
+    suite = sweep.run(suite, "registry/libraries/ieee754/checks/cases/f32.txt", ieee754.single(), "float32")
+    suite = sweep.run(suite, "registry/libraries/ieee754/checks/cases/f64.txt", ieee754.double(), "float64")
+    out testing.test_finish(suite)
+}
