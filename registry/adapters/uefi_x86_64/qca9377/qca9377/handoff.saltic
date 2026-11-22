@@ -20,8 +20,8 @@
 
 use core.group
 use os.text.utf8
-use os.target.uefi_x86_64.platform.firmware
-use os.target.uefi_x86_64.platform.uefi
+use registry.adapters.uefi_x86_64.firmware.firmware
+use registry.adapters.uefi_x86_64.firmware.firmware.uefi
 use registry.adapters.uefi_x86_64.qca9377.qca9377.card
 use registry.adapters.uefi_x86_64.qca9377.qca9377.scan
 

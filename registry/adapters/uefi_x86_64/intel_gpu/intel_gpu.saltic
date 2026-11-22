@@ -56,8 +56,8 @@
 -- SCREEN — адрес GGTT экрана GOP; DATA — первый слот участка данных
 
 use core.group
-use os.target.uefi_x86_64.platform.firmware
-use os.target.uefi_x86_64.platform.uefi
+use registry.adapters.uefi_x86_64.firmware.firmware
+use registry.adapters.uefi_x86_64.firmware.firmware.uefi
 
 VENDOR_INTEL = 32902
 MODEL_HD620 = 22806

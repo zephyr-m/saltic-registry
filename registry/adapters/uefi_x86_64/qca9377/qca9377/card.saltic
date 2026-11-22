@@ -19,7 +19,7 @@
 -- quiet(chip) — прерывания и bus master выключить: карта больше не тронет память
 
 use io
-use os.target.uefi_x86_64.platform.firmware
+use registry.adapters.uefi_x86_64.firmware.firmware
 
 RTC_STATE = 524288
 SOC_WAKE = 524292

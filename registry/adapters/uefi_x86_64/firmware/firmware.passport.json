@@ -1,0 +1,20 @@
+{
+  "title": "прошивка UEFI: физическая память, вызовы прошивки, таблицы",
+  "saltic_version": "в составе Saltic (ветка 22.11.2026)",
+  "author": "Зэф",
+  "role": "adapter",
+  "lifetime": "библиотека адаптеров (живёт с программой)",
+  "deadline": "нет: вызовы прошивки синхронные",
+  "effects": "читает и пишет физическую память, зовёт Boot Services прошивки",
+  "hardware": "любой ПК с UEFI (x86-64)",
+  "identifiers": "нет",
+  "own_version": "1",
+  "protocols": "UEFI Boot Services, ACPI (RSDP, MCFG), PCI ECAM",
+  "architectures": "x86_64-uefi",
+  "primitives": "firmware — окно памяти программы, чтение и запись физической памяти, вызов прошивки; uefi — страницы, таблицы, запуск образов, клавиша, время, перезагрузка; clock — часы; keys — очередь клавиш; pci — устройства ECAM; arena_map — карта арены",
+  "depends_on": "core",
+  "environment": "только UEFI-программы Acer и ПК с UEFI",
+  "state": "рабочий: на нём агент Acer, драйверы и графика; переехал из Saltic os/target/uefi_x86_64/platform 22.11.2026",
+  "log": "нет: ошибки — ошибкой вызывающему (NoAcpi20, NoMcfg, BelowGuestBase…)",
+  "filled_by": "агентом по коду, 22.11.2026; автор проверяет"
+}

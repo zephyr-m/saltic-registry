@@ -6,7 +6,7 @@
 -- describe(chip, event, size) -> текст; на экран — по строке на поле
 
 use core.str
-use os.target.uefi_x86_64.platform.firmware
+use registry.adapters.uefi_x86_64.firmware.firmware
 use registry.adapters.uefi_x86_64.qca9377.qca9377.card
 
 TAG_SERVICES = 16

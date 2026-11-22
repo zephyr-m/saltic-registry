@@ -11,7 +11,7 @@
 
 use core.str
 use core.group
-use os.target.uefi_x86_64.platform.firmware
+use registry.adapters.uefi_x86_64.firmware.firmware
 use os.target.uefi_x86_64.storage.files
 use registry.adapters.uefi_x86_64.usb.usb
 
