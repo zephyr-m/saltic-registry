@@ -1,0 +1,213 @@
+-- coder — округление и биты IEEE 754. rounded приводит точное значение
+-- significand · 2^exponent к формату: округление к ближайшему, при равенстве —
+-- к чётному; ниже наименьшего порядка — субнормальные, выше наибольшего —
+-- бесконечность. Биты — magnitude-число: знак, поле порядка, дробь.
+--
+-- Coder { math } — math — magnitude.Magnitude
+--     rounded(layout, negative, significand, exponent) -> float.Float
+--     zero_of(layout, negative) / endless(layout, negative) / nan_of(layout) -> Float
+--     pattern(number) -> биты числа как magnitude; unpacked(layout, bits) -> Float
+--     hex_of(number) -> «3F800000» — биты старшим вперёд; read(layout, hex) -> Float
+--     bytes_of(number) -> core.bytes младшим вперёд, как в памяти x86 и ARM
+--     from_bytes(layout, buffer) -> Float из таких байт
+-- HEX — цифры шестнадцатеричной записи; NotHex — в записи не цифра
+
+use core.str
+use core.group
+use core.bytes
+use registry.libraries.bignum.magnitude
+use registry.libraries.ieee754.float
+
+HEX = "0123456789ABCDEF"
+
+Coder = Box {
+    math = magnitude.Magnitude {}
+
+    skill zero_of(layout, negative) {
+        out float.Float {
+            layout = layout,
+            kind = float.Kind.ZERO,
+            negative = negative
+        }
+    }
+
+    skill endless(layout, negative) {
+        out float.Float {
+            layout = layout,
+            kind = float.Kind.INFINITE,
+            negative = negative
+        }
+    }
+
+    skill nan_of(layout) {
+        out float.Float {
+            layout = layout,
+            kind = float.Kind.NAN
+        }
+    }
+
+    skill rounded(layout, negative, significand, exponent) {
+        @digits = math.trimmed(significand)
+        (group.count(digits) == 0) {
+            out zero_of(layout, negative)
+        }
+        @width = layout.fraction_bits
+        @lead = exponent + math.bits(digits) - 1
+        (lead > layout.bias()) {
+            out endless(layout, negative)
+        }
+        @target = lead - width
+        (lead < layout.lowest()) {
+            target = layout.lowest() - width
+        }
+        @shift = target - exponent
+        @kept = math.shifted_bits(digits, 0)
+        (shift < 0) {
+            kept = math.shifted_bits(digits, 0 - shift)
+        }
+        (shift > 0) {
+            @parts = math.cut_bits(digits, shift)
+            kept = group.get(parts, 0)
+            @side = math.order(group.get(parts, 1), math.two_to(shift - 1))
+            @up = (side > 0)
+            ((side == 0) ○ (math.bit(kept, 0) == 1)) {
+                up = yes
+            }
+            (up == yes) {
+                kept = math.sum(kept, [1])
+            }
+        }
+        (math.bits(kept) > (width + 1)) {
+            @halved = math.cut_bits(kept, 1)
+            kept = group.get(halved, 0)
+            target = target + 1
+        }
+        ((target + width) > layout.bias()) {
+            out endless(layout, negative)
+        }
+        (group.count(kept) == 0) {
+            out zero_of(layout, negative)
+        }
+        out float.Float {
+            layout = layout,
+            kind = float.Kind.FINITE,
+            negative = negative,
+            significand = kept,
+            exponent = target
+        }
+    }
+
+    skill pattern(number) {
+        @layout = number.layout
+        @width = layout.fraction_bits
+        @field = 0
+        @fraction = []
+        (number.kind == float.Kind.INFINITE) {
+            field = layout.top_field()
+        }
+        (number.kind == float.Kind.NAN) {
+            field = layout.top_field()
+            fraction = math.two_to(width - 1)
+        }
+        (number.kind == float.Kind.FINITE) {
+            fraction = number.significand
+            (math.bits(number.significand) > width) {
+                field = number.exponent + width + layout.bias()
+                fraction = math.difference(number.significand, math.two_to(width))
+            }
+        }
+        @sign = 0
+        (number.negative == yes) {
+            sign = 1
+        }
+        @upper = math.sum(math.shifted_bits(math.of(sign), layout.exponent_bits), math.of(field))
+        out math.sum(math.shifted_bits(upper, width), fraction)
+    }
+
+    skill unpacked(layout, bits) {
+        @width = layout.fraction_bits
+        @parts = math.cut_bits(bits, width)
+        @fraction = group.get(parts, 1)
+        @top = math.cut_bits(group.get(parts, 0), layout.exponent_bits)
+        @field = math.digit(group.get(top, 1), 0)
+        @negative = (group.count(group.get(top, 0)) > 0)
+        (field == layout.top_field()) {
+            (group.count(fraction) == 0) {
+                out endless(layout, negative)
+            }
+            out nan_of(layout)
+        }
+        (field == 0) {
+            (group.count(fraction) == 0) {
+                out zero_of(layout, negative)
+            }
+            out float.Float {
+                layout = layout,
+                kind = float.Kind.FINITE,
+                negative = negative,
+                significand = fraction,
+                exponent = layout.lowest() - width
+            }
+        }
+        out float.Float {
+            layout = layout,
+            kind = float.Kind.FINITE,
+            negative = negative,
+            significand = math.sum(fraction, math.two_to(width)),
+            exponent = field - layout.bias() - width
+        }
+    }
+
+    skill hex_of(number) {
+        @rest = pattern(number)
+        @written = ""
+        drum (number.layout.width * 2) {
+            @parts = math.split_small(rest, 16)
+            @place = group.get(parts, 1)
+            written = str.concat(str.slice(HEX, place, place + 1), written)
+            rest = group.get(parts, 0)
+        }
+        out written
+    }
+
+    skill read(layout, text) {
+        @bits = []
+        drum (str.bytes(text)) {
+            @code = str.byte(text, beat)
+            @value = -1
+            ((code > 47) ○ (code < 58)) {
+                value = code - 48
+            }
+            ((code > 64) ○ (code < 71)) {
+                value = code - 55
+            }
+            ((code > 96) ○ (code < 103)) {
+                value = code - 87
+            }
+            (value < 0) {
+                out error.NotHex
+            }
+            bits = math.sum(math.scaled(bits, 16), math.of(value))
+        }
+        out unpacked(layout, bits)
+    }
+
+    skill bytes_of(number) {
+        @rest = pattern(number)
+        @buffer = bytes.new(number.layout.width)
+        drum (number.layout.width) {
+            @parts = math.split_small(rest, 256)
+            bytes.set(buffer, beat, group.get(parts, 1))
+            rest = group.get(parts, 0)
+        }
+        out buffer
+    }
+
+    skill from_bytes(layout, buffer) {
+        @bits = []
+        drum (layout.width) {
+            bits = math.sum(math.scaled(bits, 256), math.of(bytes.get(buffer, layout.width - 1 - beat)))
+        }
+        out unpacked(layout, bits)
+    }
+}

@@ -1,0 +1,37 @@
+-- float — одно число IEEE 754. Конечное хранится точно: significand · 2^exponent,
+-- где significand — цифры bignum (magnitude), уже округлённые под формат.
+--
+-- Kind — ZERO, FINITE, INFINITE, NAN
+-- Float { layout, kind, negative, significand, exponent } — layout — format.Format
+--     negated() -> Float с другим знаком (у NaN знака нет)
+
+use registry.libraries.ieee754.format
+
+Kind = enum {
+    ZERO,
+    FINITE,
+    INFINITE,
+    NAN
+}
+
+Float = Box {
+    layout = format.Format {},
+    kind = Kind.ZERO,
+    negative = no,
+    significand = [],
+    exponent = 0
+
+    skill negated() {
+        @sign = (negative == no)
+        (kind == Kind.NAN) {
+            sign = no
+        }
+        out Float {
+            layout = layout,
+            kind = kind,
+            negative = sign,
+            significand = significand,
+            exponent = exponent
+        }
+    }
+}

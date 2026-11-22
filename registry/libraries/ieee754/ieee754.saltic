@@ -1,0 +1,17 @@
+-- ieee754 — числа с плавающей точкой по стандарту IEEE 754: float32 и float64
+-- программно, на цифрах bignum — одинаково на всех целях, бит в бит как у
+-- железа. Округление к ближайшему (при равенстве — к чётному), субнормальные,
+-- ±∞, NaN, −0. Жильцы: format (размеры), float (число), coder (округление и
+-- биты), arithmetic (четыре действия).
+--
+-- single() / double() -> format.Format для float32 / float64
+
+use registry.libraries.ieee754.format
+
+skill single() {
+    out format.single()
+}
+
+skill double() {
+    out format.double()
+}

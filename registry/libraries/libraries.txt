@@ -11,3 +11,4 @@ input      registry/libraries/input/input
 lettering  registry/libraries/lettering/lettering
 ink        registry/libraries/ink/ink
 bignum     registry/libraries/bignum/bignum
+ieee754    registry/libraries/ieee754/ieee754

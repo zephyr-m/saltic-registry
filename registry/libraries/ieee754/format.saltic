@@ -1,0 +1,47 @@
+-- format — размеры числа IEEE 754: сколько байт, бит порядка и бит дроби.
+-- Порядок хранится со смещением bias; поле порядка из одних единиц —
+-- бесконечность или NaN, из нулей — ноль и субнормальные.
+--
+-- Format { width, exponent_bits, fraction_bits } — width — байт в числе
+--     bias() -> смещение порядка; top_field() -> поле порядка из одних единиц
+--     lowest() -> наименьший порядок нормального числа
+-- single() -> float32 (4 байта, 8 бит порядка, 23 бита дроби)
+-- double() -> float64 (8 байт, 11 бит порядка, 52 бита дроби)
+
+Format = Box {
+    width = 4,
+    exponent_bits = 8,
+    fraction_bits = 23
+
+    skill top_field() {
+        @value = 1
+        drum (exponent_bits) {
+            value = value * 2
+        }
+        out value - 1
+    }
+
+    skill bias() {
+        out top_field() / 2
+    }
+
+    skill lowest() {
+        out 1 - bias()
+    }
+}
+
+skill single() {
+    out Format {
+        width = 4,
+        exponent_bits = 8,
+        fraction_bits = 23
+    }
+}
+
+skill double() {
+    out Format {
+        width = 8,
+        exponent_bits = 11,
+        fraction_bits = 52
+    }
+}

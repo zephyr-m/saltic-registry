@@ -11,8 +11,10 @@
 --     shifted(a, places) -> a · BASE^places
 --     split_small(a, k) -> [частное, остаток] от деления на 0 < k < BASE
 --     split(a, b) -> [частное, остаток] от деления на b ≠ 0 (столбиком по битам)
+--     two_to(k) -> 2^k; shifted_bits(a, k) -> a · 2^k
+--     cut_bits(a, k) -> [a >> k, младшие k бит a]
 --     bit(a, index) -> бит index (0 — младший); bits(a) -> число значащих бит
---     packed(bits_low_first) -> цифры из бит, младший первым; digit(a, index) ->
+--     small_power(k) -> 2^k для k < BITS; packed(bits_low_first) -> цифры из бит, младший первым; digit(a, index) ->
 --         цифра index или 0 за краем
 -- BASE, BITS — основание и бит в цифре; WORD_DIGITS — с запасом цифр у целого
 
@@ -196,6 +198,32 @@ Magnitude = Box {
             digits = group.add(digits, value)
         }
         out trimmed(digits)
+    }
+
+    skill two_to(k) {
+        out shifted(of(small_power(k % BITS)), k / BITS)
+    }
+
+    skill shifted_bits(a, k) {
+        out trimmed(shifted(scaled(a, small_power(k % BITS)), k / BITS))
+    }
+
+    skill cut_bits(a, k) {
+        @place = k / BITS
+        (place >= group.count(a)) {
+            out [[], trimmed(a)]
+        }
+        @parts = split_small(group.slice(a, place, group.count(a)), small_power(k % BITS))
+        @low = group.add(group.slice(a, 0, place), group.get(parts, 1))
+        out [group.get(parts, 0), trimmed(low)]
+    }
+
+    skill small_power(k) {
+        @value = 1
+        drum (k) {
+            value = value * 2
+        }
+        out value
     }
 
     skill bit(a, index) {

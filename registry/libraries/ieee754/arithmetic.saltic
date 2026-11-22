@@ -1,0 +1,136 @@
+-- arithmetic — четыре действия IEEE 754: сначала точный результат на цифрах
+-- bignum, потом одно округление (coder.rounded) — ровно как требует стандарт.
+-- Особые случаи: NaN заразен; ∞ − ∞, 0 · ∞, 0 / 0, ∞ / ∞ — NaN; x / 0 — ∞ со
+-- знаком; x + (−x) — +0; −0 + −0 — −0.
+--
+-- Arithmetic { encoder, math } — encoder — coder.Coder, math — magnitude.Magnitude
+--     sum(a, b) / difference(a, b) / product(a, b) / ratio(a, b) -> float.Float
+--     integer(layout, n) -> float.Float ближайшее к целому n
+--     either_nan(a, b) -> yes, если хоть одно — NaN; signed(a, b) -> знак
+--         произведения и частного
+
+use core.group
+use registry.libraries.bignum.magnitude
+use registry.libraries.ieee754.float
+use registry.libraries.ieee754.coder
+
+Arithmetic = Box {
+    encoder = coder.Coder {},
+    math = magnitude.Magnitude {}
+
+    skill either_nan(a, b) {
+        ((a.kind == float.Kind.NAN) ○○ (b.kind == float.Kind.NAN)) {
+            out yes
+        }
+        out no
+    }
+
+    skill signed(a, b) {
+        out ((a.negative == b.negative) == no)
+    }
+
+    skill integer(layout, n) {
+        (n < 0) {
+            out encoder.rounded(layout, yes, math.of(0 - n), 0)
+        }
+        out encoder.rounded(layout, no, math.of(n), 0)
+    }
+
+    skill sum(a, b) {
+        (either_nan(a, b) == yes) {
+            out encoder.nan_of(a.layout)
+        }
+        (a.kind == float.Kind.INFINITE) {
+            ((b.kind == float.Kind.INFINITE) ○ ((a.negative == b.negative) == no)) {
+                out encoder.nan_of(a.layout)
+            }
+            out a
+        }
+        (b.kind == float.Kind.INFINITE) {
+            out b
+        }
+        (a.kind == float.Kind.ZERO) {
+            (b.kind == float.Kind.ZERO) {
+                ((a.negative == yes) ○ (b.negative == yes)) {
+                    out a
+                }
+                out encoder.zero_of(a.layout, no)
+            }
+            out b
+        }
+        (b.kind == float.Kind.ZERO) {
+            out a
+        }
+        @low = a.exponent
+        (b.exponent < low) {
+            low = b.exponent
+        }
+        @left = math.shifted_bits(a.significand, a.exponent - low)
+        @right = math.shifted_bits(b.significand, b.exponent - low)
+        (a.negative == b.negative) {
+            out encoder.rounded(a.layout, a.negative, math.sum(left, right), low)
+        }
+        @side = math.order(left, right)
+        (side == 0) {
+            out encoder.zero_of(a.layout, no)
+        }
+        (side > 0) {
+            out encoder.rounded(a.layout, a.negative, math.difference(left, right), low)
+        }
+        out encoder.rounded(a.layout, b.negative, math.difference(right, left), low)
+    }
+
+    skill difference(a, b) {
+        out sum(a, b.negated())
+    }
+
+    skill product(a, b) {
+        (either_nan(a, b) == yes) {
+            out encoder.nan_of(a.layout)
+        }
+        @sign = signed(a, b)
+        ((a.kind == float.Kind.INFINITE) ○○ (b.kind == float.Kind.INFINITE)) {
+            ((a.kind == float.Kind.ZERO) ○○ (b.kind == float.Kind.ZERO)) {
+                out encoder.nan_of(a.layout)
+            }
+            out encoder.endless(a.layout, sign)
+        }
+        ((a.kind == float.Kind.ZERO) ○○ (b.kind == float.Kind.ZERO)) {
+            out encoder.zero_of(a.layout, sign)
+        }
+        out encoder.rounded(a.layout, sign, math.product(a.significand, b.significand), a.exponent + b.exponent)
+    }
+
+    skill ratio(a, b) {
+        (either_nan(a, b) == yes) {
+            out encoder.nan_of(a.layout)
+        }
+        @sign = signed(a, b)
+        (a.kind == float.Kind.INFINITE) {
+            (b.kind == float.Kind.INFINITE) {
+                out encoder.nan_of(a.layout)
+            }
+            out encoder.endless(a.layout, sign)
+        }
+        (b.kind == float.Kind.INFINITE) {
+            out encoder.zero_of(a.layout, sign)
+        }
+        (b.kind == float.Kind.ZERO) {
+            (a.kind == float.Kind.ZERO) {
+                out encoder.nan_of(a.layout)
+            }
+            out encoder.endless(a.layout, sign)
+        }
+        (a.kind == float.Kind.ZERO) {
+            out encoder.zero_of(a.layout, sign)
+        }
+        @extra = a.layout.fraction_bits + 3 + math.bits(b.significand)
+        @parts = math.split(math.shifted_bits(a.significand, extra), b.significand)
+        @sticky = 0
+        (group.count(group.get(parts, 1)) > 0) {
+            sticky = 1
+        }
+        @quotient = math.sum(math.scaled(group.get(parts, 0), 2), math.of(sticky))
+        out encoder.rounded(a.layout, sign, quotient, a.exponent - b.exponent - extra - 1)
+    }
+}

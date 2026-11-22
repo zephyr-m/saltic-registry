@@ -1,0 +1,76 @@
+-- ieee754 — проверка float32 и float64 бит в бит: деление и сложение с
+-- округлением к чётному, умножение, переполнение в ∞, субнормальные и уход в
+-- ноль, NaN, −0, разбор и запись бит и байт. Ожидания — Python struct (железо
+-- x86-64) — внешний эталон.
+--
+-- program() -> none; TestsFailed
+
+use core.bytes
+use craft.testing
+use registry.libraries.ieee754.ieee754
+use registry.libraries.ieee754.coder
+use registry.libraries.ieee754.arithmetic
+
+program() {
+    @suite = testing.test_new()
+    @bits = coder.Coder {}
+    @calc = arithmetic.Arithmetic {}
+    @single = ieee754.single()
+    @double = ieee754.double()
+    @one = calc.integer(single, 1)
+    @three = calc.integer(single, 3)
+    @ten = calc.integer(single, 10)
+    suite = testing.test_equal(suite, "f32 1", bits.hex_of(one), "3F800000")
+    @tenth = calc.ratio(one, ten)
+    suite = testing.test_equal(suite, "f32 1/10", bits.hex_of(tenth), "3DCCCCCD")
+    suite = testing.test_equal(suite, "f32 1/3 — к чётному", bits.hex_of(calc.ratio(one, three)), "3EAAAAAB")
+    suite = testing.test_equal(suite, "f32 2/3", bits.hex_of(calc.ratio(calc.integer(single, 2), three)), "3F2AAAAB")
+    suite = testing.test_equal(suite, "f32 0.1 · 3", bits.hex_of(calc.product(tenth, three)), "3E99999A")
+    @fifth = calc.ratio(calc.integer(single, 2), ten)
+    suite = testing.test_equal(suite, "f32 0.1 + 0.2", bits.hex_of(calc.sum(tenth, fifth)), "3E99999A")
+    suite = testing.test_equal(suite, "f32 16777217 — к чётному вниз", bits.hex_of(calc.integer(single, 16777217)), "4B800000")
+    suite = testing.test_equal(suite, "f32 16777219 — к чётному вверх", bits.hex_of(calc.integer(single, 16777219)), "4B800002")
+    suite = testing.test_equal(suite, "f32 1e10", bits.hex_of(calc.integer(single, 10000000000)), "501502F9")
+    @largest = bits.read(single, "7F7FFFFF")
+    suite = testing.test_equal(suite, "f32 наибольшее туда-обратно", bits.hex_of(largest), "7F7FFFFF")
+    suite = testing.test_equal(suite, "f32 наибольшее · 2 — ∞", bits.hex_of(calc.product(largest, calc.integer(single, 2))), "7F800000")
+    @tiny = bits.read(single, "00000001")
+    suite = testing.test_equal(suite, "f32 наименьшее субнормальное", bits.hex_of(tiny), "00000001")
+    suite = testing.test_equal(suite, "f32 субнормальное · 3", bits.hex_of(calc.product(tiny, three)), "00000003")
+    suite = testing.test_equal(suite, "f32 половина наименьшего — ноль (к чётному)", bits.hex_of(calc.ratio(tiny, calc.integer(single, 2))), "00000000")
+    @zero = calc.integer(single, 0)
+    suite = testing.test_equal(suite, "f32 0/0 — NaN", bits.hex_of(calc.ratio(zero, zero)), "7FC00000")
+    suite = testing.test_equal(suite, "f32 1/0 — +∞", bits.hex_of(calc.ratio(one, zero)), "7F800000")
+    suite = testing.test_equal(suite, "f32 −1/0 — −∞", bits.hex_of(calc.ratio(calc.integer(single, -1), zero)), "FF800000")
+    @endless = calc.ratio(one, zero)
+    suite = testing.test_equal(suite, "f32 ∞ − ∞ — NaN", bits.hex_of(calc.difference(endless, endless)), "7FC00000")
+    @minus_zero = bits.read(single, "80000000")
+    suite = testing.test_equal(suite, "f32 −0 читается", bits.hex_of(minus_zero), "80000000")
+    suite = testing.test_equal(suite, "f32 −0 · 5 — −0", bits.hex_of(calc.product(minus_zero, calc.integer(single, 5))), "80000000")
+    suite = testing.test_equal(suite, "f32 −0 + 0 — +0", bits.hex_of(calc.sum(minus_zero, zero)), "00000000")
+    suite = testing.test_equal(suite, "f32 1 − 1 — +0", bits.hex_of(calc.difference(one, one)), "00000000")
+    @first = calc.integer(double, 1)
+    @tenth_wide = calc.ratio(first, calc.integer(double, 10))
+    suite = testing.test_equal(suite, "f64 0.1", bits.hex_of(tenth_wide), "3FB999999999999A")
+    @fifth_wide = calc.ratio(calc.integer(double, 2), calc.integer(double, 10))
+    suite = testing.test_equal(suite, "f64 0.1 + 0.2 — знаменитое 0.30000000000000004", bits.hex_of(calc.sum(tenth_wide, fifth_wide)), "3FD3333333333334")
+    suite = testing.test_equal(suite, "f64 1/3", bits.hex_of(calc.ratio(first, calc.integer(double, 3))), "3FD5555555555555")
+    @eleven = calc.ratio(calc.integer(double, 11), calc.integer(double, 10))
+    suite = testing.test_equal(suite, "f64 1.1", bits.hex_of(eleven), "3FF199999999999A")
+    suite = testing.test_equal(suite, "f64 1.1 · 1.1", bits.hex_of(calc.product(eleven, eleven)), "3FF35C28F5C28F5D")
+    @huge = bits.read(double, "7FEFFFFFFFFFFFFF")
+    suite = testing.test_equal(suite, "f64 наибольшее туда-обратно", bits.hex_of(huge), "7FEFFFFFFFFFFFFF")
+    suite = testing.test_equal(suite, "f64 наибольшее + наибольшее — ∞", bits.hex_of(calc.sum(huge, huge)), "7FF0000000000000")
+    @least = bits.read(double, "0000000000000001")
+    suite = testing.test_equal(suite, "f64 наименьшее / наибольшее — ноль", bits.hex_of(calc.ratio(least, huge)), "0000000000000000")
+    suite = testing.test_equal(suite, "f64 0/0 — NaN", bits.hex_of(calc.ratio(calc.integer(double, 0), calc.integer(double, 0))), "7FF8000000000000")
+    @stored = bits.bytes_of(one)
+    suite = testing.test_equal(suite, "f32 1 в памяти — младший байт первым", bytes.get(stored, 3), 63)
+    suite = testing.test_equal(suite, "байты туда-обратно", bits.hex_of(bits.from_bytes(single, stored)), "3F800000")
+    @bad = "нет"
+    bits.read(single, "3F8G0000") rescue |err| {
+        bad = "{err}"
+    }
+    suite = testing.test_equal(suite, "не шестнадцатеричная запись — ошибка", bad, "NotHex")
+    out testing.test_finish(suite)
+}
