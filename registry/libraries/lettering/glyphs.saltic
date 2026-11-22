@@ -1,5 +1,5 @@
 -- glyphs — данные: растровые шрифты Spleen 8×16, 12×24, 16×32 для lettering.
--- Сгенерировано registry/libraries/lettering/glyphs.py из registry/libraries/fonts/spleen.saltic; руками не править.
+-- Сгенерировано workbench/generators/lettering.py из registry/libraries/fonts/spleen.saltic; руками не править.
 -- Глиф — строка hex, 4 цифры на ряд: пиксели в младших битах по ширине
 -- глифа, левый пиксель — старший из них.
 -- Порядок: ASCII 32–126, затем Ё, А–я, ё, длинное тире (см. lettering.glyph_index).
