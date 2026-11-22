@@ -19,7 +19,7 @@
 --     подключён (текст — адрес и сеть)
 
 use core.group
-use os.text.utf8
+use craft.text.utf8
 use registry.adapters.uefi_x86_64.firmware.firmware
 use registry.adapters.uefi_x86_64.firmware.firmware.uefi
 use registry.adapters.uefi_x86_64.qca9377.qca9377.card

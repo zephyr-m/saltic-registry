@@ -1,0 +1,13 @@
+{
+  "title": "fonts — шрифты: разбор TTF, растровые глифы, Spleen и файлы Inter и JetBrains Mono",
+  "saltic_version": "в составе Saltic (ветка 22.11.2026)",
+  "own_version": "1",
+  "author": "Зэф",
+  "role": "library",
+  "purpose": "буквы для всех экранов: гладкие TTF и растровые Spleen; пути к файлам шрифтов",
+  "depends_on": "core",
+  "architectures": "все цели",
+  "state": "рабочий: на нём uiengine, программы Linux, Android и Acer, плата ESP32 (Spleen); переехала из Saltic 22.11.2026",
+  "log": "нет: ошибки — ошибкой с именем вызывающему",
+  "filled_by": "агентом по коду, 22.11.2026; автор проверяет"
+}

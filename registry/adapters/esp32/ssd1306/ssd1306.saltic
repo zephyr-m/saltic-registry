@@ -19,7 +19,7 @@ use core.mem
 use core.u32
 use core.usize
 use os.drivers.font
-use os.fonts.spleen
+use registry.libraries.fonts.spleen
 use registry.adapters.esp32.i2c.i2c
 
 ADDRESS = 120

@@ -4,7 +4,7 @@
 --
 -- Reading { lines, streaming, format } — накопленный отчёт разбора
 -- find_camera(base) -> адрес UsbIo; DeviceNotFound
--- control_in(base, io, kind, length) -> адрес буфера с дескриптором; TransferFailed
+-- control_in(base, usb_io, kind, length) -> адрес буфера с дескриптором; TransferFailed
 -- transfer_kind(attributes) -> имя вида передачи
 -- read_interface / read_endpoint / read_class(base, data, at, reading) -> Reading
 -- report(base) -> текст отчёта построчно
@@ -42,17 +42,17 @@ skill find_camera(base) {
     files.connect_all(base)
     @found = files.handles_with(base, files.BY_PROTOCOL, usb.USB_IO_GUID)
     drum (found) {
-        @io = files.protocol_of(base, beat, usb.USB_IO_GUID)
+        @usb_io = files.protocol_of(base, beat, usb.USB_IO_GUID)
         @device = firmware.scratch(base, usb.SCRATCH_DESCRIPTOR)
-        @got = firmware.call(base, firmware.pointer(io, base, usb.USB_DEVICE_DESCRIPTOR), [io, device])
+        @got = firmware.call(base, firmware.pointer(usb_io, base, usb.USB_DEVICE_DESCRIPTOR), [usb_io, device])
         (got.failed == no) {
-            (firmware.read16(device, base, 8) == CAMERA_VENDOR) { out io }
+            (firmware.read16(device, base, 8) == CAMERA_VENDOR) { out usb_io }
         }
     }
     out error.DeviceNotFound
 }
 
-skill control_in(base, io, kind, length) {
+skill control_in(base, usb_io, kind, length) {
     @request = firmware.scratch(base, SCRATCH_REQUEST)
     firmware.write8(request, base, 0, 128)
     firmware.write8(request, base, 1, GET_DESCRIPTOR)
@@ -61,7 +61,7 @@ skill control_in(base, io, kind, length) {
     firmware.write16(request, base, 6, length)
     @data = firmware.scratch(base, SCRATCH_CONFIG)
     @status = firmware.scratch(base, usb.SCRATCH_STATUS)
-    @asked = firmware.call(base, firmware.pointer(io, base, USB_CONTROL), [io, request, firmware.number(DATA_IN), firmware.number(TIMEOUT_MS), data, firmware.number(length), status])
+    @asked = firmware.call(base, firmware.pointer(usb_io, base, USB_CONTROL), [usb_io, request, firmware.number(DATA_IN), firmware.number(TIMEOUT_MS), data, firmware.number(length), status])
     (asked.failed == yes) { out error.TransferFailed }
     out data
 }
@@ -116,11 +116,11 @@ skill read_class(base, data, at, reading) {
 }
 
 skill report(base) {
-    @io = find_camera(base)
-    @head = control_in(base, io, CONFIGURATION, 9)
+    @usb_io = find_camera(base)
+    @head = control_in(base, usb_io, CONFIGURATION, 9)
     @total = firmware.read16(head, base, 2)
     (total > CONFIG_LIMIT) { total = CONFIG_LIMIT }
-    @data = control_in(base, io, CONFIGURATION, total)
+    @data = control_in(base, usb_io, CONFIGURATION, total)
     @reading = Reading { lines = ["камера 0408:a030, описание конфигурации {total} байт"] }
     @at = 0
     drum (total) {

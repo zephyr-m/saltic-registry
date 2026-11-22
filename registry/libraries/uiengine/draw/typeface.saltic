@@ -31,9 +31,9 @@ use core.mem
 use core.usize
 use core.address
 use core.u32
-use os.fonts.ttf
-use os.icons
-use os.fonts.raster
+use registry.libraries.fonts.ttf
+use registry.libraries.icons.icons
+use registry.libraries.fonts.raster
 use registry.adapters.uefi_x86_64.firmware.firmware
 use registry.adapters.uefi_x86_64.firmware.firmware.uefi
 use registry.libraries.graphics.graphics

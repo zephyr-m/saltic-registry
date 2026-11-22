@@ -15,7 +15,7 @@ use core.group
 use registry.adapters.uefi_x86_64.firmware.firmware
 use os.target.uefi_x86_64.storage.files
 use registry.adapters.uefi_x86_64.firmware.firmware.uefi
-use os.text.parse
+use craft.text.parse
 
 USB_IO_GUID = [214, 104, 47, 43, 210, 12, 207, 68, 142, 139, 187, 162, 11, 27, 91, 117]
 USB2_HC_GUID = [38, 82, 116, 62, 24, 152, 182, 69, 162, 172, 215, 205, 14, 139, 162, 188]

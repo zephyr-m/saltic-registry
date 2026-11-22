@@ -1,0 +1,9 @@
+-- fonts — шрифты Saltic: разбор TTF (ttf), растровые глифы (raster), Spleen
+-- таблицей (spleen) и файлы шрифтов inter/ и jetbrains-mono/. Пути к файлам —
+-- здесь, программы берут их отсюда, а не пишут свои.
+--
+-- REGULAR / BOLD — Inter; MONO — JetBrains Mono (TTF, путь от корня проекта)
+
+REGULAR = "registry/libraries/fonts/inter/Inter-Regular.ttf"
+BOLD = "registry/libraries/fonts/inter/Inter-Bold.ttf"
+MONO = "registry/libraries/fonts/jetbrains-mono/JetBrainsMono-Regular.ttf"

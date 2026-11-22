@@ -65,9 +65,9 @@ use core.mem
 use core.u32
 use core.usize
 use core.address
-use os.icons
+use registry.libraries.icons.icons
 use registry.libraries.graphics.graphics
-use os.screen.lettering
+use registry.libraries.lettering.lettering
 use registry.libraries.uiengine.draw.typeface
 use registry.libraries.uiengine.draw.shapes
 use os.drivers.text_field
