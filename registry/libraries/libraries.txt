@@ -16,3 +16,4 @@ exponent   registry/libraries/exponent/exponent
 rotation   registry/libraries/rotation/rotation
 vector     registry/libraries/vector/vector
 linear     registry/libraries/linear/linear
+signal     registry/libraries/signal/signal

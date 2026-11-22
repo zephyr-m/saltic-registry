@@ -1,0 +1,247 @@
+-- signal — сигналы: разложение на частоты, свёртка, фильтры. Отсчёты —
+-- группа дробных; комплексный ряд — две группы [действительные, мнимые].
+-- FFT — по основанию 2 (длина — степень двойки), иначе честное ДПФ за n².
+-- Биквад — формулы RBJ (Audio EQ Cookbook). Только 64-битные цели.
+--
+-- Signal {} — part(a, i) -> дробное
+--     transform(re, im, inverse) -> [re, im] — ДПФ (FFT при длине 2^k);
+--         обратное — с делением на n; spectrum(samples) -> [re, im]
+--     convolve(a, b) -> свёртка прямо; fast_convolve(a, b) -> через FFT
+--     fir(samples, taps) -> y[n] = Σ taps[k] · x[n − k]
+--     lowpass / highpass(cut, rate, q) -> [b0, b1, b2, a1, a2] биквада
+--     iir(samples, coefficients) -> биквад по отсчётам (прямая форма I)
+--     response(coefficients, frequency, rate) -> |H| на частоте
+--     direct(re, im, inverse) / fast(re, im, inverse, bits) / zeros(n) /
+--     reversed_bits(i, bits) — внутри
+-- WHOLE — n ≥ этого и степень двойки — FFT
+
+use core.group
+use core.fraction
+
+WHOLE = 2
+
+Signal = Box {
+    skill part(a, i) {
+        out 0.0 + group.get(a, i)
+    }
+
+    skill zeros(n) {
+        @made = []
+        drum (n) {
+            made = group.add(made, 0.0)
+        }
+        out made
+    }
+
+    skill transform(re, im, inverse) {
+        @n = group.count(re)
+        @size = 1
+        @bits = 0
+        drum (64) {
+            (size >= n) {
+                leave
+            }
+            size = size * 2
+            bits = bits + 1
+        }
+        @result = []
+        pick {
+            ((size == n) ○ (n >= WHOLE)) {
+                result = fast(re, im, inverse, bits)
+            }
+            {
+                result = direct(re, im, inverse)
+            }
+        }
+        (inverse == yes) {
+            @scale = 1.0 / fraction.from(n)
+            @left = []
+            @right = []
+            drum (n) {
+                left = group.add(left, part(group.get(result, 0), beat) * scale)
+                right = group.add(right, part(group.get(result, 1), beat) * scale)
+            }
+            out [left, right]
+        }
+        out result
+    }
+
+    skill direct(re, im, inverse) {
+        @n = group.count(re)
+        @sign = -1.0
+        (inverse == yes) {
+            sign = 1.0
+        }
+        @left = []
+        @right = []
+        drum (n) {
+            @k = beat
+            @sum_re = 0.0
+            @sum_im = 0.0
+            drum (n) {
+                @angle = sign * 2.0 * fraction.PI * fraction.from((k * beat) % n) / fraction.from(n)
+                @c = fraction.cos(angle)
+                @s = fraction.sin(angle)
+                sum_re = sum_re + part(re, beat) * c - part(im, beat) * s
+                sum_im = sum_im + part(re, beat) * s + part(im, beat) * c
+            }
+            left = group.add(left, sum_re)
+            right = group.add(right, sum_im)
+        }
+        out [left, right]
+    }
+
+    skill reversed_bits(i, bits) {
+        @value = i
+        @result = 0
+        drum (bits) {
+            result = result * 2 + value % 2
+            value = value / 2
+        }
+        out result
+    }
+
+    skill fast(re, im, inverse, bits) {
+        @n = group.count(re)
+        @left = []
+        @right = []
+        drum (n) {
+            @from = reversed_bits(beat, bits)
+            left = group.add(left, part(re, from))
+            right = group.add(right, part(im, from))
+        }
+        @sign = -1.0
+        (inverse == yes) {
+            sign = 1.0
+        }
+        @length = 2
+        drum (bits) {
+            @half = length / 2
+            @step = sign * 2.0 * fraction.PI / fraction.from(length)
+            drum (n / length) {
+                @start = beat * length
+                drum (half) {
+                    @angle = step * fraction.from(beat)
+                    @c = fraction.cos(angle)
+                    @s = fraction.sin(angle)
+                    @top = start + beat
+                    @low = top + half
+                    @t_re = part(left, low) * c - part(right, low) * s
+                    @t_im = part(left, low) * s + part(right, low) * c
+                    @u_re = part(left, top)
+                    @u_im = part(right, top)
+                    left = group.replaced(left, top, u_re + t_re)
+                    right = group.replaced(right, top, u_im + t_im)
+                    left = group.replaced(left, low, u_re - t_re)
+                    right = group.replaced(right, low, u_im - t_im)
+                }
+            }
+            length = length * 2
+        }
+        out [left, right]
+    }
+
+    skill spectrum(samples) {
+        out transform(samples, zeros(group.count(samples)), no)
+    }
+
+    skill convolve(a, b) {
+        @total = group.count(a) + group.count(b) - 1
+        @made = []
+        drum (total) {
+            @i = beat
+            @sum = 0.0
+            drum (group.count(b)) {
+                @j = i - beat
+                ((j >= 0) ○ (j < group.count(a))) {
+                    sum = sum + part(a, j) * part(b, beat)
+                }
+            }
+            made = group.add(made, sum)
+        }
+        out made
+    }
+
+    skill fast_convolve(a, b) {
+        @total = group.count(a) + group.count(b) - 1
+        @size = 1
+        drum (64) {
+            (size >= total) {
+                leave
+            }
+            size = size * 2
+        }
+        @x = group.concat(a, zeros(size - group.count(a)))
+        @y = group.concat(b, zeros(size - group.count(b)))
+        @fx = transform(x, zeros(size), no)
+        @fy = transform(y, zeros(size), no)
+        @mixed_re = []
+        @mixed_im = []
+        drum (size) {
+            @ar = part(group.get(fx, 0), beat)
+            @ai = part(group.get(fx, 1), beat)
+            @br = part(group.get(fy, 0), beat)
+            @bi = part(group.get(fy, 1), beat)
+            mixed_re = group.add(mixed_re, ar * br - ai * bi)
+            mixed_im = group.add(mixed_im, ar * bi + ai * br)
+        }
+        @back = transform(mixed_re, mixed_im, yes)
+        out group.slice(group.get(back, 0), 0, total)
+    }
+
+    skill fir(samples, taps) {
+        out group.slice(convolve(samples, taps), 0, group.count(samples))
+    }
+
+    skill lowpass(cut, rate, q) {
+        @w = 2.0 * fraction.PI * cut / rate
+        @alpha = fraction.sin(w) / (2.0 * q)
+        @c = fraction.cos(w)
+        @a0 = 1.0 + alpha
+        out [(1.0 - c) / 2.0 / a0, (1.0 - c) / a0, (1.0 - c) / 2.0 / a0, -2.0 * c / a0, (1.0 - alpha) / a0]
+    }
+
+    skill highpass(cut, rate, q) {
+        @w = 2.0 * fraction.PI * cut / rate
+        @alpha = fraction.sin(w) / (2.0 * q)
+        @c = fraction.cos(w)
+        @a0 = 1.0 + alpha
+        out [(1.0 + c) / 2.0 / a0, (0.0 - (1.0 + c)) / a0, (1.0 + c) / 2.0 / a0, -2.0 * c / a0, (1.0 - alpha) / a0]
+    }
+
+    skill iir(samples, coefficients) {
+        @b0 = part(coefficients, 0)
+        @b1 = part(coefficients, 1)
+        @b2 = part(coefficients, 2)
+        @a1 = part(coefficients, 3)
+        @a2 = part(coefficients, 4)
+        @x1 = 0.0
+        @x2 = 0.0
+        @y1 = 0.0
+        @y2 = 0.0
+        @made = []
+        drum (samples) {
+            @x = 0.0 + beat
+            @y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
+            x2 = x1
+            x1 = x
+            y2 = y1
+            y1 = y
+            made = group.add(made, y)
+        }
+        out made
+    }
+
+    skill response(coefficients, frequency, rate) {
+        @w = 2.0 * fraction.PI * frequency / rate
+        @c1 = fraction.cos(w)
+        @s1 = fraction.sin(w)
+        @c2 = fraction.cos(2.0 * w)
+        @s2 = fraction.sin(2.0 * w)
+        @num_re = part(coefficients, 0) + part(coefficients, 1) * c1 + part(coefficients, 2) * c2
+        @num_im = 0.0 - part(coefficients, 1) * s1 - part(coefficients, 2) * s2
+        @den_re = 1.0 + part(coefficients, 3) * c1 + part(coefficients, 4) * c2
+        @den_im = 0.0 - part(coefficients, 3) * s1 - part(coefficients, 4) * s2
+        out fraction.sqrt((num_re * num_re + num_im * num_im) / (den_re * den_re + den_im * den_im))
+    }
+}

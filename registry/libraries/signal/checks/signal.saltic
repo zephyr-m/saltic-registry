@@ -1,0 +1,127 @@
+-- signal — проверка сигналов: ДПФ (FFT при длине 2^k и прямое иначе), свёртка
+-- и КИХ-фильтр против прямых сумм Python (cases.saltic, делает
+-- workbench/references/signal.py); свойства: обратное ДПФ возвращает ряд,
+-- быстрая свёртка равна прямой, биквад низких частот пропускает постоянное
+-- (|H(0)| = 1), гасит Найквиста, на срезе при q = 1/√2 даёт 1/√2; высоких —
+-- наоборот; ступенька через низкие частоты сходится к 1.
+--
+-- Probe { wave } — close(a, b) -> |a − b| ≤ CLOSE · max(1, |a|, |b|)
+--     same(got, row, from) -> yes, если got[i] ≈ row[from + i]
+--     piece(row, from, count) -> группа count чисел строки
+--     check(row) -> yes, если случай сошёлся
+-- program() -> none; TestsFailed
+-- CLOSE — допуск; ROOT_HALF — 1/√2
+
+use io
+use core.group
+use core.fraction
+use craft.testing
+use registry.libraries.signal.signal
+use registry.libraries.signal.checks.cases
+
+CLOSE = 0.000000001
+ROOT_HALF = 0.7071067811865476
+
+Probe = Box {
+    wave = signal.Signal {}
+
+    skill close(a, b) {
+        @gap = a - b
+        (gap < 0.0) {
+            gap = 0.0 - gap
+        }
+        @scale = 1.0
+        @left = a
+        (left < 0.0) {
+            left = 0.0 - left
+        }
+        @right = b
+        (right < 0.0) {
+            right = 0.0 - right
+        }
+        (left > scale) {
+            scale = left
+        }
+        (right > scale) {
+            scale = right
+        }
+        out ((gap > (CLOSE * scale)) == no)
+    }
+
+    skill same(got, row, from) {
+        drum (group.count(got)) {
+            (close(wave.part(got, beat), wave.part(row, from + beat)) == no) {
+                out no
+            }
+        }
+        out yes
+    }
+
+    skill piece(row, from, count) {
+        out group.slice(row, from, from + count)
+    }
+
+    skill check(row) {
+        @kind = group.get(row, 0)
+        @n = group.get(row, 1)
+        (kind == "dft") {
+            @re = piece(row, 2, n)
+            @im = piece(row, 2 + n, n)
+            @made = wave.transform(re, im, no)
+            ((same(group.get(made, 0), row, 2 + 2 * n) ○ same(group.get(made, 1), row, 2 + 3 * n)) == no) {
+                out no
+            }
+            @back = wave.transform(group.get(made, 0), group.get(made, 1), yes)
+            out (same(group.get(back, 0), row, 2) ○ same(group.get(back, 1), row, 2 + n))
+        }
+        @m = group.get(row, 2)
+        @a = piece(row, 3, n)
+        @b = piece(row, 3 + n, m)
+        (kind == "convolve") {
+            (same(wave.convolve(a, b), row, 3 + n + m) == no) {
+                out no
+            }
+            out same(wave.fast_convolve(a, b), row, 3 + n + m)
+        }
+        out same(wave.fir(a, b), row, 3 + n + m)
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @wave = signal.Signal {}
+    @wrong = 0
+    drum (cases.CASES) {
+        (probe.check(beat) == no) {
+            wrong = wrong + 1
+            @kind = group.get(beat, 0)
+            @n = group.get(beat, 1)
+            io.show("  расхождение {kind}, n = {n}")
+        }
+    }
+    @count = group.count(cases.CASES)
+    io.show("signal: случаев {count}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "ДПФ, свёртка, КИХ как у прямых сумм Python", wrong, 0)
+    @low = wave.lowpass(1000.0, 48000.0, ROOT_HALF)
+    suite = testing.test_yes(suite, "низкие: постоянное проходит, |H(0)| = 1", probe.close(wave.response(low, 0.0, 48000.0), 1.0))
+    suite = testing.test_yes(suite, "низкие: Найквист погашен", probe.close(wave.response(low, 24000.0, 48000.0), 0.0))
+    suite = testing.test_yes(suite, "низкие: на срезе 1/√2", probe.close(wave.response(low, 1000.0, 48000.0), ROOT_HALF))
+    @high = wave.highpass(1000.0, 48000.0, ROOT_HALF)
+    suite = testing.test_yes(suite, "высокие: постоянное погашено", probe.close(wave.response(high, 0.0, 48000.0), 0.0))
+    suite = testing.test_yes(suite, "высокие: Найквист проходит", probe.close(wave.response(high, 24000.0, 48000.0), 1.0))
+    @step = []
+    drum (2000) {
+        step = group.add(step, 1.0)
+    }
+    @settled = wave.iir(step, low)
+    suite = testing.test_yes(suite, "ступенька через низкие сходится к 1", probe.close(wave.part(settled, 1999), 1.0))
+    @tone = []
+    drum (64) {
+        tone = group.add(tone, fraction.cos(2.0 * fraction.PI * 5.0 * fraction.from(beat) / 64.0))
+    }
+    @bins = wave.spectrum(tone)
+    suite = testing.test_yes(suite, "чистый тон 5 — весь в корзине 5 (32)", probe.close(wave.part(group.get(bins, 0), 5), 32.0))
+    suite = testing.test_yes(suite, "соседняя корзина пуста", probe.close(wave.part(group.get(bins, 0), 6), 0.0))
+    out testing.test_finish(suite)
+}
