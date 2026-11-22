@@ -1,0 +1,92 @@
+-- statistics — проверка против модуля Python statistics (cases.saltic, делает
+-- workbench/references/statistics.py): среднее, выборочная и полная
+-- дисперсия, медиана, квартили, края, ковариация, корреляция, регрессия — на
+-- выборках 3…100 точек, в том числе сдвинутых на 1e9 (устойчивость). Плюс
+-- ошибки: пустая выборка и одна точка. Допуск — у каждой выборки свой,
+-- предел 50 бит с учётом обусловленности: сдвинутые на 1e9 — 1e−5 (сдвиг
+-- регрессии в миллиарде от облака точек), остальные — 1e−11.
+--
+-- Probe { stats } — close(a, b, limit) -> |a − b| ≤ limit · max(1, |a|, |b|)
+--     check(row) -> "" или имя разошедшейся величины
+-- program() -> none; TestsFailed
+
+use io
+use core.group
+use core.fraction
+use craft.testing
+use registry.libraries.statistics.statistics
+use registry.libraries.statistics.checks.cases
+
+Probe = Box {
+    stats = statistics.Statistics {}
+
+    skill close(a, b, limit) {
+        @gap = a - b
+        (gap < 0.0) {
+            gap = 0.0 - gap
+        }
+        @scale = 1.0
+        @left = a
+        (left < 0.0) {
+            left = 0.0 - left
+        }
+        @right = b
+        (right < 0.0) {
+            right = 0.0 - right
+        }
+        (left > scale) {
+            scale = left
+        }
+        (right > scale) {
+            scale = right
+        }
+        out ((gap > (limit * scale)) == no)
+    }
+
+    skill check(row) {
+        @n = group.get(row, 0)
+        @x = group.slice(row, 1, 1 + n)
+        @y = group.slice(row, 1 + n, 1 + 2 * n)
+        @at = 1 + 2 * n
+        @got = [stats.mean(x), stats.variance(x), stats.population_variance(x), stats.median(x)]
+        got = group.concat(got, stats.quantiles(x, 4))
+        got = group.concat(got, [stats.least(x), stats.most(x), stats.covariance(x, y), stats.correlation(x, y)])
+        got = group.concat(got, stats.regression(x, y))
+        @names = ["mean", "variance", "pvariance", "median", "q1", "q2", "q3", "least", "most", "covariance", "correlation", "наклон", "сдвиг"]
+        drum (group.count(got)) {
+            (close(stats.part(got, beat), stats.part(row, at + beat), stats.part(row, at + 13)) == no) {
+                out group.get(names, beat)
+            }
+        }
+        out ""
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @stats = statistics.Statistics {}
+    @wrong = 0
+    drum (cases.CASES) {
+        @broken = probe.check(beat)
+        ((broken == "") == no) {
+            wrong = wrong + 1
+            @n = group.get(beat, 0)
+            io.show("  расхождение {broken} на выборке {n}")
+        }
+    }
+    @count = group.count(cases.CASES)
+    io.show("statistics: выборок {count}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "как у Python statistics", wrong, 0)
+    @empty = "нет"
+    stats.mean([]) rescue |err| {
+        empty = "{err}"
+    }
+    suite = testing.test_equal(suite, "пустая выборка — Empty", empty, "Empty")
+    @single = "нет"
+    stats.variance([1.0]) rescue |err| {
+        single = "{err}"
+    }
+    suite = testing.test_equal(suite, "одна точка — TooFew", single, "TooFew")
+    out testing.test_finish(suite)
+}

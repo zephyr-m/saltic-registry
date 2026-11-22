@@ -1,0 +1,169 @@
+-- statistics — описательная статистика над группой дробных: среднее,
+-- дисперсия по Уэлфорду (устойчиво к большим числам), отклонение, медиана,
+-- квантили (как Python statistics.quantiles, способ exclusive), наименьшее и
+-- наибольшее, ковариация, корреляция Пирсона, линейная регрессия.
+-- Только 64-битные цели. Пустая выборка — Empty, мало точек — TooFew.
+--
+-- Statistics {} — part(data, i) -> дробное
+--     mean(data); variance(data) / deviation(data) — выборочные (n − 1);
+--     population_variance(data) — по всей совокупности (n)
+--     median(data); quantiles(data, n) -> n − 1 границ; least / most(data)
+--     covariance(x, y) — выборочная; correlation(x, y) -> −1 … 1
+--     regression(x, y) -> [наклон, сдвиг] наименьших квадратов
+--     sorted(data) -> копия по возрастанию; spread(data) -> [n, среднее,
+--     сумма квадратов отклонений] — Уэлфорд за один проход
+
+use core.group
+use core.fraction
+
+Statistics = Box {
+    skill part(data, i) {
+        out 0.0 + group.get(data, i)
+    }
+
+    skill spread(data) {
+        @n = 0
+        @average = 0.0
+        @squares = 0.0
+        drum (group.count(data)) {
+            n = n + 1
+            @x = part(data, beat)
+            @delta = x - average
+            average = average + delta / fraction.from(n)
+            squares = squares + delta * (x - average)
+        }
+        out [n, average, squares]
+    }
+
+    skill mean(data) {
+        (group.count(data) == 0) {
+            out error.Empty
+        }
+        out part(spread(data), 1)
+    }
+
+    skill variance(data) {
+        (group.count(data) < 2) {
+            out error.TooFew
+        }
+        @parts = spread(data)
+        out part(parts, 2) / fraction.from(group.count(data) - 1)
+    }
+
+    skill population_variance(data) {
+        (group.count(data) == 0) {
+            out error.Empty
+        }
+        @parts = spread(data)
+        out part(parts, 2) / fraction.from(group.count(data))
+    }
+
+    skill deviation(data) {
+        out fraction.sqrt(variance(data))
+    }
+
+    skill sorted(data) {
+        @result = []
+        drum (group.count(data)) {
+            @x = part(data, beat)
+            @placed = []
+            @done = no
+            drum (group.count(result)) {
+                @y = part(result, beat)
+                ((done == no) ○ (x < y)) {
+                    placed = group.add(placed, x)
+                    done = yes
+                }
+                placed = group.add(placed, y)
+            }
+            (done == no) {
+                placed = group.add(placed, x)
+            }
+            result = placed
+        }
+        out result
+    }
+
+    skill median(data) {
+        @n = group.count(data)
+        (n == 0) {
+            out error.Empty
+        }
+        @order = sorted(data)
+        ((n % 2) == 1) {
+            out part(order, n / 2)
+        }
+        out (part(order, n / 2 - 1) + part(order, n / 2)) / 2.0
+    }
+
+    skill quantiles(data, n) {
+        @m = group.count(data)
+        (m < 2) {
+            out error.TooFew
+        }
+        @order = sorted(data)
+        @cuts = []
+        drum (n - 1) {
+            @i = beat + 1
+            @j = i * (m + 1) / n
+            (j < 1) {
+                j = 1
+            }
+            (j > (m - 1)) {
+                j = m - 1
+            }
+            @delta = i * (m + 1) - j * n
+            cuts = group.add(cuts, (part(order, j - 1) * fraction.from(n - delta) + part(order, j) * fraction.from(delta)) / fraction.from(n))
+        }
+        out cuts
+    }
+
+    skill least(data) {
+        (group.count(data) == 0) {
+            out error.Empty
+        }
+        @best = part(data, 0)
+        drum (group.count(data)) {
+            (part(data, beat) < best) {
+                best = part(data, beat)
+            }
+        }
+        out best
+    }
+
+    skill most(data) {
+        (group.count(data) == 0) {
+            out error.Empty
+        }
+        @best = part(data, 0)
+        drum (group.count(data)) {
+            (part(data, beat) > best) {
+                best = part(data, beat)
+            }
+        }
+        out best
+    }
+
+    skill covariance(x, y) {
+        @n = group.count(x)
+        (n < 2) {
+            out error.TooFew
+        }
+        @mx = mean(x)
+        @my = mean(y)
+        @sum = 0.0
+        drum (n) {
+            sum = sum + (part(x, beat) - mx) * (part(y, beat) - my)
+        }
+        out sum / fraction.from(n - 1)
+    }
+
+    skill correlation(x, y) {
+        out covariance(x, y) / (deviation(x) * deviation(y))
+    }
+
+    skill regression(x, y) {
+        @slope = covariance(x, y) / variance(x)
+        out [slope, mean(y) - slope * mean(x)]
+    }
+}
