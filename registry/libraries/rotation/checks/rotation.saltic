@@ -1,0 +1,93 @@
+-- rotation — проверка поворотов против независимого эталона (формула Родрига
+-- в Python, без кватернионов): поворот вектора, сложение двух поворотов,
+-- slerp от «без поворота» до поворота (доля t — поворот на t·угол), матрица.
+-- Плюс свойства: длина вектора сохраняется, q · q* — без поворота, угол.
+--
+-- Probe { turn } — check(row) -> наибольшее отклонение случая от эталона
+--     far(got, want, from) -> наибольшее |got[i] − want[from + i]|
+--     vector(row, from) -> [x, y, z] из трёх чисел строки
+-- program() -> none; TestsFailed
+-- CLOSE — допустимое отклонение
+
+use io
+use core.group
+use core.fraction
+use craft.testing
+use registry.libraries.rotation.rotation
+use registry.libraries.rotation.checks.cases
+
+CLOSE = 0.000000000001
+
+Probe = Box {
+    turn = rotation.Rotation {}
+
+    skill far(got, want, from) {
+        @worst = 0.0
+        drum (group.count(got)) {
+            @gap = turn.part(got, beat) - turn.part(want, from + beat)
+            (gap < 0.0) {
+                gap = 0.0 - gap
+            }
+            (gap > worst) {
+                worst = gap
+            }
+        }
+        out worst
+    }
+
+    skill vector(row, from) {
+        out [turn.part(row, from), turn.part(row, from + 1), turn.part(row, from + 2)]
+    }
+
+    skill check(row) {
+        @kind = group.get(row, 0)
+        (kind == "turn") {
+            @q = turn.around(vector(row, 1), turn.part(row, 4))
+            out far(turn.turned(q, vector(row, 5)), row, 8)
+        }
+        (kind == "compose") {
+            @first = turn.around(vector(row, 1), turn.part(row, 4))
+            @second = turn.around(vector(row, 5), turn.part(row, 8))
+            out far(turn.turned(turn.product(second, first), vector(row, 9)), row, 12)
+        }
+        (kind == "halfway") {
+            @q = turn.blend(rotation.IDENTITY, turn.around(vector(row, 1), turn.part(row, 4)), turn.part(row, 5))
+            out far(turn.turned(q, vector(row, 6)), row, 9)
+        }
+        @m = turn.matrix(turn.around(vector(row, 1), turn.part(row, 4)))
+        @flat = group.concat(group.concat(group.get(m, 0), group.get(m, 1)), group.get(m, 2))
+        out far(flat, row, 5)
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @turn = rotation.Rotation {}
+    @wrong = 0
+    drum (cases.CASES) {
+        @gap = probe.check(beat)
+        (gap > CLOSE) {
+            wrong = wrong + 1
+            @kind = group.get(beat, 0)
+            @shown = fraction.text(gap)
+            io.show("  расхождение {kind}: отклонение {shown}")
+        }
+    }
+    @count = group.count(cases.CASES)
+    io.show("rotation: случаев {count}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "всё как у формулы Родрига в пределах 1e-12", wrong, 0)
+    @quarter = turn.around([0.0, 0.0, 2.0], fraction.PI / 2.0)
+    @turned = turn.turned(quarter, [1.0, 0.0, 0.0])
+    suite = testing.test_yes(suite, "x вокруг z на 90° — это y", probe.far(turned, [0.0, 1.0, 0.0], 0) < CLOSE)
+    @odd = turn.around([1.0, 2.0, 3.0], 1.234)
+    @still = turn.product(odd, turn.conjugate(odd))
+    suite = testing.test_yes(suite, "q · q* — без поворота", probe.far(still, rotation.IDENTITY, 0) < CLOSE)
+    @long = turn.turned(odd, [3.0, -4.0, 12.0])
+    @size = fraction.sqrt(turn.part(long, 0) * turn.part(long, 0) + turn.part(long, 1) * turn.part(long, 1) + turn.part(long, 2) * turn.part(long, 2))
+    suite = testing.test_yes(suite, "длина 13 сохраняется", fraction.near(size, 13.0, CLOSE))
+    suite = testing.test_yes(suite, "угол поворота возвращается", fraction.near(turn.angle_of(odd), 1.234, CLOSE))
+    @ends = turn.blend(odd, quarter, 1.0)
+    suite = testing.test_yes(suite, "slerp при t = 1 — конец", probe.far(ends, quarter, 0) < CLOSE)
+    out testing.test_finish(suite)
+}

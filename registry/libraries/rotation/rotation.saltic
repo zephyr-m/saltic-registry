@@ -1,0 +1,120 @@
+-- rotation — повороты в 3D кватернионами. Кватернион — группа [w, x, y, z]
+-- дробных, вектор — [x, y, z]: группы, чтобы дробные проходили через вызовы
+-- с известным типом. Поворот на угол θ вокруг оси k — [cos θ/2, k · sin θ/2];
+-- сложение поворотов — произведение (сначала b, потом a — product(a, b)).
+-- Только 64-битные цели (у них есть дробные).
+--
+-- Rotation {} — part(a, index) -> дробное; IDENTITY — без поворота
+--     around(axis, angle) -> кватернион поворота на angle радиан вокруг axis
+--     product(a, b) -> поворот «сначала b, потом a»; conjugate(q) -> обратный
+--         поворот единичного q; unit(q) -> q длины 1
+--     turned(q, v) -> вектор v, повёрнутый q (q · v · q*)
+--     matrix(q) -> [[…], […], […]] — матрица 3×3 того же поворота
+--     blend(a, b, t) -> поворот между a (t = 0) и b (t = 1) по кратчайшей дуге (slerp)
+--     angle_of(q) -> угол поворота в радианах, 0 … 2π
+--     mixed(a, b, left, right) -> a · left + b · right покомпонентно;
+--     length_of(q) -> длина кватерниона
+-- SAME — угол между поворотами, ниже которого slerp — прямая смесь (совпали);
+-- угол — 2·atan2(|a − b|, |a + b|): точен и для почти одинаковых поворотов
+
+use core.group
+use core.fraction
+
+IDENTITY = [1.0, 0.0, 0.0, 0.0]
+SAME = 0.000000001
+
+Rotation = Box {
+    skill part(a, index) {
+        out 0.0 + group.get(a, index)
+    }
+
+    skill around(axis, angle) {
+        @x = part(axis, 0)
+        @y = part(axis, 1)
+        @z = part(axis, 2)
+        @length = fraction.sqrt(x * x + y * y + z * z)
+        (length < 0.000000000001) {
+            out IDENTITY
+        }
+        @half = angle / 2.0
+        @s = fraction.sin(half) / length
+        out [fraction.cos(half), x * s, y * s, z * s]
+    }
+
+    skill product(a, b) {
+        @aw = part(a, 0)
+        @ax = part(a, 1)
+        @ay = part(a, 2)
+        @az = part(a, 3)
+        @bw = part(b, 0)
+        @bx = part(b, 1)
+        @by = part(b, 2)
+        @bz = part(b, 3)
+        out [aw * bw - ax * bx - ay * by - az * bz, aw * bx + ax * bw + ay * bz - az * by, aw * by - ax * bz + ay * bw + az * bx, aw * bz + ax * by - ay * bx + az * bw]
+    }
+
+    skill conjugate(q) {
+        out [part(q, 0), 0.0 - part(q, 1), 0.0 - part(q, 2), 0.0 - part(q, 3)]
+    }
+
+    skill unit(q) {
+        @w = part(q, 0)
+        @x = part(q, 1)
+        @y = part(q, 2)
+        @z = part(q, 3)
+        @length = fraction.sqrt(w * w + x * x + y * y + z * z)
+        (length < 0.000000000001) {
+            out IDENTITY
+        }
+        out [w / length, x / length, y / length, z / length]
+    }
+
+    skill turned(q, v) {
+        @pure = [0.0, part(v, 0), part(v, 1), part(v, 2)]
+        @result = product(product(q, pure), conjugate(q))
+        out [part(result, 1), part(result, 2), part(result, 3)]
+    }
+
+    skill matrix(q) {
+        @w = part(q, 0)
+        @x = part(q, 1)
+        @y = part(q, 2)
+        @z = part(q, 3)
+        @first = [1.0 - 2.0 * (y * y + z * z), 2.0 * (x * y - w * z), 2.0 * (x * z + w * y)]
+        @second = [2.0 * (x * y + w * z), 1.0 - 2.0 * (x * x + z * z), 2.0 * (y * z - w * x)]
+        @third = [2.0 * (x * z - w * y), 2.0 * (y * z + w * x), 1.0 - 2.0 * (x * x + y * y)]
+        out [first, second, third]
+    }
+
+    skill blend(a, b, t) {
+        @d = part(a, 0) * part(b, 0) + part(a, 1) * part(b, 1) + part(a, 2) * part(b, 2) + part(a, 3) * part(b, 3)
+        @target = b
+        (d < 0.0) {
+            target = [0.0 - part(b, 0), 0.0 - part(b, 1), 0.0 - part(b, 2), 0.0 - part(b, 3)]
+            d = 0.0 - d
+        }
+        @apart = length_of(mixed(a, target, 1.0, -1.0))
+        @together = length_of(mixed(a, target, 1.0, 1.0))
+        @theta = 2.0 * fraction.atan2(apart, together)
+        (theta < SAME) {
+            out unit(mixed(a, target, 1.0 - t, t))
+        }
+        @base = fraction.sin(theta)
+        out mixed(a, target, fraction.sin((1.0 - t) * theta) / base, fraction.sin(t * theta) / base)
+    }
+
+    skill mixed(a, b, left, right) {
+        out [part(a, 0) * left + part(b, 0) * right, part(a, 1) * left + part(b, 1) * right, part(a, 2) * left + part(b, 2) * right, part(a, 3) * left + part(b, 3) * right]
+    }
+
+    skill length_of(q) {
+        out fraction.sqrt(part(q, 0) * part(q, 0) + part(q, 1) * part(q, 1) + part(q, 2) * part(q, 2) + part(q, 3) * part(q, 3))
+    }
+
+    skill angle_of(q) {
+        @x = part(q, 1)
+        @y = part(q, 2)
+        @z = part(q, 3)
+        out 2.0 * fraction.atan2(fraction.sqrt(x * x + y * y + z * z), part(q, 0))
+    }
+}

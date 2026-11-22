@@ -13,3 +13,4 @@ ink        registry/libraries/ink/ink
 bignum     registry/libraries/bignum/bignum
 ieee754    registry/libraries/ieee754/ieee754
 exponent   registry/libraries/exponent/exponent
+rotation   registry/libraries/rotation/rotation
