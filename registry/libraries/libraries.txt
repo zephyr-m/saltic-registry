@@ -4,3 +4,4 @@
 # (soul/seed) сюда не входит.
 
 uiengine   registry/libraries/uiengine
+graphics   registry/libraries/graphics

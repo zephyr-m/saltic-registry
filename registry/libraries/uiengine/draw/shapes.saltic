@@ -30,7 +30,7 @@
 --     края в скруглении в 1/SUB точки; span — отрезок строки с дробными краями
 
 use core.group
-use os.screen.graphics
+use registry.libraries.graphics
 
 SHADOW_ALPHA = 70
 SUB = 16

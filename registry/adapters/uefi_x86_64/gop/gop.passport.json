@@ -1,0 +1,20 @@
+{
+  "title": "экран UEFI через GOP: открытие, задний буфер с дельтой, блиттер видеокарты",
+  "saltic_version": "в составе Saltic (ветка 22.11.2026)",
+  "author": "Зэф",
+  "role": "adapter",
+  "lifetime": "библиотека адаптеров (живёт с программой)",
+  "deadline": "мягкий: present копирует дельту кадра",
+  "effects": "пишет в видеопамять, зовёт прошивку (LocateProtocol, CopyMem, страницы), командует блиттером видеокарты",
+  "hardware": "любой ПК с UEFI; видеокарта Intel Gen9 — через intel_gpu",
+  "identifiers": "протокол GOP (GUID 9042a9de-23dc-4a38-96fb-7aded080516a)",
+  "own_version": "1",
+  "protocols": "UEFI Graphics Output Protocol, Boot Services CopyMem",
+  "architectures": "x86_64-uefi",
+  "primitives": "открыть экран (середина или весь), холст в памяти, положить холст на экран, задний буфер и показать дельту, залить и скопировать блиттером",
+  "depends_on": "graphics (холст), firmware, intel_gpu",
+  "environment": "только UEFI-программы Acer и ПК с UEFI",
+  "state": "рабочий: на нём программы Acer и агент; переехал из Saltic os/screen/graphics 22.11.2026",
+  "log": "нет: ошибки вызывающему (NoGraphics, MemoryExhausted); present отдаёт строку «строк N, пикселей M»",
+  "filled_by": "агентом по коду, 22.11.2026; автор проверяет"
+}

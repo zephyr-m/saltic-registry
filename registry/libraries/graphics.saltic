@@ -1,0 +1,114 @@
+-- graphics — холст: 32-битные точки в памяти, адрес точки — (y * stride + x) * 4
+-- от memory. Рисует только процессор, о железе и прошивке не знает: холст
+-- открывает тот, кто даёт память (gop на UEFI, Wayland на Linux, поверхность
+-- на Android), а рисуют по нему все одинаково. Ускорение видеокартой — у
+-- того, кто холст открыл (gop.fill для буфера, размеченного для блиттера).
+-- Переехал из Saltic os/screen/graphics 22.11.2026.
+--
+-- Screen — ширина, высота, stride, формат, frame (адрес), memory (для core.mem),
+--     accel — [видеокарта] у буфера, размеченного для её блиттера, иначе [];
+--     vsync — показывать ли кадр по обратному ходу луча (смысл — у gop)
+-- FORMAT_RGB / FORMAT_BGR — порядок каналов; PIXEL_BYTES — байт на точку
+-- color(screen, red, green, blue) -> пиксель
+-- fill(screen, x, y, width, height, value) — прямоугольник, обрезанный по краям холста
+-- blend(screen, x, y, width, height, value, alpha) — то же полупрозрачно: alpha 0…255
+-- mix(under, over, alpha) -> точка: over поверх under, каждый канал отдельно
+-- format_name(screen) -> текст
+
+use core.mem
+use core.num
+use core.usize
+use core.address
+use core.u32
+
+FORMAT_RGB = 0
+FORMAT_BGR = 1
+PIXEL_BYTES = 4
+
+Screen = Box {
+    width = 0,
+    height = 0,
+    stride = 0,
+    format = 0,
+    frame = 0,
+    memory = 0,
+    accel = [],
+    vsync = yes
+}
+
+skill color(screen, red, green, blue) {
+    (screen.format == FORMAT_RGB) { out blue * 65536 + green * 256 + red }
+    out red * 65536 + green * 256 + blue
+}
+
+skill mix(under, over, alpha) {
+    @result = 0
+    @scale = 1
+    drum (3) {
+        @low = under / scale % 256
+        @high = over / scale % 256
+        result = result + (high * alpha + low * (255 - alpha)) / 255 * scale
+        scale = scale * 256
+    }
+    out result
+}
+
+skill blend(screen, x0, y0, width0, height0, value, alpha) {
+    (alpha >= 255) { out fill(screen, x0, y0, width0, height0, value) }
+    (alpha <= 0) { out none }
+    @x = x0
+    @y = y0
+    @width = width0
+    @height = height0
+    (x < 0) {
+        width = width + x
+        x = 0
+    }
+    (y < 0) {
+        height = height + y
+        y = 0
+    }
+    (x + width > screen.width) { width = screen.width - x }
+    (y + height > screen.height) { height = screen.height - y }
+    (width <= 0) { out none }
+    (height <= 0) { out none }
+    drum (height) {
+        @row = ((y + beat) * screen.stride + x) * PIXEL_BYTES
+        drum (width) {
+            @at = usize.from(row + beat * PIXEL_BYTES)
+            @under = num.from(mem.load32(address.from(screen.memory), at))
+            mem.store32(address.from(screen.memory), at, u32.from(mix(under, value, alpha)))
+        }
+    }
+    out none
+}
+
+skill fill(screen, x0, y0, width0, height0, value) {
+    @x = x0
+    @y = y0
+    @width = width0
+    @height = height0
+    (x < 0) {
+        width = width + x
+        x = 0
+    }
+    (y < 0) {
+        height = height + y
+        y = 0
+    }
+    (x + width > screen.width) { width = screen.width - x }
+    (y + height > screen.height) { height = screen.height - y }
+    (width <= 0) { out none }
+    (height <= 0) { out none }
+    drum (height) {
+        @row = ((y + beat) * screen.stride + x) * PIXEL_BYTES
+        drum (width) { mem.store32(address.from(screen.memory), usize.from(row + beat * PIXEL_BYTES), u32.from(value)) }
+    }
+    out none
+}
+
+skill format_name(screen) {
+    (screen.format == FORMAT_RGB) { out "RGB" }
+    (screen.format == FORMAT_BGR) { out "BGR" }
+    out "особый ({screen.format})"
+}
