@@ -7,7 +7,7 @@
 -- palette(screen) -> atoms.Palette
 
 use registry.libraries.uiengine.themes.light
-use registry.libraries.graphics
+use registry.libraries.graphics.graphics
 
 skill palette(screen) {
     @cream = light.palette(screen)

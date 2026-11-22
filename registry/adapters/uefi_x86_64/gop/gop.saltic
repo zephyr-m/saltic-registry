@@ -33,7 +33,7 @@ use core.group
 use core.num
 use core.usize
 use core.address
-use registry.libraries.graphics
+use registry.libraries.graphics.graphics
 use registry.adapters.uefi_x86_64.firmware.firmware
 use registry.adapters.uefi_x86_64.firmware.firmware.uefi
 use registry.adapters.uefi_x86_64.intel_gpu.intel_gpu

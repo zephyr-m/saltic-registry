@@ -36,7 +36,7 @@ use os.icons
 use os.fonts.raster
 use registry.adapters.uefi_x86_64.firmware.firmware
 use registry.adapters.uefi_x86_64.firmware.firmware.uefi
-use registry.libraries.graphics
+use registry.libraries.graphics.graphics
 use os.target.uefi_x86_64.agent.programs
 
 LIMIT = 524288
