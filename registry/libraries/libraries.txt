@@ -19,3 +19,4 @@ linear     registry/libraries/linear/linear
 signal     registry/libraries/signal/signal
 sha256     registry/libraries/sha256/sha256
 chacha     registry/libraries/chacha/chacha
+x25519     registry/libraries/x25519/x25519

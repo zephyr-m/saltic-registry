@@ -1,0 +1,80 @@
+-- x25519 — проверка обмена ключами против OpenSSL (cases.saltic, делает
+-- workbench/references/x25519.py): для каждой пары — открытые ключи обоих и
+-- общий секрет с обеих сторон (должны совпасть); первая пара — Алиса и Боб
+-- из RFC 7748. Плюс нулевой открытый ключ — WeakKey.
+--
+-- Probe { curve } — from_hex(text) -> core.bytes; hex(buffer) -> текст
+--     check(row) -> yes, если пара сошлась
+-- program() -> none; TestsFailed
+-- HEX — цифры
+
+use io
+use core.str
+use core.num
+use core.bytes
+use core.group
+use craft.testing
+use registry.libraries.x25519.x25519
+use registry.libraries.x25519.checks.cases
+
+HEX = "0123456789abcdef"
+
+Probe = Box {
+    curve = x25519.X25519 {}
+
+    skill from_hex(text) {
+        @made = bytes.new(str.bytes(text) / 2)
+        drum (bytes.count(made)) {
+            bytes.set(made, beat, num.hex_value(str.get(text, beat * 2)) * 16 + num.hex_value(str.get(text, beat * 2 + 1)))
+        }
+        out made
+    }
+
+    skill hex(buffer) {
+        @parts = []
+        drum (bytes.count(buffer)) {
+            @value = bytes.get(buffer, beat)
+            parts = group.add(parts, str.slice(HEX, value / 16, value / 16 + 1))
+            parts = group.add(parts, str.slice(HEX, value % 16, value % 16 + 1))
+        }
+        out str.join(parts, "")
+    }
+
+    skill check(row) {
+        @a = from_hex(group.get(row, 0))
+        @b = from_hex(group.get(row, 2))
+        ((hex(curve.public_of(a)) == group.get(row, 1)) == no) {
+            out no
+        }
+        ((hex(curve.public_of(b)) == group.get(row, 3)) == no) {
+            out no
+        }
+        ((hex(curve.shared(a, from_hex(group.get(row, 3)))) == group.get(row, 4)) == no) {
+            out no
+        }
+        out (hex(curve.shared(b, from_hex(group.get(row, 1)))) == group.get(row, 4))
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @curve = x25519.X25519 {}
+    @wrong = 0
+    drum (cases.CASES) {
+        (probe.check(beat) == no) {
+            wrong = wrong + 1
+            @secret = group.get(beat, 0)
+            io.show("  расхождение: секрет {secret}")
+        }
+    }
+    @count = group.count(cases.CASES)
+    io.show("x25519: пар {count}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "как у OpenSSL, обе стороны сходятся", wrong, 0)
+    @weak = "нет"
+    curve.shared(probe.from_hex(group.get(group.get(cases.CASES, 0), 0)), bytes.new(32)) rescue |err| {
+        weak = "{err}"
+    }
+    suite = testing.test_equal(suite, "нулевой открытый ключ — WeakKey", weak, "WeakKey")
+    out testing.test_finish(suite)
+}
