@@ -1,0 +1,202 @@
+-- graph — графы и кратчайшие пути. Граф — список рёбер [откуда, куда, вес]
+-- над вершинами 0 … n − 1; веса — целые ≥ 0. Дейкстра — с двоичной кучей,
+-- A* — с подсказкой оценки до цели (обычно расстояние на сетке), обход в
+-- ширину — без весов. Путь — группа вершин от начала до цели.
+--
+-- Graph { size, edges, near } — near — списки соседей [[куда, вес], …] по
+--     вершинам, строит linked()
+--     made(size, edges, directed) -> Graph; directed no — ребро в обе стороны
+--     distances(start) -> расстояния до всех (FAR — недостижима)
+--     path(start, goal) -> [длина, путь]; NoPath, если цель недостижима
+--     guided(start, goal, guess) -> [длина, путь] A*; guess — группа
+--         оценок до цели по вершинам (не больше настоящего расстояния)
+--     levels(start) -> число рёбер до каждой вершины (обход в ширину)
+--     linked() / walk(start, goal, guess) / back(previous, goal) — внутри
+--     push(heap, item) / pop(heap) -> [наименьший, куча] — двоичная куча
+--     пар [ключ, вершина]
+-- FAR — «недостижима»
+
+use core.group
+
+FAR = 1000000000000
+
+Graph = Box {
+    size = 0,
+    edges = [],
+    near = []
+
+    skill linked() {
+        @lists = []
+        drum (size) {
+            lists = group.add(lists, [])
+        }
+        drum (edges) {
+            @from = group.get(beat, 0)
+            lists = group.replaced(lists, from, group.add(group.get(lists, from), [group.get(beat, 1), group.get(beat, 2)]))
+        }
+        out lists
+    }
+
+    skill made(count, list, directed) {
+        @all = list
+        (directed == no) {
+            drum (list) {
+                all = group.add(all, [group.get(beat, 1), group.get(beat, 0), group.get(beat, 2)])
+            }
+        }
+        @shaped = Graph {
+            size = count,
+            edges = all
+        }
+        shaped.near = shaped.linked()
+        out shaped
+    }
+
+    skill push(heap, item) {
+        @result = group.add(heap, item)
+        @at = group.count(result) - 1
+        drum (64) {
+            (at == 0) {
+                leave
+            }
+            @parent = (at - 1) / 2
+            ((group.get(group.get(result, at), 0) < group.get(group.get(result, parent), 0)) == no) {
+                leave
+            }
+            @kept = group.get(result, at)
+            result = group.replaced(result, at, group.get(result, parent))
+            result = group.replaced(result, parent, kept)
+            at = parent
+        }
+        out result
+    }
+
+    skill pop(heap) {
+        @top = group.get(heap, 0)
+        @last = group.count(heap) - 1
+        @result = group.slice(group.replaced(heap, 0, group.get(heap, last)), 0, last)
+        @at = 0
+        drum (last) {
+            @left = at * 2 + 1
+            @right = left + 1
+            @least = at
+            (left < last) {
+                (group.get(group.get(result, left), 0) < group.get(group.get(result, least), 0)) {
+                    least = left
+                }
+            }
+            (right < last) {
+                (group.get(group.get(result, right), 0) < group.get(group.get(result, least), 0)) {
+                    least = right
+                }
+            }
+            (least == at) {
+                leave
+            }
+            @kept = group.get(result, at)
+            result = group.replaced(result, at, group.get(result, least))
+            result = group.replaced(result, least, kept)
+            at = least
+        }
+        out [top, result]
+    }
+
+    skill walk(start, goal, guess) {
+        @best = []
+        @previous = []
+        drum (size) {
+            best = group.add(best, FAR)
+            previous = group.add(previous, -1)
+        }
+        best = group.replaced(best, start, 0)
+        @heap = [[group.get(guess, start), start]]
+        drum (size * size + group.count(edges) + 1) {
+            (group.count(heap) == 0) {
+                leave
+            }
+            @taken = pop(heap)
+            heap = group.get(taken, 1)
+            @vertex = group.get(group.get(taken, 0), 1)
+            @key = group.get(group.get(taken, 0), 0)
+            ((key - group.get(guess, vertex)) <= group.get(best, vertex)) {
+                (vertex == goal) {
+                    leave
+                }
+                drum (group.get(near, vertex)) {
+                    @to = group.get(beat, 0)
+                    @length = group.get(best, vertex) + group.get(beat, 1)
+                    (length < group.get(best, to)) {
+                        best = group.replaced(best, to, length)
+                        previous = group.replaced(previous, to, vertex)
+                        heap = push(heap, [length + group.get(guess, to), to])
+                    }
+                }
+            }
+        }
+        out [best, previous]
+    }
+
+    skill distances(start) {
+        @zero = []
+        drum (size) {
+            zero = group.add(zero, 0)
+        }
+        out group.get(walk(start, -1, zero), 0)
+    }
+
+    skill back(previous, goal) {
+        @route = [goal]
+        @at = goal
+        drum (size) {
+            @before = group.get(previous, at)
+            (before < 0) {
+                leave
+            }
+            route = group.concat([before], route)
+            at = before
+        }
+        out route
+    }
+
+    skill guided(start, goal, guess) {
+        @found = walk(start, goal, guess)
+        @length = group.get(group.get(found, 0), goal)
+        (length == FAR) {
+            out error.NoPath
+        }
+        out [length, back(group.get(found, 1), goal)]
+    }
+
+    skill path(start, goal) {
+        @zero = []
+        drum (size) {
+            zero = group.add(zero, 0)
+        }
+        out guided(start, goal, zero)
+    }
+
+    skill levels(start) {
+        @depth = []
+        drum (size) {
+            depth = group.add(depth, -1)
+        }
+        depth = group.replaced(depth, start, 0)
+        @queue = [start]
+        @head = 0
+        drum (size) {
+            (head >= group.count(queue)) {
+                leave
+            }
+            @vertex = group.get(queue, head)
+            head = head + 1
+            drum (group.get(near, vertex)) {
+                @to = group.get(beat, 0)
+                (group.get(depth, to) < 0) {
+                    depth = group.replaced(depth, to, group.get(depth, vertex) + 1)
+                    queue = group.add(queue, to)
+                }
+            }
+        }
+        out depth
+    }
+}

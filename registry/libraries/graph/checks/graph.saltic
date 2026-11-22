@@ -1,0 +1,125 @@
+-- graph — проверка путей: расстояния Дейкстры против Беллмана — Форда
+-- (cases.saltic, делает workbench/references/graph.py), уровни — против
+-- обхода в ширину; каждый найденный путь — настоящий: рёбра существуют, сумма
+-- весов равна длине; A* на сетке 12×12 с препятствиями и манхэттенской
+-- подсказкой находит ту же длину, что Дейкстра; недостижимая цель — NoPath.
+--
+-- Probe { maker } — check(row) -> "" или что разошлось
+--     honest(shape, route, length) -> yes, если путь настоящий
+--     grid() -> [граф сетки, подсказки до угла]
+-- program() -> none; TestsFailed
+-- SIDE — сторона сетки
+
+use io
+use core.group
+use craft.testing
+use registry.libraries.graph.graph
+use registry.libraries.graph.checks.cases
+
+SIDE = 12
+
+Probe = Box {
+    maker = graph.Graph {}
+
+    skill honest(shape, route, length) {
+        @sum = 0
+        drum (group.count(route) - 1) {
+            @from = group.get(route, beat)
+            @to = group.get(route, beat + 1)
+            @step = -1
+            drum (group.get(shape.near, from)) {
+                (group.get(beat, 0) == to) {
+                    ((step < 0) ○○ (group.get(beat, 1) < step)) {
+                        step = group.get(beat, 1)
+                    }
+                }
+            }
+            (step < 0) {
+                out no
+            }
+            sum = sum + step
+        }
+        out (sum == length)
+    }
+
+    skill check(row) {
+        @n = group.get(row, 0)
+        @m = group.get(row, 2)
+        @edges = []
+        drum (m) {
+            edges = group.add(edges, [group.get(row, 3 + beat * 3), group.get(row, 4 + beat * 3), group.get(row, 5 + beat * 3)])
+        }
+        @at = 3 + m * 3
+        @start = group.get(row, at)
+        @shape = maker.made(n, edges, group.get(row, 1) == 1)
+        @found = shape.distances(start)
+        @depth = shape.levels(start)
+        drum (n) {
+            ((group.get(found, beat) == group.get(row, at + 1 + beat)) == no) {
+                out "расстояние"
+            }
+            ((group.get(depth, beat) == group.get(row, at + 1 + n + beat)) == no) {
+                out "уровень"
+            }
+            ((group.get(found, beat) < graph.FAR) ○ ((beat == start) == no)) {
+                @answer = shape.path(start, beat)
+                (honest(shape, group.get(answer, 1), group.get(answer, 0)) == no) {
+                    out "путь"
+                }
+            }
+        }
+        out ""
+    }
+
+    skill grid() {
+        @edges = []
+        @guess = []
+        drum (SIDE * SIDE) {
+            @x = beat % SIDE
+            @y = beat / SIDE
+            @wall = (((x == 5) ○ (y < 9)) ○○ ((y == 3) ○ (x > 6)))
+            guess = group.add(guess, (SIDE - 1 - x) + (SIDE - 1 - y))
+            (wall == no) {
+                (x < (SIDE - 1)) {
+                    edges = group.add(edges, [beat, beat + 1, 1])
+                }
+                (y < (SIDE - 1)) {
+                    edges = group.add(edges, [beat, beat + SIDE, 1])
+                }
+            }
+        }
+        out [maker.made(SIDE * SIDE, edges, no), guess]
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @wrong = 0
+    drum (cases.CASES) {
+        @broken = probe.check(beat)
+        ((broken == "") == no) {
+            wrong = wrong + 1
+            @n = group.get(beat, 0)
+            io.show("  расхождение: {broken} на графе {n}")
+        }
+    }
+    @count = group.count(cases.CASES)
+    io.show("graph: графов {count}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "Дейкстра как Беллман — Форд, уровни как обход, пути настоящие", wrong, 0)
+    @made = probe.grid()
+    @shape = group.get(made, 0)
+    @corner = SIDE * SIDE - 1
+    @plain = shape.path(0, corner)
+    @smart = shape.guided(0, corner, group.get(made, 1))
+    suite = testing.test_equal(suite, "A* на сетке — та же длина, что Дейкстра", group.get(smart, 0), group.get(plain, 0))
+    suite = testing.test_yes(suite, "путь A* настоящий", probe.honest(shape, group.get(smart, 1), group.get(smart, 0)))
+    @maker = graph.Graph {}
+    @lonely = maker.made(3, [[0, 1, 5]], yes)
+    @missing = "нет"
+    lonely.path(0, 2) rescue |err| {
+        missing = "{err}"
+    }
+    suite = testing.test_equal(suite, "недостижимая цель — NoPath", missing, "NoPath")
+    out testing.test_finish(suite)
+}
