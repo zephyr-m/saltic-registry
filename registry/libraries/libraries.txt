@@ -9,3 +9,4 @@ fonts      registry/libraries/fonts/fonts
 icons      registry/libraries/icons/icons
 input      registry/libraries/input/input
 lettering  registry/libraries/lettering/lettering
+ink        registry/libraries/ink/ink

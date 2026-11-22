@@ -10,7 +10,7 @@
 -- draw(screen, x, y, width, level, least, most, focused) — рисунок; в фокусе —
 --     рамка вокруг
 
-use os.drivers.graphics
+use registry.libraries.ink.graphics
 
 HEIGHT = 24
 TRACK = 4

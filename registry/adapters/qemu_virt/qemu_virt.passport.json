@@ -1,0 +1,20 @@
+{
+  "title": "драйвера платы QEMU virt: virtio, fw_cfg, ramfb, клавиатура, мышь, звук, таймер, UART",
+  "saltic_version": "в составе Saltic (ветка 22.11.2026)",
+  "author": "Зэф",
+  "role": "adapter",
+  "lifetime": "служба (живёт с программой)",
+  "deadline": "мягкий: опрос без прерываний",
+  "effects": "пишет в железо: регистры MMIO virtio, fw_cfg, CLINT, UART 16550; буфер кадра ramfb",
+  "hardware": "QEMU virt (RV32I)",
+  "identifiers": "virtio-mmio 0x10001000…, fw_cfg 0x10100000, UART 0x10000000, CLINT mtime",
+  "own_version": "1",
+  "protocols": "virtio 1.0 по MMIO, QEMU fw_cfg, ramfb",
+  "architectures": "rv32i (qemu-virt)",
+  "primitives": "найти устройство virtio, кадровый буфер и экран ink, клавиша и указатель, звук 48 кГц, время, вывод и ввод UART",
+  "depends_on": "ink (graphics), input (keymap_us)",
+  "environment": "голое железо qemu-virt без ОС",
+  "state": "рабочий: на нём стол qemu-virt и его игры; переехал из Saltic os/drivers 22.11.2026",
+  "log": "нет: через UART программы",
+  "filled_by": "агентом по коду, 22.11.2026; автор проверяет"
+}

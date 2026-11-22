@@ -1,0 +1,4 @@
+-- qemu_virt — драйвера платы QEMU virt (RV32I): шина virtio по MMIO
+-- (virtio_mmio), клавиатура и мышь virtio-input (keyboard, pointer), звук
+-- virtio-sound (sound), fw_cfg и кадровый буфер ramfb (fw_cfg, framebuffer —
+-- open_screen даёт экран ink), счётчик времени CLINT (timer), UART 16550 (uart).

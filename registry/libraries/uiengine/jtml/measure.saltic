@@ -13,8 +13,8 @@
 --     свой размер у start, center или end
 
 use core.group
-use os.drivers.font
-use os.drivers.text_field
+use registry.libraries.ink.font
+use registry.libraries.ink.text_field
 use registry.libraries.uiengine.jtml.atom
 use registry.libraries.uiengine.jtml.slider
 

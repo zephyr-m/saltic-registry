@@ -70,7 +70,7 @@ use registry.libraries.graphics.graphics
 use registry.libraries.lettering.lettering
 use registry.libraries.uiengine.draw.typeface
 use registry.libraries.uiengine.draw.shapes
-use os.drivers.text_field
+use registry.libraries.ink.text_field
 use registry.libraries.uiengine.jtml
 use registry.libraries.uiengine.jtml.atom
 use registry.libraries.uiengine.jtml.slider

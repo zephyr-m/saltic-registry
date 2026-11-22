@@ -33,9 +33,9 @@
 
 use core.str
 use core.group
-use os.drivers.graphics
-use os.drivers.font
-use os.drivers.text_field
+use registry.libraries.ink.graphics
+use registry.libraries.ink.font
+use registry.libraries.ink.text_field
 use registry.libraries.uiengine.jtml.atom
 use registry.libraries.uiengine.jtml.slider
 use registry.libraries.uiengine.jtml.measure
