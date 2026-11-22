@@ -1,0 +1,200 @@
+-- linear — проверка разложений: определитель и решение A·x = b против точных
+-- дробей Python (cases.saltic, делает make.py), и свойства на каждой матрице:
+-- L·U = P·A, A·A⁻¹ = I, Q·R = A и QᵀQ = I, U·diag(σ)·Vᵀ = A и VᵀV = I,
+-- σ по убыванию; прямоугольная 5×3 — для QR и SVD; ошибки.
+--
+-- Probe { line } — close(a, b) -> |a − b| ≤ CLOSE · max(1, |a|, |b|)
+--     same(a, b) -> yes, если матрицы равны поэлементно (close)
+--     square(row) -> matrix.Matrix n×n из случая; right(row) -> группа b
+--     times(a, b) -> a·b; diagonal(values, n) -> diag; permuted(a, order) -> P·A
+--     decomposes(a) / singular_ok(a) -> "" или имя нарушенного свойства
+-- program() -> none; TestsFailed
+-- CLOSE — допуск
+
+use io
+use core.group
+use core.matrix
+use core.fraction
+use craft.testing
+use registry.libraries.linear.linear
+use registry.libraries.linear.checks.cases
+
+CLOSE = 0.000000001
+
+Probe = Box {
+    line = linear.Linear {}
+
+    skill close(a, b) {
+        @gap = a - b
+        (gap < 0.0) {
+            gap = 0.0 - gap
+        }
+        @scale = 1.0
+        @left = a
+        (left < 0.0) {
+            left = 0.0 - left
+        }
+        @right = b
+        (right < 0.0) {
+            right = 0.0 - right
+        }
+        (left > scale) {
+            scale = left
+        }
+        (right > scale) {
+            scale = right
+        }
+        out ((gap > (CLOSE * scale)) == no)
+    }
+
+    skill same(a, b) {
+        drum (matrix.rows(a)) {
+            @r = beat
+            drum (matrix.columns(a)) {
+                (close(line.cell(a, r, beat), line.cell(b, r, beat)) == no) {
+                    out no
+                }
+            }
+        }
+        out yes
+    }
+
+    skill square(row) {
+        @n = group.get(row, 0)
+        @made = matrix.new(n, n)
+        drum (n * n) {
+            matrix.set(made, beat / n, beat % n, line.item(row, 1 + beat))
+        }
+        out made
+    }
+
+    skill right(row) {
+        @n = group.get(row, 0)
+        @b = []
+        drum (n) {
+            b = group.add(b, line.item(row, 1 + n * n + beat))
+        }
+        out b
+    }
+
+    skill times(a, b) {
+        out matrix.multiply(a, b)
+    }
+
+    skill diagonal(values, n) {
+        @made = matrix.new(n, n)
+        drum (n) {
+            matrix.set(made, beat, beat, line.item(values, beat))
+        }
+        out made
+    }
+
+    skill permuted(a, order) {
+        @made = matrix.new(matrix.rows(a), matrix.columns(a))
+        drum (matrix.rows(a)) {
+            @r = beat
+            drum (matrix.columns(a)) {
+                matrix.set(made, r, beat, line.cell(a, group.get(order, r), beat))
+            }
+        }
+        out made
+    }
+
+    skill decomposes(a) {
+        @n = matrix.rows(a)
+        @parts = line.factor(a)
+        (same(times(group.get(parts, 0), group.get(parts, 1)), permuted(a, group.get(parts, 2))) == no) {
+            out "L·U"
+        }
+        (same(times(a, line.inverse(a)), line.identity(n)) == no) {
+            out "A·A⁻¹"
+        }
+        @split = line.qr(a)
+        @q = group.get(split, 0)
+        (same(times(q, group.get(split, 1)), a) == no) {
+            out "Q·R"
+        }
+        (same(times(matrix.transpose(q), q), line.identity(n)) == no) {
+            out "QᵀQ"
+        }
+        out singular_ok(a)
+    }
+
+    skill singular_ok(a) {
+        @n = matrix.columns(a)
+        @parts = line.svd(a)
+        @u = group.get(parts, 0)
+        @values = group.get(parts, 1)
+        @v = group.get(parts, 2)
+        (same(times(times(u, diagonal(values, n)), matrix.transpose(v)), a) == no) {
+            out "U·Σ·Vᵀ"
+        }
+        (same(times(matrix.transpose(v), v), line.identity(n)) == no) {
+            out "VᵀV"
+        }
+        drum (n - 1) {
+            (line.item(values, beat) < line.item(values, beat + 1)) {
+                out "σ по убыванию"
+            }
+        }
+        out ""
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @line = linear.Linear {}
+    @wrong = 0
+    drum (cases.CASES) {
+        @row = beat
+        @n = group.get(row, 0)
+        @a = probe.square(row)
+        @det = line.determinant(a)
+        @want = line.item(row, 1 + n * n + n)
+        (probe.close(det, want) == no) {
+            wrong = wrong + 1
+            @shown = fraction.text(det)
+            io.show("  определитель {n}×{n}: у нас {shown}")
+        }
+        @x = line.solve(a, probe.right(row))
+        drum (n) {
+            (probe.close(line.item(x, beat), line.item(row, 2 + n * n + n + beat)) == no) {
+                wrong = wrong + 1
+                io.show("  решение {n}×{n}: x{beat} не сошёлся")
+            }
+        }
+        @broken = probe.decomposes(a)
+        ((broken == "") == no) {
+            wrong = wrong + 1
+            io.show("  свойство {broken} нарушено на {n}×{n}")
+        }
+    }
+    @count = group.count(cases.CASES)
+    io.show("linear: систем {count}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "определители, решения и свойства", wrong, 0)
+    @tall = matrix.new(5, 3)
+    drum (15) {
+        matrix.set(tall, beat / 3, beat % 3, fraction.from((beat * 7) % 11 - 5) + 0.25)
+    }
+    @split = line.qr(tall)
+    suite = testing.test_yes(suite, "QR 5×3: Q·R = A", probe.same(probe.times(group.get(split, 0), group.get(split, 1)), tall))
+    suite = testing.test_equal(suite, "SVD 5×3: свойства", probe.singular_ok(tall), "")
+    @flat = matrix.new(2, 2)
+    matrix.set(flat, 0, 0, 1.0)
+    matrix.set(flat, 0, 1, 2.0)
+    matrix.set(flat, 1, 0, 2.0)
+    matrix.set(flat, 1, 1, 4.0)
+    suite = testing.test_yes(suite, "вырожденная: определитель 0", probe.close(line.determinant(flat), 0.0))
+    @failed = "нет"
+    line.solve(flat, [1.0, 1.0]) rescue |err| {
+        failed = "{err}"
+    }
+    suite = testing.test_equal(suite, "вырожденная: решения нет", failed, "Singular")
+    @shape = "нет"
+    line.factor(tall) rescue |err| {
+        shape = "{err}"
+    }
+    suite = testing.test_equal(suite, "LU не квадратной — ошибка", shape, "MatrixShape")
+    out testing.test_finish(suite)
+}

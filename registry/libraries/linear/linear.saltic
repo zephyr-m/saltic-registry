@@ -1,0 +1,370 @@
+-- linear — разложения матриц на core.matrix: LU с выбором ведущего элемента
+-- (определитель, решение системы, обратная), QR отражениями Хаусхолдера,
+-- SVD односторонним вращением Якоби. Стоит на core.matrix — когда в ядро
+-- придёт векторный шаг (SSE/AVX, RVV), ускорится без переписывания.
+-- Вектор — группа дробных. Только 64-битные цели.
+--
+-- Linear {} — копия и единичная: copy(m), identity(n) -> matrix.Matrix
+--     factor(a) -> [L, U, порядок строк, знак перестановки, вырождена ли]
+--     determinant(a) -> дробное; solve(a, b) -> x из A·x = b; inverse(a)
+--     qr(a) -> [Q, R]: A = Q·R, Q ортогональна (m×m), R верхняя (m×n), m ≥ n
+--     svd(a) -> [U, σ, V]: A = U·diag(σ)·Vᵀ, σ по убыванию, m ≥ n
+--     cell(m, r, c) -> дробное; item(v, i) -> дробное из группы
+--     swap_rows / swap_columns(m, a, b), column_norm(m, c), rotate(m, p, q, c, s) —
+--         внутри
+-- Singular — вырожденная; MatrixShape — не та форма
+-- TINY — ноль для ведущего элемента; SWEEPS — предел проходов Якоби; QUIET —
+-- когда столбцы считаются ортогональными
+
+use core.group
+use core.matrix
+use core.fraction
+
+TINY = 0.000000000001
+SWEEPS = 60
+QUIET = 0.000000000000001
+
+Linear = Box {
+    skill cell(m, r, c) {
+        out 0.0 + matrix.get(m, r, c)
+    }
+
+    skill item(v, i) {
+        out 0.0 + group.get(v, i)
+    }
+
+    skill copy(m) {
+        @made = matrix.new(matrix.rows(m), matrix.columns(m))
+        drum (matrix.rows(m)) {
+            @r = beat
+            drum (matrix.columns(m)) {
+                matrix.set(made, r, beat, cell(m, r, beat))
+            }
+        }
+        out made
+    }
+
+    skill identity(n) {
+        @made = matrix.new(n, n)
+        drum (n) {
+            matrix.set(made, beat, beat, 1.0)
+        }
+        out made
+    }
+
+    skill swap_rows(m, a, b) {
+        drum (matrix.columns(m)) {
+            @kept = cell(m, a, beat)
+            matrix.set(m, a, beat, cell(m, b, beat))
+            matrix.set(m, b, beat, kept)
+        }
+        out none
+    }
+
+    skill factor(a) {
+        @n = matrix.rows(a)
+        ((matrix.columns(a) == n) == no) {
+            out error.MatrixShape
+        }
+        @work = copy(a)
+        @order = []
+        drum (n) {
+            order = group.add(order, beat)
+        }
+        @sign = 1.0
+        @singular = no
+        drum (n) {
+            @k = beat
+            @best = k
+            @size = cell(work, k, k)
+            (size < 0.0) {
+                size = 0.0 - size
+            }
+            drum (n - k - 1) {
+                @i = k + 1 + beat
+                @other = cell(work, i, k)
+                (other < 0.0) {
+                    other = 0.0 - other
+                }
+                (other > size) {
+                    size = other
+                    best = i
+                }
+            }
+            (size < TINY) {
+                singular = yes
+            }
+            ((best == k) == no) {
+                swap_rows(work, k, best)
+                @moved = group.get(order, k)
+                order = group.replaced(order, k, group.get(order, best))
+                order = group.replaced(order, best, moved)
+                sign = 0.0 - sign
+            }
+            ((size < TINY) == no) {
+                drum (n - k - 1) {
+                    @i = k + 1 + beat
+                    @ratio = cell(work, i, k) / cell(work, k, k)
+                    matrix.set(work, i, k, ratio)
+                    drum (n - k - 1) {
+                        @j = k + 1 + beat
+                        matrix.set(work, i, j, cell(work, i, j) - ratio * cell(work, k, j))
+                    }
+                }
+            }
+        }
+        @lower = identity(n)
+        @upper = matrix.new(n, n)
+        drum (n) {
+            @r = beat
+            drum (n) {
+                pick {
+                    (beat < r) {
+                        matrix.set(lower, r, beat, cell(work, r, beat))
+                    }
+                    {
+                        matrix.set(upper, r, beat, cell(work, r, beat))
+                    }
+                }
+            }
+        }
+        out [lower, upper, order, sign, singular]
+    }
+
+    skill determinant(a) {
+        @parts = factor(a)
+        (group.get(parts, 4) == yes) {
+            out 0.0
+        }
+        @upper = group.get(parts, 1)
+        @result = item(parts, 3)
+        drum (matrix.rows(upper)) {
+            result = result * cell(upper, beat, beat)
+        }
+        out result
+    }
+
+    skill solve(a, b) {
+        @parts = factor(a)
+        (group.get(parts, 4) == yes) {
+            out error.Singular
+        }
+        @lower = group.get(parts, 0)
+        @upper = group.get(parts, 1)
+        @order = group.get(parts, 2)
+        @n = matrix.rows(a)
+        @y = []
+        drum (n) {
+            @i = beat
+            @value = item(b, group.get(order, i))
+            drum (i) {
+                value = value - cell(lower, i, beat) * item(y, beat)
+            }
+            y = group.add(y, value)
+        }
+        @x = y
+        drum (n) {
+            @i = n - 1 - beat
+            @value = item(y, i)
+            drum (n - i - 1) {
+                @j = i + 1 + beat
+                value = value - cell(upper, i, j) * item(x, j)
+            }
+            x = group.replaced(x, i, value / cell(upper, i, i))
+        }
+        out x
+    }
+
+    skill inverse(a) {
+        @n = matrix.rows(a)
+        @made = matrix.new(n, n)
+        drum (n) {
+            @c = beat
+            @unit = []
+            drum (n) {
+                pick {
+                    (beat == c) {
+                        unit = group.add(unit, 1.0)
+                    }
+                    {
+                        unit = group.add(unit, 0.0)
+                    }
+                }
+            }
+            @column = solve(a, unit)
+            drum (n) {
+                matrix.set(made, beat, c, item(column, beat))
+            }
+        }
+        out made
+    }
+
+    skill qr(a) {
+        @m = matrix.rows(a)
+        @n = matrix.columns(a)
+        (m < n) {
+            out error.MatrixShape
+        }
+        @r = copy(a)
+        @q = identity(m)
+        drum (n) {
+            @k = beat
+            @norm = 0.0
+            drum (m - k) {
+                @value = cell(r, k + beat, k)
+                norm = norm + value * value
+            }
+            norm = fraction.sqrt(norm)
+            (norm > TINY) {
+                @alpha = 0.0 - norm
+                (cell(r, k, k) < 0.0) {
+                    alpha = norm
+                }
+                @v = []
+                drum (m - k) {
+                    v = group.add(v, cell(r, k + beat, k))
+                }
+                v = group.replaced(v, 0, item(v, 0) - alpha)
+                @length = 0.0
+                drum (m - k) {
+                    length = length + item(v, beat) * item(v, beat)
+                }
+                length = fraction.sqrt(length)
+                (length > TINY) {
+                    @u = []
+                    drum (m - k) {
+                        u = group.add(u, item(v, beat) / length)
+                    }
+                    drum (n - k) {
+                        @c = k + beat
+                        @dot = 0.0
+                        drum (m - k) {
+                            dot = dot + item(u, beat) * cell(r, k + beat, c)
+                        }
+                        drum (m - k) {
+                            matrix.set(r, k + beat, c, cell(r, k + beat, c) - 2.0 * item(u, beat) * dot)
+                        }
+                    }
+                    drum (m) {
+                        @row = beat
+                        @dot = 0.0
+                        drum (m - k) {
+                            dot = dot + cell(q, row, k + beat) * item(u, beat)
+                        }
+                        drum (m - k) {
+                            matrix.set(q, row, k + beat, cell(q, row, k + beat) - 2.0 * dot * item(u, beat))
+                        }
+                    }
+                }
+            }
+        }
+        out [q, r]
+    }
+
+    skill column_norm(m, c) {
+        @sum = 0.0
+        drum (matrix.rows(m)) {
+            sum = sum + cell(m, beat, c) * cell(m, beat, c)
+        }
+        out fraction.sqrt(sum)
+    }
+
+    skill rotate(m, p, q, c, s) {
+        drum (matrix.rows(m)) {
+            @left = cell(m, beat, p)
+            @right = cell(m, beat, q)
+            matrix.set(m, beat, p, c * left - s * right)
+            matrix.set(m, beat, q, s * left + c * right)
+        }
+        out none
+    }
+
+    skill svd(a) {
+        @m = matrix.rows(a)
+        @n = matrix.columns(a)
+        (m < n) {
+            out error.MatrixShape
+        }
+        @u = copy(a)
+        @v = identity(n)
+        drum (SWEEPS) {
+            @turned = 0
+            drum (n) {
+                @p = beat
+                drum (n - p - 1) {
+                    @q = p + 1 + beat
+                    @alpha = 0.0
+                    @beta = 0.0
+                    @gamma = 0.0
+                    drum (m) {
+                        @x = cell(u, beat, p)
+                        @y = cell(u, beat, q)
+                        alpha = alpha + x * x
+                        beta = beta + y * y
+                        gamma = gamma + x * y
+                    }
+                    @limit = QUIET * fraction.sqrt(alpha * beta)
+                    ((gamma > limit) ○○ (gamma < (0.0 - limit))) {
+                        @zeta = (beta - alpha) / (2.0 * gamma)
+                        @width = zeta
+                        (width < 0.0) {
+                            width = 0.0 - width
+                        }
+                        @t = 1.0 / (width + fraction.sqrt(1.0 + zeta * zeta))
+                        (zeta < 0.0) {
+                            t = 0.0 - t
+                        }
+                        @c = 1.0 / fraction.sqrt(1.0 + t * t)
+                        @s = c * t
+                        rotate(u, p, q, c, s)
+                        rotate(v, p, q, c, s)
+                        turned = turned + 1
+                    }
+                }
+            }
+            (turned == 0) {
+                leave
+            }
+        }
+        @values = []
+        drum (n) {
+            values = group.add(values, column_norm(u, beat))
+        }
+        drum (n) {
+            @c = beat
+            @size = item(values, c)
+            (size > TINY) {
+                drum (m) {
+                    matrix.set(u, beat, c, cell(u, beat, c) / size)
+                }
+            }
+        }
+        drum (n) {
+            @i = beat
+            @best = i
+            drum (n - i - 1) {
+                @j = i + 1 + beat
+                (item(values, j) > item(values, best)) {
+                    best = j
+                }
+            }
+            ((best == i) == no) {
+                @kept = item(values, i)
+                values = group.replaced(values, i, item(values, best))
+                values = group.replaced(values, best, kept)
+                swap_columns(u, i, best)
+                swap_columns(v, i, best)
+            }
+        }
+        out [u, values, v]
+    }
+
+    skill swap_columns(m, a, b) {
+        drum (matrix.rows(m)) {
+            @kept = cell(m, beat, a)
+            matrix.set(m, beat, a, cell(m, beat, b))
+            matrix.set(m, beat, b, kept)
+        }
+        out none
+    }
+}

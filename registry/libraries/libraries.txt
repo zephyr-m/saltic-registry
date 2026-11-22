@@ -15,3 +15,4 @@ ieee754    registry/libraries/ieee754/ieee754
 exponent   registry/libraries/exponent/exponent
 rotation   registry/libraries/rotation/rotation
 vector     registry/libraries/vector/vector
+linear     registry/libraries/linear/linear
