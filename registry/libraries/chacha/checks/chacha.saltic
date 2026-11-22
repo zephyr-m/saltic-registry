@@ -1,0 +1,96 @@
+-- chacha — проверка шифра, подписи и шифра с подписью против OpenSSL
+-- (cases.saltic, делает workbench/references/chacha.py): ChaCha20 — пример
+-- RFC 8439 и случайные у границ блока, Poly1305 — пример RFC и случайные,
+-- seal — случайные; плюс open: свой seal открывается, испорченный байт и
+-- чужой aad — Forged.
+--
+-- Probe { stream, mac, box } — from_hex(text) -> core.bytes; hex(buffer) -> текст
+--     check(row) -> yes, если случай сошёлся
+-- program() -> none; TestsFailed
+-- HEX — цифры
+
+use io
+use core.str
+use core.num
+use core.bytes
+use core.group
+use craft.testing
+use registry.libraries.chacha.chacha
+use registry.libraries.chacha.poly1305
+use registry.libraries.chacha.aead
+use registry.libraries.chacha.checks.cases
+
+HEX = "0123456789abcdef"
+
+Probe = Box {
+    stream = chacha.Chacha {},
+    mac = poly1305.Poly1305 {},
+    box = aead.Aead {}
+
+    skill from_hex(text) {
+        @made = bytes.new(str.bytes(text) / 2)
+        drum (bytes.count(made)) {
+            bytes.set(made, beat, num.hex_value(str.get(text, beat * 2)) * 16 + num.hex_value(str.get(text, beat * 2 + 1)))
+        }
+        out made
+    }
+
+    skill hex(buffer) {
+        @parts = []
+        drum (bytes.count(buffer)) {
+            @value = bytes.get(buffer, beat)
+            parts = group.add(parts, str.slice(HEX, value / 16, value / 16 + 1))
+            parts = group.add(parts, str.slice(HEX, value % 16, value % 16 + 1))
+        }
+        out str.join(parts, "")
+    }
+
+    skill check(row) {
+        @kind = group.get(row, 0)
+        (kind == "stream") {
+            @made = stream.cipher(from_hex(group.get(row, 1)), group.get(row, 2), from_hex(group.get(row, 3)), from_hex(group.get(row, 4)))
+            out (hex(made) == group.get(row, 5))
+        }
+        (kind == "poly") {
+            out (hex(mac.tag(from_hex(group.get(row, 1)), from_hex(group.get(row, 2)))) == group.get(row, 3))
+        }
+        @sealed = box.seal(from_hex(group.get(row, 1)), from_hex(group.get(row, 2)), from_hex(group.get(row, 3)), from_hex(group.get(row, 4)))
+        out (hex(sealed) == group.get(row, 5))
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @box = aead.Aead {}
+    @wrong = 0
+    drum (cases.CASES) {
+        (probe.check(beat) == no) {
+            wrong = wrong + 1
+            @kind = group.get(beat, 0)
+            io.show("  расхождение {kind}")
+        }
+    }
+    @count = group.count(cases.CASES)
+    io.show("chacha: случаев {count}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "как у OpenSSL", wrong, 0)
+    @key = probe.from_hex("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
+    @nonce = probe.from_hex("070000004041424344454647")
+    @aad = probe.from_hex("50515253c0c1c2c3c4c5c6c7")
+    @text = probe.from_hex("48656c6c6f2c2053616c74696321")
+    @sealed = box.seal(key, nonce, aad, text)
+    suite = testing.test_equal(suite, "свой seal открывается", probe.hex(box.open(key, nonce, aad, sealed)), probe.hex(text))
+    bytes.set(sealed, 3, num.xor(bytes.get(sealed, 3), 1))
+    @broken = "нет"
+    box.open(key, nonce, aad, sealed) rescue |err| {
+        broken = "{err}"
+    }
+    suite = testing.test_equal(suite, "испорченный байт — Forged", broken, "Forged")
+    bytes.set(sealed, 3, num.xor(bytes.get(sealed, 3), 1))
+    @stranger = "нет"
+    box.open(key, nonce, probe.from_hex("00"), sealed) rescue |err| {
+        stranger = "{err}"
+    }
+    suite = testing.test_equal(suite, "чужой aad — Forged", stranger, "Forged")
+    out testing.test_finish(suite)
+}

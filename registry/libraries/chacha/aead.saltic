@@ -1,0 +1,81 @@
+-- aead — шифр с подписью ChaCha20-Poly1305 (RFC 8439, раздел 2.8): ключ
+-- подписи — первые 32 байта блока 0, текст шифруется с блока 1, подпись —
+-- над aad, текстом и их длинами (каждое дополнено до 16 байт нулями).
+-- open проверяет подпись раньше, чем расшифровывать; сравнение — за
+-- постоянное время (без раннего выхода).
+--
+-- Aead { stream, mac } — stream — chacha.Chacha, mac — poly1305.Poly1305
+--     seal(key, nonce, aad, text) -> шифротекст и 16 байт подписи в конце
+--     open(key, nonce, aad, sealed) -> текст; Forged — подпись не сошлась
+--     signed(key, nonce, aad, cipher) -> подпись; padded_length(n) -> n до 16
+-- Forged — подделка или чужой ключ
+
+use core.num
+use core.bytes
+use registry.libraries.chacha.chacha
+use registry.libraries.chacha.poly1305
+
+Aead = Box {
+    stream = chacha.Chacha {},
+    mac = poly1305.Poly1305 {}
+
+    skill padded_length(n) {
+        out (n + 15) / 16 * 16
+    }
+
+    skill signed(key, nonce, aad, cipher) {
+        @block = stream.block(key, 0, nonce)
+        @one_time = bytes.new(32)
+        drum (32) {
+            bytes.set(one_time, beat, bytes.get(block, beat))
+        }
+        @head = padded_length(bytes.count(aad))
+        @body = padded_length(bytes.count(cipher))
+        @data = bytes.new(head + body + 16)
+        drum (bytes.count(aad)) {
+            bytes.set(data, beat, bytes.get(aad, beat))
+        }
+        drum (bytes.count(cipher)) {
+            bytes.set(data, head + beat, bytes.get(cipher, beat))
+        }
+        @aad_size = bytes.count(aad)
+        @text_size = bytes.count(cipher)
+        drum (8) {
+            bytes.set(data, head + body + beat, aad_size % 256)
+            bytes.set(data, head + body + 8 + beat, text_size % 256)
+            aad_size = aad_size / 256
+            text_size = text_size / 256
+        }
+        out mac.tag(one_time, data)
+    }
+
+    skill seal(key, nonce, aad, text) {
+        @cipher = stream.cipher(key, 1, nonce, text)
+        @tag = signed(key, nonce, aad, cipher)
+        @made = bytes.new(bytes.count(cipher) + 16)
+        drum (bytes.count(cipher)) {
+            bytes.set(made, beat, bytes.get(cipher, beat))
+        }
+        drum (16) {
+            bytes.set(made, bytes.count(cipher) + beat, bytes.get(tag, beat))
+        }
+        out made
+    }
+
+    skill open(key, nonce, aad, sealed) {
+        @size = bytes.count(sealed) - 16
+        (size < 0) {
+            out error.Forged
+        }
+        @cipher = bytes.slice(sealed, 0, size)
+        @tag = signed(key, nonce, aad, cipher)
+        @difference = 0
+        drum (16) {
+            difference = num.or(difference, num.xor(bytes.get(tag, beat), bytes.get(sealed, size + beat)))
+        }
+        ((difference == 0) == no) {
+            out error.Forged
+        }
+        out stream.cipher(key, 1, nonce, cipher)
+    }
+}

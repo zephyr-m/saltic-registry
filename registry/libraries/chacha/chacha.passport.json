@@ -1,0 +1,13 @@
+{
+  "title": "chacha — шифр ChaCha20, подпись Poly1305, шифр с подписью (RFC 8439)",
+  "saltic_version": "в составе Saltic (ветка 22.11.2026)",
+  "own_version": "1",
+  "author": "Зэф",
+  "role": "library",
+  "purpose": "шифрование ChaCha20, одноразовая подпись Poly1305 и ChaCha20-Poly1305 (seal / open с проверкой подделки) — шифр SSH и TLS",
+  "depends_on": "bignum (magnitude — арифметика Poly1305 по модулю 2^130 − 5)",
+  "architectures": "64-битные цели: слова ChaCha — обычные числа с маской 32 бита",
+  "state": "рабочий: 24 случая против OpenSSL 3.6 (примеры RFC 8439, границы блока, случайные) и проверки open: свой открывается, испорченный и чужой aad — Forged (checks/chacha.saltic, эталоны — workbench/references/chacha.py реестра)",
+  "log": "нет: подделка — Forged значением",
+  "filled_by": "агентом по коду, 22.11.2026; автор проверяет"
+}

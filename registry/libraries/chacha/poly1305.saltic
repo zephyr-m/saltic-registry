@@ -1,0 +1,72 @@
+-- poly1305 — одноразовая подпись сообщения (RFC 8439): ключ 32 байта — r
+-- (с обрезанными битами) и s; каждый кусок по 16 байт с добавленной единицей
+-- копится как acc = (acc + кусок) · r mod (2^130 − 5); подпись — (acc + s)
+-- mod 2^128. Числа — цифры bignum (magnitude); приведение — low + 5 · high,
+-- потому что 2^130 ≡ 5.
+--
+-- Poly1305 { math } — math — magnitude.Magnitude
+--     tag(key, message) -> 16 байт подписи
+--     number(buffer, from, count) -> число младшим байтом вперёд (+ 2^(8·count))
+--     reduced(value) -> value mod (2^130 − 5)
+-- CLAMP — маска r (обрезка битов по RFC 8439)
+
+use core.num
+use core.bytes
+use core.group
+use registry.libraries.bignum.magnitude
+
+CLAMP = [255, 255, 255, 15, 252, 255, 255, 15, 252, 255, 255, 15, 252, 255, 255, 15]
+
+Poly1305 = Box {
+    math = magnitude.Magnitude {}
+
+    skill number(buffer, from, count) {
+        @value = []
+        drum (count) {
+            value = math.sum(math.scaled(value, 256), math.of(bytes.get(buffer, from + count - 1 - beat)))
+        }
+        out value
+    }
+
+    skill reduced(value) {
+        @result = value
+        drum (3) {
+            @parts = math.cut_bits(result, 130)
+            result = math.sum(group.get(parts, 1), math.scaled(group.get(parts, 0), 5))
+        }
+        @prime = math.difference(math.two_to(130), math.of(5))
+        ((math.order(result, prime) < 0) == no) {
+            result = math.difference(result, prime)
+        }
+        out result
+    }
+
+    skill tag(key, message) {
+        @clamped = bytes.new(16)
+        drum (16) {
+            bytes.set(clamped, beat, num.and(bytes.get(key, beat), group.get(CLAMP, beat)))
+        }
+        @r = number(clamped, 0, 16)
+        @s = number(key, 16, 16)
+        @acc = []
+        @size = bytes.count(message)
+        drum ((size + 15) / 16) {
+            @from = beat * 16
+            @count = 16
+            ((from + 16) > size) {
+                count = size - from
+            }
+            @piece = math.sum(number(message, from, count), math.two_to(8 * count))
+            acc = reduced(math.product(math.sum(acc, piece), r))
+        }
+        @total = group.get(math.cut_bits(math.sum(acc, s), 128), 1)
+        @made = bytes.new(16)
+        @rest = total
+        drum (16) {
+            @parts = math.split_small(rest, 256)
+            bytes.set(made, beat, group.get(parts, 1))
+            rest = group.get(parts, 0)
+        }
+        out made
+    }
+}

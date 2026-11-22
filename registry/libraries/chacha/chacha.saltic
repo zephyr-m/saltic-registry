@@ -1,0 +1,98 @@
+-- chacha — шифр ChaCha20 (RFC 8439): блок 64 байта из ключа 32 байт, счётчика
+-- и одноразового номера 12 байт; шифрование — xor с потоком блоков. Слова —
+-- обычные числа с маской 32 бита: 64-битные цели. Жильцы пакета: chacha
+-- (шифр), poly1305 (подпись сообщения), aead (шифр с подписью).
+--
+-- Chacha {} — block(key, counter, nonce) -> 64 байта core.bytes
+--     cipher(key, counter, nonce, data) -> data xor поток с блока counter
+--     word(buffer, at) -> слово младшим байтом вперёд; rotl(x, n) / plus(a, b)
+--     / mix(state, a, b, c, d) — внутри
+-- SIGMA — «expand 32-byte k»; MASK — 32 бита
+
+use core.num
+use core.bytes
+use core.group
+
+MASK = 4294967295
+SIGMA = [1634760805, 857760878, 2036477234, 1797285236]
+
+Chacha = Box {
+    skill plus(a, b) {
+        out num.and(a + b, MASK)
+    }
+
+    skill rotl(x, n) {
+        out num.and(num.or(num.shift_left(x, n), num.shift_right(x, 32 - n)), MASK)
+    }
+
+    skill word(buffer, at) {
+        out ((bytes.get(buffer, at + 3) * 256 + bytes.get(buffer, at + 2)) * 256 + bytes.get(buffer, at + 1)) * 256 + bytes.get(buffer, at)
+    }
+
+    skill mix(state, a, b, c, d) {
+        @x = group.get(state, a)
+        @y = group.get(state, b)
+        @z = group.get(state, c)
+        @w = group.get(state, d)
+        x = plus(x, y)
+        w = rotl(num.xor(w, x), 16)
+        z = plus(z, w)
+        y = rotl(num.xor(y, z), 12)
+        x = plus(x, y)
+        w = rotl(num.xor(w, x), 8)
+        z = plus(z, w)
+        y = rotl(num.xor(y, z), 7)
+        @changed = group.replaced(state, a, x)
+        changed = group.replaced(changed, b, y)
+        changed = group.replaced(changed, c, z)
+        out group.replaced(changed, d, w)
+    }
+
+    skill block(key, counter, nonce) {
+        @start = SIGMA
+        drum (8) {
+            start = group.add(start, word(key, beat * 4))
+        }
+        start = group.add(start, num.and(counter, MASK))
+        drum (3) {
+            start = group.add(start, word(nonce, beat * 4))
+        }
+        @state = start
+        drum (10) {
+            state = mix(state, 0, 4, 8, 12)
+            state = mix(state, 1, 5, 9, 13)
+            state = mix(state, 2, 6, 10, 14)
+            state = mix(state, 3, 7, 11, 15)
+            state = mix(state, 0, 5, 10, 15)
+            state = mix(state, 1, 6, 11, 12)
+            state = mix(state, 2, 7, 8, 13)
+            state = mix(state, 3, 4, 9, 14)
+        }
+        @made = bytes.new(64)
+        drum (16) {
+            @value = plus(group.get(state, beat), group.get(start, beat))
+            @place = beat * 4
+            drum (4) {
+                bytes.set(made, place + beat, num.and(value, 255))
+                value = num.shift_right(value, 8)
+            }
+        }
+        out made
+    }
+
+    skill cipher(key, counter, nonce, data) {
+        @size = bytes.count(data)
+        @made = bytes.new(size)
+        drum ((size + 63) / 64) {
+            @stream = block(key, counter + beat, nonce)
+            @base = beat * 64
+            drum (64) {
+                @at = base + beat
+                (at < size) {
+                    bytes.set(made, at, num.xor(bytes.get(data, at), bytes.get(stream, beat)))
+                }
+            }
+        }
+        out made
+    }
+}
