@@ -1,0 +1,236 @@
+-- magnitude — длинная арифметика без знака: число — группа цифр по
+-- основанию BASE, младшая первой; ноль — пустая группа. Основание 2^14:
+-- произведение двух цифр меньше 2^28 и влезает в число даже на 29-битных
+-- целях (wasm, Xtensa). Группы неизменяемы — каждый навык отдаёт новую.
+--
+-- Magnitude {} — навыки над группами цифр:
+--     trimmed(a) -> a без старших нулей; of(n) -> цифры целого n ≥ 0
+--     order(a, b) -> -1, 0, 1 — меньше, равно, больше
+--     sum(a, b) / difference(a, b) -> a + b / a - b (a ≥ b)
+--     scaled(a, k) -> a · k, 0 ≤ k < BASE; product(a, b) -> a · b
+--     shifted(a, places) -> a · BASE^places
+--     split_small(a, k) -> [частное, остаток] от деления на 0 < k < BASE
+--     split(a, b) -> [частное, остаток] от деления на b ≠ 0 (столбиком по битам)
+--     bit(a, index) -> бит index (0 — младший); bits(a) -> число значащих бит
+--     packed(bits_low_first) -> цифры из бит, младший первым; digit(a, index) ->
+--         цифра index или 0 за краем
+-- BASE, BITS — основание и бит в цифре; WORD_DIGITS — с запасом цифр у целого
+
+use core.group
+
+BASE = 16384
+BITS = 14
+WORD_DIGITS = 8
+
+Magnitude = Box {
+    skill trimmed(a) {
+        @size = group.count(a)
+        always {
+            (size == 0) {
+                leave
+            }
+            ((group.get(a, size - 1) == 0) == no) {
+                leave
+            }
+            size = size - 1
+        }
+        out group.slice(a, 0, size)
+    }
+
+    skill of(n) {
+        @digits = []
+        @rest = n
+        drum (WORD_DIGITS) {
+            (rest == 0) {
+                leave
+            }
+            digits = group.add(digits, rest % BASE)
+            rest = rest / BASE
+        }
+        out digits
+    }
+
+    skill order(a, b) {
+        @left = trimmed(a)
+        @right = trimmed(b)
+        (group.count(left) < group.count(right)) {
+            out -1
+        }
+        (group.count(left) > group.count(right)) {
+            out 1
+        }
+        @at = group.count(left)
+        always {
+            (at == 0) {
+                leave
+            }
+            at = at - 1
+            (group.get(left, at) < group.get(right, at)) {
+                out -1
+            }
+            (group.get(left, at) > group.get(right, at)) {
+                out 1
+            }
+        }
+        out 0
+    }
+
+    skill sum(a, b) {
+        @longest = group.count(a)
+        (group.count(b) > longest) {
+            longest = group.count(b)
+        }
+        @digits = []
+        @carry = 0
+        drum (longest) {
+            @total = carry + digit(a, beat) + digit(b, beat)
+            digits = group.add(digits, total % BASE)
+            carry = total / BASE
+        }
+        (carry > 0) {
+            digits = group.add(digits, carry)
+        }
+        out digits
+    }
+
+    skill difference(a, b) {
+        @digits = []
+        @borrow = 0
+        drum (group.count(a)) {
+            @value = group.get(a, beat) - borrow - digit(b, beat)
+            borrow = 0
+            (value < 0) {
+                value = value + BASE
+                borrow = 1
+            }
+            digits = group.add(digits, value)
+        }
+        out trimmed(digits)
+    }
+
+    skill scaled(a, k) {
+        (k == 0) {
+            out []
+        }
+        @digits = []
+        @carry = 0
+        drum (a) {
+            @total = beat * k + carry
+            digits = group.add(digits, total % BASE)
+            carry = total / BASE
+        }
+        (carry > 0) {
+            digits = group.add(digits, carry)
+        }
+        out digits
+    }
+
+    skill shifted(a, places) {
+        (group.count(a) == 0) {
+            out a
+        }
+        @digits = []
+        drum (places) {
+            digits = group.add(digits, 0)
+        }
+        out group.concat(digits, a)
+    }
+
+    skill product(a, b) {
+        @total = []
+        drum (group.count(b)) {
+            total = sum(total, shifted(scaled(a, group.get(b, beat)), beat))
+        }
+        out trimmed(total)
+    }
+
+    skill split_small(a, k) {
+        @digits = []
+        @rest = 0
+        drum (group.count(a)) {
+            @at = group.count(a) - 1 - beat
+            @current = rest * BASE + group.get(a, at)
+            digits = group.concat([current / k], digits)
+            rest = current % k
+        }
+        out [trimmed(digits), rest]
+    }
+
+    skill split(a, b) {
+        (order(a, b) < 0) {
+            out [[], trimmed(a)]
+        }
+        @rest = []
+        @quotient = []
+        @top = bits(a)
+        drum (top) {
+            @index = top - 1 - beat
+            rest = sum(scaled(rest, 2), of(bit(a, index)))
+            @taken = 0
+            ((order(rest, b) < 0) == no) {
+                rest = difference(rest, b)
+                taken = 1
+            }
+            quotient = group.concat([taken], quotient)
+        }
+        out [packed(quotient), trimmed(rest)]
+    }
+
+    skill packed(bits_low_first) {
+        @digits = []
+        @value = 0
+        @weight = 1
+        @filled = 0
+        drum (bits_low_first) {
+            value = value + beat * weight
+            weight = weight * 2
+            filled = filled + 1
+            (filled == BITS) {
+                digits = group.add(digits, value)
+                value = 0
+                weight = 1
+                filled = 0
+            }
+        }
+        (filled > 0) {
+            digits = group.add(digits, value)
+        }
+        out trimmed(digits)
+    }
+
+    skill bit(a, index) {
+        @place = index / BITS
+        (place >= group.count(a)) {
+            out 0
+        }
+        @value = group.get(a, place)
+        drum (index % BITS) {
+            value = value / 2
+        }
+        out value % 2
+    }
+
+    skill bits(a) {
+        @digits = trimmed(a)
+        (group.count(digits) == 0) {
+            out 0
+        }
+        @top = group.get(digits, group.count(digits) - 1)
+        @count = (group.count(digits) - 1) * BITS
+        always {
+            (top == 0) {
+                leave
+            }
+            top = top / 2
+            count = count + 1
+        }
+        out count
+    }
+
+    skill digit(a, index) {
+        (index < group.count(a)) {
+            out group.get(a, index)
+        }
+        out 0
+    }
+}

@@ -1,0 +1,80 @@
+-- bignum — проверка больших целых: печать и разбор, знаки, сложение и
+-- вычитание через ноль, умножение, деление с остатком, степени, сравнение,
+-- ошибки. Ожидания посчитаны Python (точные большие целые) — внешний эталон.
+--
+-- program() -> none; TestsFailed
+
+use craft.testing
+use registry.libraries.bignum.bignum
+
+A = "123456789012345678901234567890"
+B = "-98765432109876543210"
+FACTORIAL_50 = "30414093201713378043612608166064768844377641568960512000000000000"
+TWO_100 = "1267650600228229401496703205376"
+THREE_200 = "265613988875874769338781322035779626829233452653394495974574961739092490901302182994384699044001"
+
+program() {
+    @suite = testing.test_new()
+    @zero = bignum.of(0)
+    suite = testing.test_equal(suite, "ноль печатается", zero.text(), "0")
+    suite = testing.test_yes(suite, "ноль — ноль", zero.zero())
+    @small = bignum.of(-5)
+    suite = testing.test_equal(suite, "целое со знаком", small.text(), "-5")
+    @word = bignum.of(123456789)
+    suite = testing.test_equal(suite, "целое в несколько цифр", word.text(), "123456789")
+    @long = bignum.parse(A)
+    suite = testing.test_equal(suite, "разбор и печать туда-обратно", long.text(), A)
+    @padded = bignum.parse("100000000020000")
+    suite = testing.test_equal(suite, "нули внутри не теряются", padded.text(), "100000000020000")
+    @negative = bignum.parse(B)
+    @sum = long.plus(negative)
+    suite = testing.test_equal(suite, "a + b с разными знаками", sum.text(), "123456788913580246791358024680")
+    @back = negative.minus(long)
+    suite = testing.test_equal(suite, "b - a уходит ниже нуля", back.text(), "-123456789111111111011111111100")
+    @product = long.times(negative)
+    suite = testing.test_equal(suite, "a · b — знак минус", product.text(), "-12193263113702179522496570642237463801111263526900")
+    @self = long.minus(long)
+    suite = testing.test_equal(suite, "a - a — ноль без знака", self.text(), "0")
+    @factorial = bignum.of(1)
+    drum (50) {
+        factorial = factorial.times(bignum.of(beat + 1))
+    }
+    suite = testing.test_equal(suite, "50!", factorial.text(), FACTORIAL_50)
+    @two = bignum.of(2)
+    @two_100 = two.power(100)
+    suite = testing.test_equal(suite, "2^100", two_100.text(), TWO_100)
+    @three = bignum.of(3)
+    @three_200 = three.power(200)
+    suite = testing.test_equal(suite, "3^200", three_200.text(), THREE_200)
+    @share = factorial.quotient(two_100)
+    @left = factorial.remainder(two_100)
+    suite = testing.test_equal(suite, "50! / 2^100", share.text(), "23992489094579836602562625279676826")
+    suite = testing.test_equal(suite, "50! % 2^100", left.text(), "658382756345206238056414183424")
+    @rebuilt = share.times(two_100)
+    @whole = rebuilt.plus(left)
+    suite = testing.test_equal(suite, "частное · делитель + остаток = делимое", whole.text(), FACTORIAL_50)
+    @by_a = factorial.quotient(long)
+    @rest_a = factorial.remainder(long)
+    suite = testing.test_equal(suite, "50! / a", by_a.text(), "246354157151065776734572858214657778")
+    suite = testing.test_equal(suite, "50! % a", rest_a.text(), "115214994664767688579942451580")
+    @seven = bignum.of(-7)
+    @pair = bignum.of(2)
+    @truncated = seven.quotient(pair)
+    @sign_left = seven.remainder(pair)
+    suite = testing.test_equal(suite, "-7 / 2 — к нулю", truncated.text(), "-3")
+    suite = testing.test_equal(suite, "-7 % 2 — знак делимого", sign_left.text(), "-1")
+    suite = testing.test_equal(suite, "a больше b", long.compared(negative), 1)
+    suite = testing.test_equal(suite, "b меньше a", negative.compared(long), -1)
+    suite = testing.test_equal(suite, "a равно a", long.compared(bignum.parse(A)), 0)
+    @failed = "нет"
+    long.quotient(zero) rescue |err| {
+        failed = "{err}"
+    }
+    suite = testing.test_equal(suite, "деление на ноль — ошибка", failed, "DivisionByZero")
+    @bad = "нет"
+    bignum.parse("12a") rescue |err| {
+        bad = "{err}"
+    }
+    suite = testing.test_equal(suite, "не число — ошибка", bad, "NotNumber")
+    out testing.test_finish(suite)
+}

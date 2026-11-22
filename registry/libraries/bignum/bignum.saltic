@@ -1,0 +1,180 @@
+-- bignum — большие целые со знаком: сколько угодно цифр, точно. Знак —
+-- отдельно, модуль — цифры magnitude.Magnitude по основанию 2^14. Деление —
+-- с отбрасыванием дробной части (к нулю), остаток — со знаком делимого, как
+-- у целых Saltic.
+--
+-- Big { digits, negative, math } — digits — модуль, младшая цифра первой;
+--     negative — yes у отрицательного (у нуля — no); math — magnitude.Magnitude
+--     plus(other) / minus(other) / times(other) -> Big
+--     quotient(other) / remainder(other) -> Big; DivisionByZero
+--     power(exponent) -> Big в степени целого exponent ≥ 0
+--     compared(other) -> -1, 0, 1; zero() -> yes у нуля; negated() -> Big
+--     text() -> десятичная запись: «-12345678901234567890»
+--     made(digits, negative) -> Big; ноль всегда без знака
+-- of(n) -> Big из целого; parse(text) -> Big из десятичной записи, «-» впереди
+--     можно; NotNumber
+-- DECIMAL — 10^4: столько отдаёт split_small за раз при печати; EXPONENT_BITS —
+-- предел бит у показателя степени
+
+use core.str
+use core.group
+use registry.libraries.bignum.magnitude
+
+DECIMAL = 10000
+EXPONENT_BITS = 64
+
+Big = Box {
+    digits = [],
+    negative = no,
+    math = magnitude.Magnitude {}
+
+    skill made(raw, sign) {
+        @clean = math.trimmed(raw)
+        @minus = sign
+        (group.count(clean) == 0) {
+            minus = no
+        }
+        out Big {
+            digits = clean,
+            negative = minus
+        }
+    }
+
+    skill zero() {
+        out (group.count(digits) == 0)
+    }
+
+    skill negated() {
+        out made(digits, negative == no)
+    }
+
+    skill compared(other) {
+        ((negative == other.negative) == no) {
+            (negative == yes) {
+                out -1
+            }
+            out 1
+        }
+        @size = math.order(digits, other.digits)
+        (negative == yes) {
+            out 0 - size
+        }
+        out size
+    }
+
+    skill plus(other) {
+        (negative == other.negative) {
+            out made(math.sum(digits, other.digits), negative)
+        }
+        (math.order(digits, other.digits) < 0) {
+            out made(math.difference(other.digits, digits), other.negative)
+        }
+        out made(math.difference(digits, other.digits), negative)
+    }
+
+    skill minus(other) {
+        out plus(other.negated())
+    }
+
+    skill times(other) {
+        out made(math.product(digits, other.digits), (negative == other.negative) == no)
+    }
+
+    skill quotient(other) {
+        (other.zero() == yes) {
+            out error.DivisionByZero
+        }
+        @parts = math.split(digits, other.digits)
+        out made(group.get(parts, 0), (negative == other.negative) == no)
+    }
+
+    skill remainder(other) {
+        (other.zero() == yes) {
+            out error.DivisionByZero
+        }
+        @parts = math.split(digits, other.digits)
+        out made(group.get(parts, 1), negative)
+    }
+
+    skill power(exponent) {
+        @result = of(1)
+        @base = made(digits, negative)
+        @left = exponent
+        drum (EXPONENT_BITS) {
+            (left == 0) {
+                leave
+            }
+            ((left % 2) == 1) {
+                result = result.times(base)
+            }
+            base = base.times(base)
+            left = left / 2
+        }
+        out result
+    }
+
+    skill text() {
+        (group.count(digits) == 0) {
+            out "0"
+        }
+        @chunks = []
+        @rest = digits
+        drum (group.count(digits) * 2 + 1) {
+            (group.count(rest) == 0) {
+                leave
+            }
+            @parts = math.split_small(rest, DECIMAL)
+            chunks = group.add(chunks, group.get(parts, 1))
+            rest = group.get(parts, 0)
+        }
+        @last = group.count(chunks) - 1
+        @head = group.get(chunks, last)
+        @written = "{head}"
+        drum (last) {
+            @chunk = group.get(chunks, last - 1 - beat)
+            @piece = "{chunk}"
+            drum (3) {
+                (str.bytes(piece) < 4) {
+                    piece = "0{piece}"
+                }
+            }
+            written = "{written}{piece}"
+        }
+        (negative == yes) {
+            out "-{written}"
+        }
+        out written
+    }
+}
+
+skill of(n) {
+    @math = magnitude.Magnitude {}
+    @shell = Big {}
+    (n < 0) {
+        out shell.made(math.of(0 - n), yes)
+    }
+    out shell.made(math.of(n), no)
+}
+
+skill parse(text) {
+    @math = magnitude.Magnitude {}
+    @shell = Big {}
+    @start = 0
+    @sign = no
+    (str.starts_with(text, "-") == yes) {
+        start = 1
+        sign = yes
+    }
+    (str.bytes(text) <= start) {
+        out error.NotNumber
+    }
+    @digits = []
+    drum (str.bytes(text) - start) {
+        @code = str.byte(text, start + beat)
+        ((code < 48) ○○ (code > 57)) {
+            out error.NotNumber
+        }
+        digits = math.sum(math.scaled(digits, 10), math.of(code - 48))
+    }
+    out shell.made(digits, sign)
+}
