@@ -1,0 +1,81 @@
+-- exponent — проверка степеней и логарифмов по эталонам Python math: каждый
+-- случай из cases.saltic (делает make.py) — с относительной точностью CLOSE.
+-- Плюс точные случаи и ошибки. Расхождения печатаются.
+--
+-- program() -> none; TestsFailed
+-- CLOSE — допустимая относительная ошибка
+
+use io
+use core.group
+use core.fraction
+use craft.testing
+use registry.libraries.exponent.exponent
+use registry.libraries.exponent.checks.cases
+
+CLOSE = 0.0000000000001
+
+Probe = Box {
+    math = exponent.Exponent {}
+
+    skill value(name, x, y) {
+        (name == "exp") {
+            out math.exp(x)
+        }
+        (name == "log") {
+            out math.log(x)
+        }
+        (name == "log2") {
+            out math.log2(x)
+        }
+        (name == "log10") {
+            out math.log10(x)
+        }
+        out math.raised(x, y)
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @math = exponent.Exponent {}
+    @wrong = 0
+    drum (cases.CASES) {
+        @name = group.get(beat, 0)
+        @x = 0.0 + group.get(beat, 1)
+        @y = 0.0 + group.get(beat, 2)
+        @want = 0.0 + group.get(beat, 3)
+        @got = probe.value(name, x, y)
+        (fraction.near(got, want, CLOSE) == no) {
+            wrong = wrong + 1
+            @shown_got = fraction.text(got)
+            @shown_want = fraction.text(want)
+            @shown_x = fraction.text(x)
+            io.show("  расхождение {name}({shown_x}): у нас {shown_got}, у Python {shown_want}")
+        }
+    }
+    @count = group.count(cases.CASES)
+    io.show("exponent: случаев {count}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "всё как у Python в пределах 1e-13", wrong, 0)
+    suite = testing.test_equal(suite, "log2(1024) — ровно 10", fraction.text(math.log2(1024.0)), "10.0")
+    suite = testing.test_equal(suite, "2^10 — ровно 1024", fraction.text(math.raised(2.0, 10.0)), "1024.0")
+    suite = testing.test_equal(suite, "(−2)^3 — ровно −8", fraction.text(math.raised(-2.0, 3.0)), "-8.0")
+    suite = testing.test_equal(suite, "exp(0) — ровно 1", fraction.text(math.exp(0.0)), "1.0")
+    @wide = math.exp(700.0) / math.exp(699.0)
+    suite = testing.test_yes(suite, "exp(700) / exp(699) — e", fraction.near(wide, 2.718281828459045, CLOSE))
+    @failed = "нет"
+    math.log(-1.0) rescue |err| {
+        failed = "{err}"
+    }
+    suite = testing.test_equal(suite, "log(−1) — ошибка", failed, "ValueOutsideRange")
+    @root = "нет"
+    math.raised(-8.0, 0.5) rescue |err| {
+        root = "{err}"
+    }
+    suite = testing.test_equal(suite, "(−8)^0.5 — ошибка", root, "ValueOutsideRange")
+    @big = "нет"
+    math.exp(1000.0) rescue |err| {
+        big = "{err}"
+    }
+    suite = testing.test_equal(suite, "exp(1000) — ошибка", big, "ValueOutsideRange")
+    out testing.test_finish(suite)
+}
