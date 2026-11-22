@@ -1,5 +1,5 @@
 -- icons — значки Lucide — пол картинок Saltic (решение автора 16.11.2026):
--- файл os/icons/lucide/icons.txt (переводит os/icons/build) — строка
+-- файл registry/libraries/icons/lucide/icons.txt (переводит icons/build) — строка
 -- «имя|черта;черта;…», черта «o:» или «c:» и точки «x,y» в 1/GRID клетки 24×24.
 -- Значок обводится линией в две клетки Lucide со скруглёнными стыками и
 -- концами: полоска на каждый отрезок и CORNERS-угольник на каждой точке, все
@@ -16,12 +16,14 @@
 -- Внутри: index(icons) — оглавление; find(icons, name) -> начало точек строки;
 --     strokes(icons, at) -> группа черт (группа точек [x, y]); root — целый
 --     корень; quad / dot — края полоски и кружка; outline(strokes, size) -> края
+-- SHEET — путь к листу значков (от корня проекта)
 
 use core.str
 use core.group
 use registry.libraries.fonts.ttf
 use registry.libraries.fonts.raster
 
+SHEET = "registry/libraries/icons/lucide/icons.txt"
 GRID = 384
 CORNERS = 12
 UNIT = 1000
