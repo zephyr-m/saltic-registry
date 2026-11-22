@@ -3,8 +3,8 @@
 -- общие с camera.
 --
 -- class_name(code, subclass) -> имя класса USB по-русски
--- string_of(base, io, index) -> строковый дескриптор (английский) или ""
--- isochronous_answer(base, io) -> текст: умеет ли прошивка изохронную передачу
+-- string_of(base, usb_io, index) -> строковый дескриптор (английский) или ""
+-- isochronous_answer(base, usb_io) -> текст: умеет ли прошивка изохронную передачу
 -- interface_line(base, index, handle) -> строка об интерфейсе
 -- report(base) -> текст: контроллеры, интерфейсы, по строке на каждый
 -- guid_text(base, at) -> GUID текстом
@@ -49,18 +49,18 @@ skill class_name(code, subclass) {
     out "класс {code}"
 }
 
-skill string_of(base, io, index) {
+skill string_of(base, usb_io, index) {
     (index == 0) { out "" }
     @at = firmware.scratch(base, SCRATCH_STRING)
-    @asked = firmware.call(base, firmware.pointer(io, base, USB_STRING_DESCRIPTOR), [io, firmware.number(ENGLISH), firmware.number(index), at])
+    @asked = firmware.call(base, firmware.pointer(usb_io, base, USB_STRING_DESCRIPTOR), [usb_io, firmware.number(ENGLISH), firmware.number(index), at])
     (asked.failed == yes) { out "" }
     out files.read_wide(base, firmware.pointer(at, base, 0), 0, NAME_LIMIT)
 }
 
-skill isochronous_answer(base, io) {
+skill isochronous_answer(base, usb_io) {
     @status = firmware.scratch(base, SCRATCH_STATUS)
     @data = firmware.scratch(base, SCRATCH_DATA)
-    @asked = firmware.call(base, firmware.pointer(io, base, USB_ISOCHRONOUS), [io, firmware.number(129), data, firmware.number(0), status])
+    @asked = firmware.call(base, firmware.pointer(usb_io, base, USB_ISOCHRONOUS), [usb_io, firmware.number(129), data, firmware.number(0), status])
     (asked.failed == no) { out "изохронная передача: прошивка приняла вызов" }
     (asked.value == 3) { out "изохронная передача: прошивка не умеет (Unsupported)" }
     @code = asked.value
@@ -68,22 +68,22 @@ skill isochronous_answer(base, io) {
 }
 
 skill interface_line(base, index, handle) {
-    @io = files.protocol_of(base, handle, USB_IO_GUID) rescue |err| { out "  {index}: нет UsbIo" }
+    @usb_io = files.protocol_of(base, handle, USB_IO_GUID) rescue |err| { out "  {index}: нет UsbIo" }
     @device = firmware.scratch(base, SCRATCH_DESCRIPTOR)
-    @got = firmware.call(base, firmware.pointer(io, base, USB_DEVICE_DESCRIPTOR), [io, device])
+    @got = firmware.call(base, firmware.pointer(usb_io, base, USB_DEVICE_DESCRIPTOR), [usb_io, device])
     (got.failed == yes) { out "  {index}: нет описания устройства" }
     @vendor = firmware.hex(firmware.read16(device, base, 8), 4)
     @model = firmware.hex(firmware.read16(device, base, 10), 4)
-    @product = string_of(base, io, firmware.read8(device, base, 15))
-    @maker = string_of(base, io, firmware.read8(device, base, 14))
+    @product = string_of(base, usb_io, firmware.read8(device, base, 15))
+    @maker = string_of(base, usb_io, firmware.read8(device, base, 14))
     @face = firmware.scratch(base, SCRATCH_DESCRIPTOR)
-    @asked = firmware.call(base, firmware.pointer(io, base, USB_INTERFACE_DESCRIPTOR), [io, face])
+    @asked = firmware.call(base, firmware.pointer(usb_io, base, USB_INTERFACE_DESCRIPTOR), [usb_io, face])
     (asked.failed == yes) { out "  {index}: {vendor}:{model} {maker} {product}, нет описания интерфейса" }
     @slot = firmware.read8(face, base, 2)
     @code = firmware.read8(face, base, 5)
     @kind = class_name(code, firmware.read8(face, base, 6))
     @line = "  {index}: {vendor}:{model} интерфейс {slot}, {kind} | {maker} {product}"
-    (code == VIDEO_CLASS) { out str.concat(line, str.concat("\n     ", isochronous_answer(base, io))) }
+    (code == VIDEO_CLASS) { out str.concat(line, str.concat("\n     ", isochronous_answer(base, usb_io))) }
     out line
 }
 
