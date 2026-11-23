@@ -10,16 +10,9 @@ compiler := saltic + "/bootstrap/saltic"
 default:
     just --list
 
-# Проверки пакетов (registry/**/checks/*.saltic с program(); остальные — данные
-# проверок): собрать родным x86-64 и прогнать каждую
+# Проверки пакетов (registry/**/checks/*.saltic с program()): собрать родным
+# x86-64 и прогнать каждую — программа workbench/check/checks.saltic
 checks:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    mkdir -p .cache/build/checks
-    for f in $(git ls-files 'registry/*/checks/*.saltic'); do
-        grep -q '^program(' "$f" || continue
-        name=$(echo "$f" | tr '/' '_' | sed 's/\.saltic$//')
-        echo "== $f"
-        {{compiler}} "$f" ".cache/build/checks/$name" 268435456 x86_64 > ".cache/build/checks/$name.log" 2>&1 || { tail -5 ".cache/build/checks/$name.log"; exit 1; }
-        ".cache/build/checks/$name"
-    done
+    mkdir -p .cache/build/tools
+    {{compiler}} workbench/check/checks.saltic .cache/build/tools/checks 268435456 x86_64
+    .cache/build/tools/checks

@@ -23,9 +23,9 @@
 
 use core.bytes
 use core.group
-use registry.libraries.tcp.segment
-use registry.libraries.tcp.codec
-use registry.libraries.tcp.sequence
+use segment
+use codec
+use sequence
 
 WINDOW = 65535
 MSS = 1460
@@ -73,7 +73,7 @@ Connection = Box {
             mss = mss,
             payload = data
         }
-        outbox = group.add(outbox, wire.encode(item, local_ip, remote_ip))
+        outbox = group.add(outbox, wire.pack(item, local_ip, remote_ip))
         (remember == yes) {
             flight = group.add(flight, [number, data, flags, now, 0])
         }
@@ -237,7 +237,7 @@ Connection = Box {
             flags = flags,
             window = 0
         }
-        outbox = group.add(outbox, wire.encode(answer, local_ip, from_ip))
+        outbox = group.add(outbox, wire.pack(answer, local_ip, from_ip))
         out none
     }
 
@@ -291,7 +291,7 @@ Connection = Box {
     }
 
     skill feed(packet, from_ip, now) {
-        @item = wire.decode(packet, from_ip, local_ip) rescue |err| {
+        @item = wire.unpack(packet, from_ip, local_ip) rescue |err| {
             dropped = dropped + 1
             none
         }

@@ -1,0 +1,137 @@
+-- checks — прогон проверок пакетов реестра (вместо bash в justfile, решение
+-- автора 24.11.2026): каждый registry/**/checks/*.saltic с program() собирается
+-- родным x86-64 и запускается из корня реестра. Пакет-проект (свой
+-- tarantul.json в папке пакета) собирается из своей папки: сначала tarantul get
+-- там же. Ход — на экран по проверке; вывод сборки — в журнал
+-- .cache/build/checks/<имя>.log, упала сборка — хвост журнала на экран.
+-- Компилятор и tarantul — из дома Saltic (SALTIC_HOME, его задаёт justfile).
+--
+-- program() -> none; ChecksFailed (упавшие — списком на экране), NoSalticHome
+-- Внутри: home() -> путь дома Saltic; sources() -> проверки из git;
+--     runnable(path) -> yes, если в файле есть program(); flat(path) -> имя для
+--     .cache; package_of(path) -> папка пакета; built(command, folder, log) ->
+--     yes, если команда прошла (вывод — в журнал); tail(log) — хвост журнала на экран
+-- BUILD — папка собранного; HEAP — куча проверок; TAIL — строк хвоста
+
+use io
+use io.file
+use core.str
+use core.group
+use core.process
+
+BUILD = ".cache/build/checks"
+HEAP = "268435456"
+TAIL = 5
+HOME_KEY = "SALTIC_HOME="
+MANIFEST = "tarantul.json"
+
+skill home() {
+    drum (process.environment()) {
+        (str.starts_with(beat, HOME_KEY) == yes) {
+            out str.slice(beat, str.bytes(HOME_KEY), str.bytes(beat))
+        }
+    }
+    io.show("checks: нет SALTIC_HOME — дом Saltic задаёт justfile реестра")
+    out error.NoSalticHome
+}
+
+skill sources() {
+    @listed = process.capture(["git", "ls-files", "registry/*/checks/*.saltic"], "", [])
+    out str.lines(listed.output)
+}
+
+skill runnable(path) {
+    @text = file.read(path)
+    out ((str.starts_with(text, "program(") == yes) ○○ (str.contains(text, "\nprogram(") == yes))
+}
+
+skill flat(path) {
+    @joined = str.join(str.split(path, "/"), "_")
+    out str.slice(joined, 0, str.bytes(joined) - 7)
+}
+
+skill package_of(path) {
+    out group.get(str.split(path, "/checks/"), 0)
+}
+
+skill built(command, folder, log) {
+    @done = process.capture(command, folder, [])
+    @before = file.read(log) rescue |err| {
+        ""
+    }
+    file.write(log, str.concat(before, done.output))
+    out (done.code == 0)
+}
+
+skill tail(log) {
+    @lines = str.lines(file.read(log))
+    @from = group.count(lines) - TAIL
+    (from < 0) {
+        from = 0
+    }
+    drum (group.slice(lines, from, group.count(lines))) {
+        io.show("    {beat}")
+    }
+    out none
+}
+
+program() {
+    @saltic = home()
+    @compiler = "{saltic}/bootstrap/saltic"
+    @here = process.capture(["pwd"], "", [])
+    @root = str.slice(here.output, 0, str.bytes(here.output) - 1)
+    process.run(["mkdir", "-p", BUILD], "", [])
+    @tarantul = "{root}/{BUILD}/tarantul"
+    @tarantul_ready = no
+    @failed = []
+    @count = 0
+    drum (sources()) {
+        @path = beat
+        (runnable(path) == yes) {
+            count = count + 1
+            @name = flat(path)
+            @binary = "{root}/{BUILD}/{name}"
+            @log = "{root}/{BUILD}/{name}.log"
+            file.write(log, "")
+            io.show("== {path}")
+            @package = package_of(path)
+            @own = file.read("{package}/{MANIFEST}") rescue |err| {
+                ""
+            }
+            @ready = yes
+            ((own == "") == no) {
+                ((tarantul_ready == no) ○ (built([compiler, "{saltic}/workbench/tarantul/main.saltic", tarantul, HEAP, "x86_64"], "", log) == no)) {
+                    io.show("  tarantul не собрался — журнал {log}")
+                    tail(log)
+                    out error.ChecksFailed
+                }
+                tarantul_ready = yes
+                @inside = str.slice(path, str.bytes(package) + 1, str.bytes(path))
+                ready = ((built([tarantul, "get"], package, log) == yes) ○ (built([compiler, inside, binary, HEAP, "x86_64"], package, log) == yes))
+            }
+            (own == "") {
+                ready = built([compiler, path, binary, HEAP, "x86_64"], "", log)
+            }
+            (ready == no) {
+                io.show("  не собралась — журнал {log}")
+                tail(log)
+                failed = group.add(failed, path)
+            }
+            (ready == yes) {
+                @code = process.run([binary], "", [])
+                ((code == 0) == no) {
+                    failed = group.add(failed, path)
+                }
+            }
+        }
+    }
+    @broken = group.count(failed)
+    (broken > 0) {
+        io.show("checks: из {count} упало {broken}:")
+        drum (failed) {
+            io.show("  {beat}")
+        }
+        out error.ChecksFailed
+    }
+    out io.show("checks: все {count} зелёные")
+}

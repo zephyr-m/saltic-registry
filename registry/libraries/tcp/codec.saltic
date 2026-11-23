@@ -1,21 +1,23 @@
 -- codec — сегмент TCP в байты на проводе и обратно (RFC 9293, 3.1):
 -- заголовок 20 байтов, у SYN ещё опция MSS (4 байта), потом данные.
--- Числа — старшим байтом вперёд. Контрольная сумма — дополнение до единицы
--- суммы 16-битных слов над псевдозаголовком IPv4 (адреса, протокол 6, длина)
--- и самим сегментом. IP-адрес — группа из 4 чисел.
+-- Числа и контрольная сумма — wire (сетевой порядок, RFC 1071); сумма — над
+-- псевдозаголовком IPv4 (адреса, протокол 6, длина) и самим сегментом.
+-- IP-адрес — группа из 4 чисел.
 --
--- Codec {} — encode(segment, source_ip, target_ip) -> core.bytes
---     decode(packet, source_ip, target_ip) -> segment.Segment; ShortSegment,
+-- Codec {} — pack(segment, source_ip, target_ip) -> core.bytes
+--     unpack(packet, source_ip, target_ip) -> segment.Segment; ShortSegment,
 --         BadChecksum, BadOptions
---     checksum(packet, source_ip, target_ip) -> 16-битная сумма (0 у целого сегмента)
---     word(packet, at) / long(packet, at) — 16 и 32 бита; put_word / put_long — записать
+--     segment_sum(packet, source_ip, target_ip) -> 16-битная сумма (0 у целого сегмента)
+--     line — wire.Wire: сетевой порядок и сумма RFC 1071
 --     options(packet, start, end) -> MSS из опций или 0; BadOptions
--- HEADER — байтов без опций; MSS_OPTION — байтов опции MSS; PROTOCOL — номер TCP в IP
+-- HEADER — байтов без опций; MSS_OPTION — байтов опции MSS; PROTOCOL — номер TCP в IP;
+-- PSEUDO — байтов псевдозаголовка
 
 use core.num
 use core.bytes
 use core.group
-use registry.libraries.tcp.segment
+use segment
+use tarantul.wire.wire
 
 HEADER = 20
 MSS_OPTION = 4
@@ -23,72 +25,45 @@ PROTOCOL = 6
 OPTION_END = 0
 OPTION_NOP = 1
 OPTION_MSS = 2
-SIXTEEN = 65536
+PSEUDO = 12
 
 Codec = Box {
-    skill word(packet, at) {
-        out bytes.get(packet, at) * 256 + bytes.get(packet, at + 1)
-    }
+    line = wire.Wire {}
 
-    skill long(packet, at) {
-        out word(packet, at) * SIXTEEN + word(packet, at + 2)
-    }
-
-    skill put_word(packet, at, value) {
-        bytes.set(packet, at, value / 256)
-        bytes.set(packet, at + 1, value % 256)
-        out none
-    }
-
-    skill put_long(packet, at, value) {
-        put_word(packet, at, value / SIXTEEN)
-        put_word(packet, at + 2, value % SIXTEEN)
-        out none
-    }
-
-    skill checksum(packet, source_ip, target_ip) {
-        @sum = 0
-        drum (2) {
-            sum = sum + group.get(source_ip, beat * 2) * 256 + group.get(source_ip, beat * 2 + 1)
-            sum = sum + group.get(target_ip, beat * 2) * 256 + group.get(target_ip, beat * 2 + 1)
-        }
-        @length = bytes.count(packet)
-        sum = sum + PROTOCOL + length
-        drum (length / 2) {
-            sum = sum + word(packet, beat * 2)
-        }
-        ((length % 2) == 1) {
-            sum = sum + bytes.get(packet, length - 1) * 256
-        }
+    skill segment_sum(packet, source_ip, target_ip) {
+        @pseudo = bytes.new(PSEUDO)
         drum (4) {
-            sum = (sum % SIXTEEN) + (sum / SIXTEEN)
+            bytes.set(pseudo, beat, group.get(source_ip, beat))
+            bytes.set(pseudo, 4 + beat, group.get(target_ip, beat))
         }
-        out SIXTEEN - 1 - sum
+        bytes.set(pseudo, 9, PROTOCOL)
+        line.put_word(pseudo, 10, bytes.count(packet))
+        out line.finish(line.sum(packet, line.sum(pseudo, 0)))
     }
 
-    skill encode(item, source_ip, target_ip) {
+    skill pack(item, source_ip, target_ip) {
         @head = HEADER
         (item.mss > 0) {
             head = HEADER + MSS_OPTION
         }
         @data = item.payload
         @packet = bytes.new(head + bytes.count(data))
-        put_word(packet, 0, item.source_port)
-        put_word(packet, 2, item.target_port)
-        put_long(packet, 4, item.sequence)
-        put_long(packet, 8, item.acknowledgment)
+        line.put_word(packet, 0, item.source_port)
+        line.put_word(packet, 2, item.target_port)
+        line.put_long(packet, 4, item.sequence)
+        line.put_long(packet, 8, item.acknowledgment)
         bytes.set(packet, 12, (head / 4) * 16)
         bytes.set(packet, 13, item.flags)
-        put_word(packet, 14, item.window)
+        line.put_word(packet, 14, item.window)
         (item.mss > 0) {
             bytes.set(packet, HEADER, OPTION_MSS)
             bytes.set(packet, HEADER + 1, MSS_OPTION)
-            put_word(packet, HEADER + 2, item.mss)
+            line.put_word(packet, HEADER + 2, item.mss)
         }
         drum (bytes.count(data)) {
             bytes.set(packet, head + beat, bytes.get(data, beat))
         }
-        put_word(packet, 16, checksum(packet, source_ip, target_ip))
+        line.put_word(packet, 16, segment_sum(packet, source_ip, target_ip))
         out packet
     }
 
@@ -115,7 +90,7 @@ Codec = Box {
                     out error.BadOptions
                 }
                 ((kind == OPTION_MSS) ○ (size == MSS_OPTION)) {
-                    found = word(packet, at + 2)
+                    found = line.word(packet, at + 2)
                 }
                 at = at + size
             }
@@ -123,7 +98,7 @@ Codec = Box {
         out found
     }
 
-    skill decode(packet, source_ip, target_ip) {
+    skill unpack(packet, source_ip, target_ip) {
         (bytes.count(packet) < HEADER) {
             out error.ShortSegment
         }
@@ -131,16 +106,16 @@ Codec = Box {
         ((head < HEADER) ○○ (head > bytes.count(packet))) {
             out error.ShortSegment
         }
-        ((checksum(packet, source_ip, target_ip) == 0) == no) {
+        ((segment_sum(packet, source_ip, target_ip) == 0) == no) {
             out error.BadChecksum
         }
         out segment.Segment {
-            source_port = word(packet, 0),
-            target_port = word(packet, 2),
-            sequence = long(packet, 4),
-            acknowledgment = long(packet, 8),
+            source_port = line.word(packet, 0),
+            target_port = line.word(packet, 2),
+            sequence = line.long(packet, 4),
+            acknowledgment = line.long(packet, 8),
             flags = num.and(bytes.get(packet, 13), 63),
-            window = word(packet, 14),
+            window = line.word(packet, 14),
             mss = options(packet, HEADER, head),
             payload = bytes.slice(packet, head, bytes.count(packet))
         }

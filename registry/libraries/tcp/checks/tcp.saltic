@@ -1,5 +1,5 @@
 -- tcp — проверка своего TCP. Байты: 39 сегментов от Python (cases.saltic,
--- делает workbench/references/tcp.py) — encode совпадает байт в байт, decode
+-- делает workbench/references/tcp.py) — pack совпадает байт в байт, unpack
 -- возвращает те же поля, испорченный байт — BadChecksum. Номера по кругу 2^32.
 -- Разговор двух наших TCP через провод Duo: рукопожатие, 100 000 байтов туда и
 -- 30 000 обратно; потеря каждого четвёртого пакета; закрытие с обеих сторон и
@@ -10,7 +10,7 @@
 --     step() -> сколько пакетов прошло; тишина — время +STEP и tick обоим
 --     run(steps) — шагать; got_left / got_right — что приняли стороны
 -- pattern(size, seed) -> буфер; joined(left, right) -> склейка; same(a, b) -> yes/no
--- from_hex(text) -> буфер; pair(drop_every) -> Duo с открытым соединением
+-- pair(drop_every) -> Duo с открытым соединением; text — hex.Hex (tarantul.hex)
 -- program() -> none; TestsFailed
 
 use io
@@ -19,11 +19,12 @@ use core.num
 use core.bytes
 use core.group
 use craft.testing
-use registry.libraries.tcp.tcp
-use registry.libraries.tcp.codec
-use registry.libraries.tcp.segment
-use registry.libraries.tcp.sequence
-use registry.libraries.tcp.checks.cases
+use tcp
+use codec
+use segment
+use sequence
+use checks.cases
+use tarantul.hex.hex
 
 LEFT_IP = [10, 0, 0, 1]
 RIGHT_IP = [10, 0, 0, 2]
@@ -56,14 +57,6 @@ skill pattern(size, seed) {
     @made = bytes.new(size)
     drum (size) {
         bytes.set(made, beat, (beat * 31 + seed) % 256)
-    }
-    out made
-}
-
-skill from_hex(text) {
-    @made = bytes.new(str.bytes(text) / 2)
-    drum (bytes.count(made)) {
-        bytes.set(made, beat, num.hex_value(str.get(text, beat * 2)) * 16 + num.hex_value(str.get(text, beat * 2 + 1)))
     }
     out made
 }
@@ -135,11 +128,12 @@ skill pair(drop_every) {
 program() {
     @suite = testing.test_new()
     @wire = codec.Codec {}
+    @text = hex.Hex {}
     @circle = sequence.Sequence {}
     @wrong = 0
     drum (cases.CASES) {
         @row = beat
-        @packet = from_hex(group.get(row, 0))
+        @packet = text.decode(group.get(row, 0))
         @item = segment.Segment {
             source_port = group.get(row, 3),
             target_port = group.get(row, 4),
@@ -148,10 +142,10 @@ program() {
             flags = group.get(row, 7),
             window = group.get(row, 8),
             mss = group.get(row, 9),
-            payload = from_hex(group.get(row, 10))
+            payload = text.decode(group.get(row, 10))
         }
-        @made = wire.encode(item, group.get(row, 1), group.get(row, 2))
-        @back = wire.decode(packet, group.get(row, 1), group.get(row, 2))
+        @made = wire.pack(item, group.get(row, 1), group.get(row, 2))
+        @back = wire.unpack(packet, group.get(row, 1), group.get(row, 2))
         @fields = ((back.sequence == item.sequence) ○ (back.acknowledgment == item.acknowledgment) ○ (back.flags == item.flags))
         fields = ((fields == yes) ○ (back.window == item.window) ○ (back.mss == item.mss) ○ (same(back.payload, item.payload) == yes))
         ((same(made, packet) == no) ○○ (fields == no)) {
@@ -164,9 +158,9 @@ program() {
     io.show("tcp: сегментов от Python {total}, расхождений {wrong}")
     suite = testing.test_equal(suite, "сегменты как у Python, туда и обратно", wrong, 0)
 
-    @broken = from_hex(group.get(group.get(cases.CASES, 3), 0))
+    @broken = text.decode(group.get(group.get(cases.CASES, 3), 0))
     bytes.set(broken, 25, (bytes.get(broken, 25) + 1) % 256)
-    @spoiled = wire.decode(broken, LEFT_IP, RIGHT_IP) rescue |err| {
+    @spoiled = wire.unpack(broken, LEFT_IP, RIGHT_IP) rescue |err| {
         suite = testing.test_yes(suite, "испорченный байт — BadChecksum", (err == error.BadChecksum))
         none
     }
