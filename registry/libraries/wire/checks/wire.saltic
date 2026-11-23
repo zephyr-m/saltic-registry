@@ -1,0 +1,64 @@
+-- wire — проверка против Python (cases.saltic, делает workbench/references/wire.py):
+-- контрольная сумма RFC 1071 — пример из самого RFC и 43 буфера, чётные и
+-- нечётные; сумма по кускам равна сумме целиком; слова и длинные struct «!H» /
+-- «!I», запись и чтение обратно; заголовок IPv4 с известной суммой b861 и с
+-- вписанной суммой сходится в 0.
+--
+-- program() -> none; TestsFailed
+
+use io
+use core.bytes
+use core.group
+use craft.testing
+use registry.libraries.hex.hex
+use registry.libraries.wire.wire
+use registry.libraries.wire.checks.cases
+
+program() {
+    @suite = testing.test_new()
+    @text = hex.Hex {}
+    @line = wire.Wire {}
+    @wrong = 0
+    drum (cases.SUMS) {
+        @data = text.decode(group.get(beat, 0))
+        ((line.checksum(data) == group.get(beat, 1)) == no) {
+            wrong = wrong + 1
+            @shown = group.get(beat, 0)
+            io.show("  сумма разошлась: {shown}")
+        }
+    }
+    @total = group.count(cases.SUMS)
+    io.show("wire: буферов от Python {total}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "суммы как у Python (RFC 1071)", wrong, 0)
+    suite = testing.test_equal(suite, "пример RFC 1071: сумма ddf2", line.sum(text.decode("0001f203f4f5f6f7"), 0) % 65535, 56818)
+
+    @whole = text.decode(group.get(group.get(cases.SUMS, 6), 0))
+    @half = bytes.count(whole) / 2
+    half = half - (half % 2)
+    @pieces = line.finish(line.sum(bytes.slice(whole, half, bytes.count(whole)), line.sum(bytes.slice(whole, 0, half), 0)))
+    suite = testing.test_equal(suite, "по кускам — как целиком", pieces, line.checksum(whole))
+
+    @numbers_wrong = 0
+    drum (cases.NUMBERS) {
+        @four = text.decode(group.get(beat, 0))
+        ((line.word(four, 0) == group.get(beat, 1)) == no) {
+            numbers_wrong = numbers_wrong + 1
+        }
+        ((line.long(four, 0) == group.get(beat, 2)) == no) {
+            numbers_wrong = numbers_wrong + 1
+        }
+        @back = bytes.new(4)
+        line.put_long(back, 0, group.get(beat, 2))
+        ((text.encode(back) == group.get(beat, 0)) == no) {
+            numbers_wrong = numbers_wrong + 1
+        }
+    }
+    suite = testing.test_equal(suite, "слова и длинные как struct !H / !I", numbers_wrong, 0)
+
+    @header = text.decode("450000730000400040110000c0a80001c0a800c7")
+    @stamp = line.checksum(header)
+    suite = testing.test_equal(suite, "заголовок IPv4 из учебника: сумма b861", stamp, 47201)
+    line.put_word(header, 10, stamp)
+    suite = testing.test_equal(suite, "с вписанной суммой сходится в 0", line.checksum(header), 0)
+    out testing.test_finish(suite)
+}

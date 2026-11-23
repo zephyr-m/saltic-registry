@@ -1,0 +1,61 @@
+-- wire — байты на проводе: числа 16 и 32 бита старшим байтом вперёд (сетевой
+-- порядок) и контрольная сумма интернета (RFC 1071) — одна на IPv4, UDP, TCP,
+-- ICMP: дополнение до единицы суммы 16-битных слов. Сумму можно копить по
+-- кускам (псевдозаголовок, потом сегмент): нечётный байт — только в последнем куске.
+--
+-- Wire {} — word(buffer, at) / long(buffer, at) -> 16 / 32 бита
+--     put_word(buffer, at, value) / put_long(buffer, at, value) — записать
+--     sum(buffer, total) -> total + слова buffer (нечётный хвост — старшим байтом)
+--     finish(total) -> контрольная сумма из накопленной суммы
+--     checksum(buffer) -> контрольная сумма буфера целиком (0 — сумма сошлась)
+-- SIXTEEN — 2^16
+
+use core.bytes
+
+SIXTEEN = 65536
+
+Wire = Box {
+    skill word(buffer, at) {
+        out bytes.get(buffer, at) * 256 + bytes.get(buffer, at + 1)
+    }
+
+    skill long(buffer, at) {
+        out word(buffer, at) * SIXTEEN + word(buffer, at + 2)
+    }
+
+    skill put_word(buffer, at, value) {
+        bytes.set(buffer, at, value / 256)
+        bytes.set(buffer, at + 1, value % 256)
+        out none
+    }
+
+    skill put_long(buffer, at, value) {
+        put_word(buffer, at, value / SIXTEEN)
+        put_word(buffer, at + 2, value % SIXTEEN)
+        out none
+    }
+
+    skill sum(buffer, total) {
+        @length = bytes.count(buffer)
+        @running = total
+        drum (length / 2) {
+            running = running + word(buffer, beat * 2)
+        }
+        ((length % 2) == 1) {
+            running = running + bytes.get(buffer, length - 1) * 256
+        }
+        out running
+    }
+
+    skill finish(total) {
+        @folded = total
+        drum (4) {
+            folded = (folded % SIXTEEN) + (folded / SIXTEEN)
+        }
+        out SIXTEEN - 1 - folded
+    }
+
+    skill checksum(buffer) {
+        out finish(sum(buffer, 0))
+    }
+}

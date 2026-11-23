@@ -1,0 +1,44 @@
+-- hex — проверка против Python bytes.hex / bytes.fromhex (cases.saltic, делает
+-- workbench/references/hex.py): туда и обратно, заглавные при чтении, все 256
+-- значений байта, пустой буфер; нечётная длина и чужой знак — BadHex.
+--
+-- program() -> none; TestsFailed
+
+use io
+use core.bytes
+use core.group
+use craft.testing
+use registry.libraries.hex.hex
+use registry.libraries.hex.checks.cases
+
+program() {
+    @suite = testing.test_new()
+    @codec = hex.Hex {}
+    @wrong = 0
+    drum (cases.CASES) {
+        @low = group.get(beat, 0)
+        @high = group.get(beat, 1)
+        @there = codec.decode(high)
+        ((codec.encode(there) == low) == no) {
+            wrong = wrong + 1
+            io.show("  расхождение: {low}")
+        }
+        ((codec.encode(codec.decode(low)) == low) == no) {
+            wrong = wrong + 1
+            io.show("  расхождение строчными: {low}")
+        }
+    }
+    @total = group.count(cases.CASES)
+    io.show("hex: буферов от Python {total}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "как у Python bytes.hex", wrong, 0)
+    suite = testing.test_equal(suite, "ff00 → два байта", bytes.to_group(codec.decode("ff00")), [255, 0])
+    @odd = codec.decode("abc") rescue |err| {
+        suite = testing.test_yes(suite, "нечётная длина — BadHex", (err == error.BadHex))
+        none
+    }
+    @alien = codec.decode("0z") rescue |err| {
+        suite = testing.test_yes(suite, "чужой знак — BadHex", (err == error.BadHex))
+        none
+    }
+    out testing.test_finish(suite)
+}

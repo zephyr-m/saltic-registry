@@ -27,3 +27,5 @@ random     registry/libraries/random/random
 graph      registry/libraries/graph/graph
 optimize   registry/libraries/optimize/optimize
 tcp        registry/libraries/tcp/tcp
+hex        registry/libraries/hex/hex
+wire       registry/libraries/wire/wire

@@ -1,0 +1,39 @@
+-- hex — байты ↔ шестнадцатеричный текст: два знака на байт, старшая
+-- половина первой; при чтении — любой регистр, при записи — строчные.
+-- Нечётная длина или чужой знак — BadHex, не тихий ноль.
+--
+-- Hex {} — decode(text) -> core.bytes; BadHex
+--     encode(buffer) -> текст из строчных 0…9 a…f
+
+use core.str
+use core.num
+use core.bytes
+
+Hex = Box {
+    skill decode(text) {
+        @length = str.bytes(text)
+        ((length % 2) == 1) {
+            out error.BadHex
+        }
+        @made = bytes.new(length / 2)
+        drum (length / 2) {
+            @high = num.hex_value(str.get(text, beat * 2))
+            @low = num.hex_value(str.get(text, beat * 2 + 1))
+            ((high < 0) ○○ (low < 0)) {
+                out error.BadHex
+            }
+            bytes.set(made, beat, high * 16 + low)
+        }
+        out made
+    }
+
+    skill encode(buffer) {
+        @made = bytes.new(bytes.count(buffer) * 2)
+        drum (bytes.count(buffer)) {
+            @value = bytes.get(buffer, beat)
+            bytes.set(made, beat * 2, str.byte(num.HEX_DIGITS, value / 16))
+            bytes.set(made, beat * 2 + 1, str.byte(num.HEX_DIGITS, value % 16))
+        }
+        out str.from_bytes(made)
+    }
+}
