@@ -1,0 +1,32 @@
+-- sequence — номера TCP по кругу 2^32 (RFC 9293, 3.4): номер растёт и
+-- переходит через край к нулю, поэтому «раньше» — не обычное «меньше»:
+-- a раньше b, если от a вперёд до b меньше половины круга. Числа до 2^32 —
+-- только 64-битные цели.
+--
+-- Sequence {} — after(number, count) -> номер на count шагов дальше по кругу
+--     distance(from, to) -> шагов вперёд от from до to, 0 … 2^32 − 1
+--     before(a, b) -> yes, если a раньше b
+--     within(value, low, high) -> yes, если low ≤ value < high по кругу
+-- CIRCLE — 2^32; HALF — 2^31
+
+CIRCLE = 4294967296
+HALF = 2147483648
+
+Sequence = Box {
+    skill after(number, count) {
+        out (number + count) % CIRCLE
+    }
+
+    skill distance(from, to) {
+        out (to - from + CIRCLE) % CIRCLE
+    }
+
+    skill before(a, b) {
+        @gap = distance(a, b)
+        out ((gap > 0) ○ (gap < HALF))
+    }
+
+    skill within(value, low, high) {
+        out (distance(low, value) < distance(low, high))
+    }
+}

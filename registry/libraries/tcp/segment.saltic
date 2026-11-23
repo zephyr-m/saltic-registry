@@ -1,0 +1,44 @@
+-- segment — один сегмент TCP (RFC 9293, 3.1) в разобранном виде: порты,
+-- номер, подтверждение, флаги, окно, MSS (только у SYN) и данные.
+-- Байты на проводе — codec.
+--
+-- Segment { source_port, target_port, sequence, acknowledgment, flags, window,
+--     mss, payload } — mss = 0: опции нет; payload — core.bytes
+--     has(flag) -> yes, если флаг поднят
+--     span() -> сколько номеров занимает: байты данных + 1 за SYN + 1 за FIN
+-- FIN, SYN, RST, PSH, ACK — биты флагов
+
+use core.num
+use core.bytes
+
+FIN = 1
+SYN = 2
+RST = 4
+PSH = 8
+ACK = 16
+
+Segment = Box {
+    source_port = 0,
+    target_port = 0,
+    sequence = 0,
+    acknowledgment = 0,
+    flags = 0,
+    window = 0,
+    mss = 0,
+    payload = bytes.new(0)
+
+    skill has(flag) {
+        out (num.and(flags, flag) == flag)
+    }
+
+    skill span() {
+        @count = bytes.count(payload)
+        (has(SYN) == yes) {
+            count = count + 1
+        }
+        (has(FIN) == yes) {
+            count = count + 1
+        }
+        out count
+    }
+}

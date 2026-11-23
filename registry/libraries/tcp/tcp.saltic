@@ -1,0 +1,413 @@
+-- tcp — свой TCP на Saltic (RFC 9293), без платформы: на вход — байты
+-- сегментов от собеседника, на выход — байты сегментов к нему; IP, кадры и
+-- провод — дело того, кто зовёт (net на Acer, TUN на Linux). Состояния —
+-- полный круг: открытие клиентом и сервером, данные в обе стороны, повторы по
+-- таймеру с удвоением, закрытие с обеих сторон, TIME-WAIT, сброс.
+-- Время — миллисекунды от зовущего (now); начальный номер — тоже от него.
+-- Пока проще RFC: чужие сегменты не по порядку отбрасываются (собеседник
+-- повторит), нет контроля перегрузки (RFC 5681) и пробы нулевого окна.
+--
+-- Connection { state, local_ip, local_port, remote_ip, remote_port, … } — соединение:
+--     connect(now, initial) — открыть клиентом; listen(initial) — ждать SYN
+--     feed(packet, from_ip, now) — принять сегмент; ConnectionRefused, ConnectionReset
+--     write(data, now) — отдать данные на отправку; NotOpen
+--     take() -> принятые данные (буфер очищается); close(now) — закрыть свою сторону
+--     tick(now) — повторы и конец TIME-WAIT; ConnectionTimedOut
+--     packets() -> группа буферов к отправке (очередь очищается)
+--     dropped — сколько сегментов отброшено (битая сумма, мусор): счёт виден
+-- Внутри: emit(flags, sequence, data, now, remember) — собрать и поставить в
+--     очередь; flush(now) — данные и FIN по окну; acknowledge(number) — снять
+--     подтверждённое; reset_reply(item) — ответ RST на чужой сегмент
+-- WINDOW — наше окно; MSS — наш наибольший кусок; RTO_* — таймер повтора, мс;
+-- TRIES — сколько повторов до ConnectionTimedOut; TIME_WAIT — мс в TIME-WAIT
+
+use core.bytes
+use core.group
+use registry.libraries.tcp.segment
+use registry.libraries.tcp.codec
+use registry.libraries.tcp.sequence
+
+WINDOW = 65535
+MSS = 1460
+PEER_MSS = 536
+RTO_START = 1000
+RTO_MOST = 60000
+TRIES = 8
+TIME_WAIT = 60000
+
+Connection = Box {
+    state = "closed",
+    local_ip = [0, 0, 0, 0],
+    local_port = 0,
+    remote_ip = [0, 0, 0, 0],
+    remote_port = 0,
+    unacked = 0,
+    next_send = 0,
+    received = 0,
+    peer_window = 0,
+    peer_mss = PEER_MSS,
+    pending = bytes.new(0),
+    inbox = bytes.new(0),
+    flight = [],
+    outbox = [],
+    fin_wanted = no,
+    fin_sent = no,
+    rto = RTO_START,
+    wait_until = 0,
+    dropped = 0,
+    wire = codec.Codec {},
+    circle = sequence.Sequence {}
+
+    skill emit(flags, number, data, now, remember) {
+        @mss = 0
+        (num_has(flags, segment.SYN) == yes) {
+            mss = MSS
+        }
+        @item = segment.Segment {
+            source_port = local_port,
+            target_port = remote_port,
+            sequence = number,
+            acknowledgment = received,
+            flags = flags,
+            window = WINDOW,
+            mss = mss,
+            payload = data
+        }
+        outbox = group.add(outbox, wire.encode(item, local_ip, remote_ip))
+        (remember == yes) {
+            flight = group.add(flight, [number, data, flags, now, 0])
+        }
+        out none
+    }
+
+    skill connect(now, initial) {
+        ((state == "closed") == no) {
+            out error.AlreadyOpen
+        }
+        unacked = initial
+        next_send = circle.after(initial, 1)
+        state = "syn_sent"
+        emit(segment.SYN, initial, bytes.new(0), now, yes)
+        out none
+    }
+
+    skill listen(initial) {
+        ((state == "closed") == no) {
+            out error.AlreadyOpen
+        }
+        unacked = initial
+        next_send = initial
+        state = "listen"
+        out none
+    }
+
+    skill sending() {
+        out ((state == "established") ○○ (state == "close_wait"))
+    }
+
+    skill in_flight() {
+        out circle.distance(unacked, next_send)
+    }
+
+    skill flush(now) {
+        (sending() == no) {
+            out none
+        }
+        @piece = MSS
+        (peer_mss < piece) {
+            piece = peer_mss
+        }
+        drum (bytes.count(pending) + 1) {
+            @left = bytes.count(pending)
+            @room = peer_window - in_flight()
+            ((left == 0) ○○ (room <= 0)) {
+                leave
+            }
+            @size = piece
+            (left < size) {
+                size = left
+            }
+            (room < size) {
+                size = room
+            }
+            @data = bytes.slice(pending, 0, size)
+            pending = bytes.slice(pending, size, left)
+            emit(segment.ACK + segment.PSH, next_send, data, now, yes)
+            next_send = circle.after(next_send, size)
+        }
+        ((fin_wanted == yes) ○ (fin_sent == no) ○ (bytes.count(pending) == 0)) {
+            emit(segment.FIN + segment.ACK, next_send, bytes.new(0), now, yes)
+            next_send = circle.after(next_send, 1)
+            fin_sent = yes
+            (state == "established") {
+                state = "fin_wait_1"
+            }
+            (state == "close_wait") {
+                state = "last_ack"
+            }
+        }
+        out none
+    }
+
+    skill write(data, now) {
+        ((sending() == no) ○ ((state == "syn_sent") == no) ○ ((state == "syn_received") == no)) {
+            out error.NotOpen
+        }
+        (fin_wanted == yes) {
+            out error.NotOpen
+        }
+        @joined = bytes.new(bytes.count(pending) + bytes.count(data))
+        drum (bytes.count(pending)) {
+            bytes.set(joined, beat, bytes.get(pending, beat))
+        }
+        drum (bytes.count(data)) {
+            bytes.set(joined, bytes.count(pending) + beat, bytes.get(data, beat))
+        }
+        pending = joined
+        flush(now)
+        out none
+    }
+
+    skill take() {
+        @got = inbox
+        inbox = bytes.new(0)
+        out got
+    }
+
+    skill close(now) {
+        ((state == "listen") ○○ (state == "syn_sent")) {
+            state = "closed"
+            out none
+        }
+        fin_wanted = yes
+        flush(now)
+        out none
+    }
+
+    skill packets() {
+        @ready = outbox
+        outbox = []
+        out ready
+    }
+
+    skill acknowledge(number) {
+        @kept = []
+        drum (flight) {
+            @end = circle.after(group.get(beat, 0), span_of(beat))
+            (circle.before(number, end) == yes) {
+                kept = group.add(kept, beat)
+            }
+        }
+        flight = kept
+        unacked = number
+        rto = RTO_START
+        out none
+    }
+
+    skill span_of(entry) {
+        @count = bytes.count(group.get(entry, 1))
+        (num_has(group.get(entry, 2), segment.SYN) == yes) {
+            count = count + 1
+        }
+        (num_has(group.get(entry, 2), segment.FIN) == yes) {
+            count = count + 1
+        }
+        out count
+    }
+
+    skill num_has(flags, flag) {
+        out (((flags / flag) % 2) == 1)
+    }
+
+    skill reset_reply(item, from_ip) {
+        (item.has(segment.RST) == yes) {
+            out none
+        }
+        @number = 0
+        @flags = segment.RST + segment.ACK
+        (item.has(segment.ACK) == yes) {
+            number = item.acknowledgment
+            flags = segment.RST
+        }
+        @answer = segment.Segment {
+            source_port = item.target_port,
+            target_port = item.source_port,
+            sequence = number,
+            acknowledgment = circle.after(item.sequence, item.span()),
+            flags = flags,
+            window = 0
+        }
+        outbox = group.add(outbox, wire.encode(answer, local_ip, from_ip))
+        out none
+    }
+
+    skill opening(item, from_ip, now) {
+        (state == "listen") {
+            (item.has(segment.RST) == yes) {
+                out none
+            }
+            (item.has(segment.ACK) == yes) {
+                reset_reply(item, from_ip)
+                out none
+            }
+            (item.has(segment.SYN) == yes) {
+                remote_ip = from_ip
+                remote_port = item.source_port
+                received = circle.after(item.sequence, 1)
+                peer_window = item.window
+                (item.mss > 0) {
+                    peer_mss = item.mss
+                }
+                state = "syn_received"
+                emit(segment.SYN + segment.ACK, unacked, bytes.new(0), now, yes)
+                next_send = circle.after(unacked, 1)
+            }
+            out none
+        }
+        @good = ((item.has(segment.ACK) == yes) ○ (item.acknowledgment == next_send))
+        ((item.has(segment.ACK) == yes) ○ (good == no)) {
+            reset_reply(item, from_ip)
+            out none
+        }
+        (item.has(segment.RST) == yes) {
+            (good == yes) {
+                state = "closed"
+                out error.ConnectionRefused
+            }
+            out none
+        }
+        ((item.has(segment.SYN) == yes) ○ (good == yes)) {
+            received = circle.after(item.sequence, 1)
+            peer_window = item.window
+            (item.mss > 0) {
+                peer_mss = item.mss
+            }
+            acknowledge(item.acknowledgment)
+            state = "established"
+            emit(segment.ACK, next_send, bytes.new(0), now, no)
+            flush(now)
+        }
+        out none
+    }
+
+    skill feed(packet, from_ip, now) {
+        @item = wire.decode(packet, from_ip, local_ip) rescue |err| {
+            dropped = dropped + 1
+            none
+        }
+        (item == none) {
+            out none
+        }
+        (state == "closed") {
+            reset_reply(item, from_ip)
+            out none
+        }
+        ((state == "listen") ○○ (state == "syn_sent")) {
+            out opening(item, from_ip, now)
+        }
+        out talking(item, now)
+    }
+
+    skill talking(item, now) {
+        @length = bytes.count(item.payload)
+        @fits = (item.sequence == received)
+        ((fits == no) ○ (length == 0) ○ (item.has(segment.FIN) == no)) {
+            fits = circle.within(item.sequence, received, circle.after(received, WINDOW))
+        }
+        (fits == no) {
+            (item.has(segment.RST) == no) {
+                emit(segment.ACK, next_send, bytes.new(0), now, no)
+            }
+            out none
+        }
+        (item.has(segment.RST) == yes) {
+            state = "closed"
+            out error.ConnectionReset
+        }
+        (item.has(segment.ACK) == no) {
+            out none
+        }
+        @ack = item.acknowledgment
+        (circle.before(next_send, ack) == yes) {
+            emit(segment.ACK, next_send, bytes.new(0), now, no)
+            out none
+        }
+        (circle.before(unacked, ack) == yes) {
+            acknowledge(ack)
+        }
+        peer_window = item.window
+        ((state == "syn_received") ○ (unacked == next_send)) {
+            state = "established"
+        }
+        @fin_done = ((fin_sent == yes) ○ (unacked == next_send))
+        ((state == "fin_wait_1") ○ (fin_done == yes)) {
+            state = "fin_wait_2"
+        }
+        ((state == "closing") ○ (fin_done == yes)) {
+            state = "time_wait"
+            wait_until = now + TIME_WAIT
+        }
+        ((state == "last_ack") ○ (fin_done == yes)) {
+            state = "closed"
+            out none
+        }
+        @answer = no
+        @reading = ((state == "established") ○○ (state == "fin_wait_1") ○○ (state == "fin_wait_2"))
+        ((length > 0) ○ (reading == yes)) {
+            @joined = bytes.new(bytes.count(inbox) + length)
+            drum (bytes.count(inbox)) {
+                bytes.set(joined, beat, bytes.get(inbox, beat))
+            }
+            drum (length) {
+                bytes.set(joined, bytes.count(inbox) + beat, bytes.get(item.payload, beat))
+            }
+            inbox = joined
+            received = circle.after(received, length)
+            answer = yes
+        }
+        ((item.has(segment.FIN) == yes) ○ (reading == yes)) {
+            received = circle.after(received, 1)
+            answer = yes
+            (state == "established") {
+                state = "close_wait"
+            }
+            (state == "fin_wait_1") {
+                state = "closing"
+            }
+            (state == "fin_wait_2") {
+                state = "time_wait"
+                wait_until = now + TIME_WAIT
+            }
+        }
+        (answer == yes) {
+            emit(segment.ACK, next_send, bytes.new(0), now, no)
+        }
+        flush(now)
+        out none
+    }
+
+    skill tick(now) {
+        ((state == "time_wait") ○ (now >= wait_until)) {
+            state = "closed"
+            out none
+        }
+        (group.count(flight) == 0) {
+            out none
+        }
+        @oldest = group.get(flight, 0)
+        ((now - group.get(oldest, 3)) < rto) {
+            out none
+        }
+        (group.get(oldest, 4) >= TRIES) {
+            state = "closed"
+            out error.ConnectionTimedOut
+        }
+        emit(group.get(oldest, 2), group.get(oldest, 0), group.get(oldest, 1), now, no)
+        flight = group.replaced(flight, 0, [group.get(oldest, 0), group.get(oldest, 1), group.get(oldest, 2), now, group.get(oldest, 4) + 1])
+        rto = rto * 2
+        (rto > RTO_MOST) {
+            rto = RTO_MOST
+        }
+        out none
+    }
+}

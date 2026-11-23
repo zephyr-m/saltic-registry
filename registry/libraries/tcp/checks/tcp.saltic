@@ -1,0 +1,245 @@
+-- tcp — проверка своего TCP. Байты: 39 сегментов от Python (cases.saltic,
+-- делает workbench/references/tcp.py) — encode совпадает байт в байт, decode
+-- возвращает те же поля, испорченный байт — BadChecksum. Номера по кругу 2^32.
+-- Разговор двух наших TCP через провод Duo: рукопожатие, 100 000 байтов туда и
+-- 30 000 обратно; потеря каждого четвёртого пакета; закрытие с обеих сторон и
+-- TIME-WAIT; закрытый порт — ConnectionRefused; оборванный провод — ConnectionTimedOut.
+--
+-- Duo { left, right, now, count, drop_every } — два соединения и провод между ними:
+--     carry(packets, to, from_ip) — доставить, кроме каждого drop_every-го
+--     step() -> сколько пакетов прошло; тишина — время +STEP и tick обоим
+--     run(steps) — шагать; got_left / got_right — что приняли стороны
+-- pattern(size, seed) -> буфер; joined(left, right) -> склейка; same(a, b) -> yes/no
+-- from_hex(text) -> буфер; pair(drop_every) -> Duo с открытым соединением
+-- program() -> none; TestsFailed
+
+use io
+use core.str
+use core.num
+use core.bytes
+use core.group
+use craft.testing
+use registry.libraries.tcp.tcp
+use registry.libraries.tcp.codec
+use registry.libraries.tcp.segment
+use registry.libraries.tcp.sequence
+use registry.libraries.tcp.checks.cases
+
+LEFT_IP = [10, 0, 0, 1]
+RIGHT_IP = [10, 0, 0, 2]
+STEP = 250
+
+skill joined(left, right) {
+    @made = bytes.new(bytes.count(left) + bytes.count(right))
+    drum (bytes.count(left)) {
+        bytes.set(made, beat, bytes.get(left, beat))
+    }
+    drum (bytes.count(right)) {
+        bytes.set(made, bytes.count(left) + beat, bytes.get(right, beat))
+    }
+    out made
+}
+
+skill same(left, right) {
+    ((bytes.count(left) == bytes.count(right)) == no) {
+        out no
+    }
+    drum (bytes.count(left)) {
+        ((bytes.get(left, beat) == bytes.get(right, beat)) == no) {
+            out no
+        }
+    }
+    out yes
+}
+
+skill pattern(size, seed) {
+    @made = bytes.new(size)
+    drum (size) {
+        bytes.set(made, beat, (beat * 31 + seed) % 256)
+    }
+    out made
+}
+
+skill from_hex(text) {
+    @made = bytes.new(str.bytes(text) / 2)
+    drum (bytes.count(made)) {
+        bytes.set(made, beat, num.hex_value(str.get(text, beat * 2)) * 16 + num.hex_value(str.get(text, beat * 2 + 1)))
+    }
+    out made
+}
+
+Duo = Box {
+    left = tcp.Connection {},
+    right = tcp.Connection {},
+    now = 0,
+    count = 0,
+    drop_every = 0,
+    got_left = bytes.new(0),
+    got_right = bytes.new(0)
+
+    skill carry(packets, to, from_ip) {
+        @moved = 0
+        drum (packets) {
+            count = count + 1
+            @lost = ((drop_every > 0) ○ ((count % drop_every) == 0))
+            (lost == no) {
+                to.feed(beat, from_ip, now)
+            }
+            moved = moved + 1
+        }
+        out moved
+    }
+
+    skill step() {
+        @moved = carry(left.packets(), right, LEFT_IP)
+        moved = moved + carry(right.packets(), left, RIGHT_IP)
+        got_left = joined(got_left, left.take())
+        got_right = joined(got_right, right.take())
+        (moved == 0) {
+            now = now + STEP
+            left.tick(now)
+            right.tick(now)
+        }
+        out moved
+    }
+
+    skill run(steps) {
+        drum (steps) {
+            step()
+        }
+        out none
+    }
+}
+
+skill pair(drop_every) {
+    @duo = Duo {
+        left = tcp.Connection {
+            local_ip = LEFT_IP,
+            local_port = 40000,
+            remote_ip = RIGHT_IP,
+            remote_port = 80
+        },
+        right = tcp.Connection {
+            local_ip = RIGHT_IP,
+            local_port = 80
+        },
+        drop_every = drop_every
+    }
+    @server = duo.right
+    @client = duo.left
+    server.listen(700000)
+    client.connect(0, 4294967000)
+    out duo
+}
+
+program() {
+    @suite = testing.test_new()
+    @wire = codec.Codec {}
+    @circle = sequence.Sequence {}
+    @wrong = 0
+    drum (cases.CASES) {
+        @row = beat
+        @packet = from_hex(group.get(row, 0))
+        @item = segment.Segment {
+            source_port = group.get(row, 3),
+            target_port = group.get(row, 4),
+            sequence = group.get(row, 5),
+            acknowledgment = group.get(row, 6),
+            flags = group.get(row, 7),
+            window = group.get(row, 8),
+            mss = group.get(row, 9),
+            payload = from_hex(group.get(row, 10))
+        }
+        @made = wire.encode(item, group.get(row, 1), group.get(row, 2))
+        @back = wire.decode(packet, group.get(row, 1), group.get(row, 2))
+        @fields = ((back.sequence == item.sequence) ○ (back.acknowledgment == item.acknowledgment) ○ (back.flags == item.flags))
+        fields = ((fields == yes) ○ (back.window == item.window) ○ (back.mss == item.mss) ○ (same(back.payload, item.payload) == yes))
+        ((same(made, packet) == no) ○○ (fields == no)) {
+            wrong = wrong + 1
+            @shown = group.get(row, 0)
+            io.show("  расхождение: {shown}")
+        }
+    }
+    @total = group.count(cases.CASES)
+    io.show("tcp: сегментов от Python {total}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "сегменты как у Python, туда и обратно", wrong, 0)
+
+    @broken = from_hex(group.get(group.get(cases.CASES, 3), 0))
+    bytes.set(broken, 25, (bytes.get(broken, 25) + 1) % 256)
+    @spoiled = wire.decode(broken, LEFT_IP, RIGHT_IP) rescue |err| {
+        suite = testing.test_yes(suite, "испорченный байт — BadChecksum", (err == error.BadChecksum))
+        none
+    }
+
+    suite = testing.test_equal(suite, "2^32 − 1 + 1 → 0", circle.after(4294967295, 1), 0)
+    suite = testing.test_yes(suite, "4294967290 раньше 5", circle.before(4294967290, 5))
+    suite = testing.test_no(suite, "5 не раньше 4294967290", circle.before(5, 4294967290))
+
+    @duo = pair(0)
+    @client = duo.left
+    @server = duo.right
+    duo.run(20)
+    suite = testing.test_equal(suite, "рукопожатие: клиент", client.state, "established")
+    suite = testing.test_equal(suite, "рукопожатие: сервер", server.state, "established")
+    @there = pattern(100000, 7)
+    @back_data = pattern(30000, 91)
+    client.write(there, duo.now)
+    server.write(back_data, duo.now)
+    duo.run(2000)
+    suite = testing.test_yes(suite, "100 000 байтов к серверу", same(duo.got_right, there))
+    suite = testing.test_yes(suite, "30 000 байтов к клиенту", same(duo.got_left, back_data))
+
+    client.close(duo.now)
+    duo.run(20)
+    suite = testing.test_equal(suite, "клиент закрыл: сервер", server.state, "close_wait")
+    suite = testing.test_equal(suite, "клиент закрыл: клиент", client.state, "fin_wait_2")
+    server.close(duo.now)
+    duo.run(20)
+    suite = testing.test_equal(suite, "сервер закрыл: сервер", server.state, "closed")
+    suite = testing.test_equal(suite, "сервер закрыл: клиент в TIME-WAIT", client.state, "time_wait")
+    duo.run(300)
+    suite = testing.test_equal(suite, "TIME-WAIT истёк", client.state, "closed")
+
+    @lossy = pair(4)
+    lossy.run(200)
+    @lossy_client = lossy.left
+    @lossy_data = pattern(50000, 3)
+    @started = lossy.now
+    lossy_client.write(lossy_data, lossy.now)
+    drum (20000) {
+        (bytes.count(lossy.got_right) >= bytes.count(lossy_data)) {
+            leave
+        }
+        lossy.step()
+    }
+    suite = testing.test_yes(suite, "потеря каждого 4-го: 50 000 байтов целы", same(lossy.got_right, lossy_data))
+    @sent_count = lossy.count
+    @spent = lossy.now - started
+    io.show("tcp: с потерями — пакетов {sent_count}, доставка за {spent} мс времени провода")
+
+    @shut = Duo {
+        left = tcp.Connection {
+            local_ip = LEFT_IP,
+            local_port = 40001,
+            remote_ip = RIGHT_IP,
+            remote_port = 81
+        },
+        right = tcp.Connection {
+            local_ip = RIGHT_IP,
+            local_port = 81
+        }
+    }
+    @knocking = shut.left
+    knocking.connect(0, 1000)
+    @refused = shut.run(5) rescue |err| {
+        suite = testing.test_yes(suite, "закрытый порт — ConnectionRefused", (err == error.ConnectionRefused))
+        none
+    }
+
+    @cut = pair(1)
+    @timed = cut.run(5000) rescue |err| {
+        suite = testing.test_yes(suite, "оборванный провод — ConnectionTimedOut", (err == error.ConnectionTimedOut))
+        none
+    }
+    out testing.test_finish(suite)
+}
