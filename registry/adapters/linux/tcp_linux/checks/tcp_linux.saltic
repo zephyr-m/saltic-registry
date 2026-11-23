@@ -1,5 +1,5 @@
--- tcp — проверка соединения против эхо-сервера на сокетах Python
--- (workbench/references/tcp.py реестра; проверка сама его запускает):
+-- tcp_linux — проверка моста к TCP Linux против эхо-сервера на сокетах Python
+-- (workbench/references/tcp_linux.py реестра; проверка сама его запускает):
 -- короткое эхо с кириллицей, 100 000 байтов в несколько приёмов, два
 -- соединения подряд, закрытие собеседником, отказ в соединении, плохие
 -- адреса и порты, отправка после close.
@@ -16,7 +16,7 @@ use core.bytes
 use core.group
 use core.process
 use craft.testing
-use registry.libraries.tcp.tcp
+use registry.adapters.linux.tcp_linux.tcp_linux
 
 HOST = "127.0.0.1"
 BIG = 100000
@@ -41,9 +41,13 @@ skill collect(link, total) {
     @made = bytes.new(total)
     @have = 0
     drum (total + 1) {
-        (have >= total) { leave }
+        (have >= total) {
+            leave
+        }
         @part = link.receive(CHUNK)
-        (bytes.count(part) == 0) { out error.ConnectionClosed }
+        (bytes.count(part) == 0) {
+            out error.ConnectionClosed
+        }
         drum (bytes.count(part)) {
             bytes.set(made, have + beat, bytes.get(part, beat))
         }
@@ -53,20 +57,24 @@ skill collect(link, total) {
 }
 
 skill same(left, right) {
-    ((bytes.count(left) == bytes.count(right)) == no) { out no }
+    ((bytes.count(left) == bytes.count(right)) == no) {
+        out no
+    }
     drum (bytes.count(left)) {
-        ((bytes.get(left, beat) == bytes.get(right, beat)) == no) { out no }
+        ((bytes.get(left, beat) == bytes.get(right, beat)) == no) {
+            out no
+        }
     }
     out yes
 }
 
 program() {
     @suite = testing.test_new()
-    @server = process.talk(["python3", "workbench/references/tcp.py"], "", [])
+    @server = process.talk(["python3", "workbench/references/tcp_linux.py"], "", [])
     @port = whole(server.next())
-    io.show("tcp: эхо-сервер Python слушает {HOST}:{port}")
+    io.show("tcp_linux: эхо-сервер Python слушает {HOST}:{port}")
 
-    @link = tcp.connect(HOST, port)
+    @link = tcp_linux.connect(HOST, port)
     @hello = text_bytes("привет, сеть")
     link.send(hello)
     suite = testing.test_yes(suite, "эхо с кириллицей", same(collect(link, bytes.count(hello)), hello))
@@ -79,7 +87,7 @@ program() {
     suite = testing.test_yes(suite, "100 000 байтов по частям", same(collect(link, BIG), big))
     link.close()
 
-    @second = tcp.connect(HOST, port)
+    @second = tcp_linux.connect(HOST, port)
     second.send(text_bytes("второе"))
     suite = testing.test_yes(suite, "второе соединение", same(collect(second, str.bytes("второе")), text_bytes("второе")))
     second.send(text_bytes("BYE"))
@@ -88,34 +96,34 @@ program() {
     second.close()
 
     @after = second.send(hello) rescue |err| {
-        suite = testing.test_yes(suite, "send после close — SocketClosed", err == error.SocketClosed)
+        suite = testing.test_yes(suite, "send после close — SocketClosed", (err == error.SocketClosed))
         none
     }
-    @refused = tcp.connect(HOST, CLOSED_PORT) rescue |err| {
-        suite = testing.test_yes(suite, "закрытый порт — ConnectionRefused", err == error.ConnectionRefused)
+    @refused = tcp_linux.connect(HOST, CLOSED_PORT) rescue |err| {
+        suite = testing.test_yes(suite, "закрытый порт — ConnectionRefused", (err == error.ConnectionRefused))
         none
     }
-    @wide = tcp.connect("300.1.1.1", port) rescue |err| {
-        suite = testing.test_yes(suite, "октет 300 — BadAddress", err == error.BadAddress)
+    @wide = tcp_linux.connect("300.1.1.1", port) rescue |err| {
+        suite = testing.test_yes(suite, "октет 300 — BadAddress", (err == error.BadAddress))
         none
     }
-    @short = tcp.connect("127.0.1", port) rescue |err| {
-        suite = testing.test_yes(suite, "три октета — BadAddress", err == error.BadAddress)
+    @short = tcp_linux.connect("127.0.1", port) rescue |err| {
+        suite = testing.test_yes(suite, "три октета — BadAddress", (err == error.BadAddress))
         none
     }
-    @letters = tcp.connect("127.0.0.x", port) rescue |err| {
-        suite = testing.test_yes(suite, "буква в адресе — BadAddress", err == error.BadAddress)
+    @letters = tcp_linux.connect("127.0.0.x", port) rescue |err| {
+        suite = testing.test_yes(suite, "буква в адресе — BadAddress", (err == error.BadAddress))
         none
     }
-    @zero = tcp.connect(HOST, 0) rescue |err| {
-        suite = testing.test_yes(suite, "порт 0 — BadPort", err == error.BadPort)
+    @zero = tcp_linux.connect(HOST, 0) rescue |err| {
+        suite = testing.test_yes(suite, "порт 0 — BadPort", (err == error.BadPort))
         none
     }
-    @over = tcp.connect(HOST, 65536) rescue |err| {
-        suite = testing.test_yes(suite, "порт 65536 — BadPort", err == error.BadPort)
+    @over = tcp_linux.connect(HOST, 65536) rescue |err| {
+        suite = testing.test_yes(suite, "порт 65536 — BadPort", (err == error.BadPort))
         none
     }
-    suite = testing.test_equal(suite, "sockaddr 127.0.0.1:443", bytes.to_group(tcp.sockaddr(HOST, 443)), [2, 0, 1, 187, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0])
+    suite = testing.test_equal(suite, "sockaddr 127.0.0.1:443", bytes.to_group(tcp_linux.sockaddr(HOST, 443)), [2, 0, 1, 187, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0])
 
     server.close_input()
     server.code()

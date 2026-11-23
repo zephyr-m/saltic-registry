@@ -18,3 +18,4 @@ files      registry/adapters/uefi_x86_64/files/files
 qemu_virt  registry/adapters/qemu_virt/qemu_virt
 clib       registry/adapters/android/clib/clib
 wayland    registry/adapters/linux/wayland/wayland
+tcp_linux  registry/adapters/linux/tcp_linux/tcp_linux

@@ -1,0 +1,20 @@
+{
+  "title": "tcp_linux — мост к TCP ядра Linux (не свой TCP)",
+  "saltic_version": "в составе Saltic (ветка 24.11.2026)",
+  "author": "Зэф",
+  "role": "adapter",
+  "lifetime": "библиотека адаптеров (живёт с программой)",
+  "deadline": "нет: вызовы ждут без предела — у сокетов языка нет таймаутов",
+  "effects": "соединения TCP через сокеты ядра Linux",
+  "hardware": "любой Linux",
+  "identifiers": "нет",
+  "own_version": "1",
+  "protocols": "TCP/IPv4 ядра Linux",
+  "architectures": "x86_64 (Linux)",
+  "primitives": "соединиться с адресом и портом, отправить, принять, закрыть; причина сбоя — в имени ошибки",
+  "depends_on": "нет (core.socket)",
+  "environment": "программы на этом компьютере (Linux), пока своего TCP нет на хосте",
+  "state": "рабочий: 13 случаев против эхо-сервера на сокетах Python (checks/tcp_linux.saltic, эталон — workbench/references/tcp_linux.py реестра); переехал из библиотек 24.11.2026 — это мост, а не свой TCP",
+  "log": "блокеры: 1) нет таймаутов — connect и receive ждут без предела (нужен родной poll или setsockopt в core.socket); 2) send в закрытое собеседником соединение роняет программу сигналом SIGPIPE (нужен send с MSG_NOSIGNAL); 3) только IPv4",
+  "filled_by": "агентом по коду, 24.11.2026; автор проверяет"
+}

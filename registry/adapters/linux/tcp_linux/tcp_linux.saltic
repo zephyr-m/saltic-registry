@@ -1,15 +1,16 @@
--- tcp — соединение TCP по IPv4 поверх сокетов хоста (core.socket, Linux):
--- адрес и порт → поток байтов в обе стороны. Причина сбоя — в имени ошибки
--- (ConnectionRefused, NetworkUnreachable, ConnectionReset…), не общее «не вышло».
+-- tcp_linux — МОСТ к TCP ядра Linux, не свой TCP: соединение по IPv4 через
+-- сокеты хоста (core.socket), всю работу TCP (номера, подтверждения, повторы)
+-- делает Linux. Свой TCP на Saltic — библиотека tcp. Причина сбоя — в имени
+-- ошибки (ConnectionRefused, NetworkUnreachable, ConnectionReset…).
 -- Пока ждёт без предела: у сокетов языка нет таймаутов (нужен родной poll или
 -- setsockopt в core.socket); запись в закрытое собеседником соединение роняет
 -- программу сигналом SIGPIPE (нужен send с MSG_NOSIGNAL) — оба пункта в паспорте.
 --
--- Tcp { fd, open } — открытое соединение:
+-- Link { fd, open } — открытое соединение:
 --     send(data) — отправить буфер core.bytes целиком (дописывает, пока не уйдёт всё)
 --     receive(limit) -> буфер до limit байтов; пустой — собеседник закрыл соединение
 --     close() — закрыть; дальше send / receive — SocketClosed
--- connect(address, port) -> Tcp; address — «a.b.c.d»; BadAddress, BadPort,
+-- connect(address, port) -> Link; address — «a.b.c.d»; BadAddress, BadPort,
 --     ConnectionRefused, NetworkUnreachable, HostUnreachable, ConnectionTimedOut,
 --     SocketFailed
 -- sockaddr(address, port) -> 16 байтов sockaddr_in; BadAddress, BadPort
@@ -37,34 +38,46 @@ ERRNO_TIMED_OUT = 110
 ERRNO_REFUSED = 111
 ERRNO_HOST_UNREACHABLE = 113
 
-Tcp = Box {
+Link = Box {
     fd = -1,
     open = no
 
     skill send(data) {
-        (open == no) { out error.SocketClosed }
+        (open == no) {
+            out error.SocketClosed
+        }
         @total = bytes.count(data)
         @sent = 0
         drum (total + 1) {
-            (sent >= total) { leave }
+            (sent >= total) {
+                leave
+            }
             @rest = bytes.slice(data, sent, total)
             @written = socket.write(fd, rest, bytes.count(rest))
-            (written < 0) { out failure(written) }
+            (written < 0) {
+                out failure(written)
+            }
             sent = sent + written
         }
         out none
     }
 
     skill receive(limit) {
-        (open == no) { out error.SocketClosed }
+        (open == no) {
+            out error.SocketClosed
+        }
         @buffer = bytes.new(limit)
         @got = socket.read(fd, buffer)
-        (got < 0) { out failure(got) }
+        (got < 0) {
+            out failure(got)
+        }
         out bytes.slice(buffer, 0, got)
     }
 
     skill close() {
-        (open == no) { out error.SocketClosed }
+        (open == no) {
+            out error.SocketClosed
+        }
         socket.close(fd)
         open = no
         out none
@@ -73,37 +86,61 @@ Tcp = Box {
 
 skill failure(code) {
     @errno = 0 - code
-    (errno == ERRNO_REFUSED) { out error.ConnectionRefused }
-    (errno == ERRNO_NETWORK_UNREACHABLE) { out error.NetworkUnreachable }
-    (errno == ERRNO_HOST_UNREACHABLE) { out error.HostUnreachable }
-    (errno == ERRNO_TIMED_OUT) { out error.ConnectionTimedOut }
-    (errno == ERRNO_RESET) { out error.ConnectionReset }
-    (errno == ERRNO_PIPE) { out error.ConnectionClosed }
-    (errno == ERRNO_BAD_FD) { out error.SocketClosed }
+    (errno == ERRNO_REFUSED) {
+        out error.ConnectionRefused
+    }
+    (errno == ERRNO_NETWORK_UNREACHABLE) {
+        out error.NetworkUnreachable
+    }
+    (errno == ERRNO_HOST_UNREACHABLE) {
+        out error.HostUnreachable
+    }
+    (errno == ERRNO_TIMED_OUT) {
+        out error.ConnectionTimedOut
+    }
+    (errno == ERRNO_RESET) {
+        out error.ConnectionReset
+    }
+    (errno == ERRNO_PIPE) {
+        out error.ConnectionClosed
+    }
+    (errno == ERRNO_BAD_FD) {
+        out error.SocketClosed
+    }
     out error.SocketFailed
 }
 
 skill octets(address) {
     @parts = str.split(address, ".")
-    ((group.count(parts) == 4) == no) { out error.BadAddress }
+    ((group.count(parts) == 4) == no) {
+        out error.BadAddress
+    }
     @found = []
     drum (parts) {
         @part = beat
-        ((str.bytes(part) > 3) ○○ (str.bytes(part) == 0)) { out error.BadAddress }
+        ((str.bytes(part) > 3) ○○ (str.bytes(part) == 0)) {
+            out error.BadAddress
+        }
         @value = 0
         drum (str.bytes(part)) {
             @digit = str.get(part, beat)
-            (str.is_digit(digit) == no) { out error.BadAddress }
+            (str.is_digit(digit) == no) {
+                out error.BadAddress
+            }
             value = value * 10 + num.digit_value(digit)
         }
-        (value > OCTET_MOST) { out error.BadAddress }
+        (value > OCTET_MOST) {
+            out error.BadAddress
+        }
         found = group.add(found, value)
     }
     out found
 }
 
 skill sockaddr(address, port) {
-    ((port < 1) ○○ (port > PORT_MOST)) { out error.BadPort }
+    ((port < 1) ○○ (port > PORT_MOST)) {
+        out error.BadPort
+    }
     @four = octets(address)
     @made = bytes.new(SOCKADDR_BYTES)
     bytes.set(made, 0, AF_INET)
@@ -118,11 +155,16 @@ skill sockaddr(address, port) {
 skill connect(address, port) {
     @place = sockaddr(address, port)
     @fd = socket.open(AF_INET, SOCK_STREAM, 0)
-    (fd < 0) { out error.SocketFailed }
+    (fd < 0) {
+        out error.SocketFailed
+    }
     @answer = socket.connect(fd, place)
     (answer < 0) {
         socket.close(fd)
         out failure(answer)
     }
-    out Tcp { fd = fd, open = yes }
+    out Link {
+        fd = fd,
+        open = yes
+    }
 }
