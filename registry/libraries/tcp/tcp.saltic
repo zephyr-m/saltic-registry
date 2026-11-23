@@ -1,0 +1,128 @@
+-- tcp — соединение TCP по IPv4 поверх сокетов хоста (core.socket, Linux):
+-- адрес и порт → поток байтов в обе стороны. Причина сбоя — в имени ошибки
+-- (ConnectionRefused, NetworkUnreachable, ConnectionReset…), не общее «не вышло».
+-- Пока ждёт без предела: у сокетов языка нет таймаутов (нужен родной poll или
+-- setsockopt в core.socket); запись в закрытое собеседником соединение роняет
+-- программу сигналом SIGPIPE (нужен send с MSG_NOSIGNAL) — оба пункта в паспорте.
+--
+-- Tcp { fd, open } — открытое соединение:
+--     send(data) — отправить буфер core.bytes целиком (дописывает, пока не уйдёт всё)
+--     receive(limit) -> буфер до limit байтов; пустой — собеседник закрыл соединение
+--     close() — закрыть; дальше send / receive — SocketClosed
+-- connect(address, port) -> Tcp; address — «a.b.c.d»; BadAddress, BadPort,
+--     ConnectionRefused, NetworkUnreachable, HostUnreachable, ConnectionTimedOut,
+--     SocketFailed
+-- sockaddr(address, port) -> 16 байтов sockaddr_in; BadAddress, BadPort
+-- octets(address) -> группа из 4 чисел 0…255; BadAddress
+-- failure(code) -> ошибка по -errno ядра
+-- AF_INET — семейство IPv4; SOCK_STREAM — поток; ERRNO_* — коды ядра Linux
+
+use core.str
+use core.num
+use core.bytes
+use core.group
+use core.socket
+
+AF_INET = 2
+SOCK_STREAM = 1
+SOCKADDR_BYTES = 16
+PORT_MOST = 65535
+OCTET_MOST = 255
+
+ERRNO_BAD_FD = 9
+ERRNO_PIPE = 32
+ERRNO_NETWORK_UNREACHABLE = 101
+ERRNO_RESET = 104
+ERRNO_TIMED_OUT = 110
+ERRNO_REFUSED = 111
+ERRNO_HOST_UNREACHABLE = 113
+
+Tcp = Box {
+    fd = -1,
+    open = no
+
+    skill send(data) {
+        (open == no) { out error.SocketClosed }
+        @total = bytes.count(data)
+        @sent = 0
+        drum (total + 1) {
+            (sent >= total) { leave }
+            @rest = bytes.slice(data, sent, total)
+            @written = socket.write(fd, rest, bytes.count(rest))
+            (written < 0) { out failure(written) }
+            sent = sent + written
+        }
+        out none
+    }
+
+    skill receive(limit) {
+        (open == no) { out error.SocketClosed }
+        @buffer = bytes.new(limit)
+        @got = socket.read(fd, buffer)
+        (got < 0) { out failure(got) }
+        out bytes.slice(buffer, 0, got)
+    }
+
+    skill close() {
+        (open == no) { out error.SocketClosed }
+        socket.close(fd)
+        open = no
+        out none
+    }
+}
+
+skill failure(code) {
+    @errno = 0 - code
+    (errno == ERRNO_REFUSED) { out error.ConnectionRefused }
+    (errno == ERRNO_NETWORK_UNREACHABLE) { out error.NetworkUnreachable }
+    (errno == ERRNO_HOST_UNREACHABLE) { out error.HostUnreachable }
+    (errno == ERRNO_TIMED_OUT) { out error.ConnectionTimedOut }
+    (errno == ERRNO_RESET) { out error.ConnectionReset }
+    (errno == ERRNO_PIPE) { out error.ConnectionClosed }
+    (errno == ERRNO_BAD_FD) { out error.SocketClosed }
+    out error.SocketFailed
+}
+
+skill octets(address) {
+    @parts = str.split(address, ".")
+    ((group.count(parts) == 4) == no) { out error.BadAddress }
+    @found = []
+    drum (parts) {
+        @part = beat
+        ((str.bytes(part) > 3) ○○ (str.bytes(part) == 0)) { out error.BadAddress }
+        @value = 0
+        drum (str.bytes(part)) {
+            @digit = str.get(part, beat)
+            (str.is_digit(digit) == no) { out error.BadAddress }
+            value = value * 10 + num.digit_value(digit)
+        }
+        (value > OCTET_MOST) { out error.BadAddress }
+        found = group.add(found, value)
+    }
+    out found
+}
+
+skill sockaddr(address, port) {
+    ((port < 1) ○○ (port > PORT_MOST)) { out error.BadPort }
+    @four = octets(address)
+    @made = bytes.new(SOCKADDR_BYTES)
+    bytes.set(made, 0, AF_INET)
+    bytes.set(made, 2, port / 256)
+    bytes.set(made, 3, port % 256)
+    drum (4) {
+        bytes.set(made, 4 + beat, group.get(four, beat))
+    }
+    out made
+}
+
+skill connect(address, port) {
+    @place = sockaddr(address, port)
+    @fd = socket.open(AF_INET, SOCK_STREAM, 0)
+    (fd < 0) { out error.SocketFailed }
+    @answer = socket.connect(fd, place)
+    (answer < 0) {
+        socket.close(fd)
+        out failure(answer)
+    }
+    out Tcp { fd = fd, open = yes }
+}

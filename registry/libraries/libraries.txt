@@ -26,3 +26,4 @@ statistics registry/libraries/statistics/statistics
 random     registry/libraries/random/random
 graph      registry/libraries/graph/graph
 optimize   registry/libraries/optimize/optimize
+tcp        registry/libraries/tcp/tcp
