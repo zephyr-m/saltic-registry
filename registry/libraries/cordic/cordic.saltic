@@ -1,0 +1,210 @@
+-- cordic — синус, косинус, atan2 и длина вектора по CORDIC: только сдвиги и
+-- сложения на обычных целых, на всех целях одинаково. Масштаб — ONE = 2^24:
+-- угол в радианах и синус/косинус — целое = значение · ONE (π — PI).
+-- Пределы выбраны под 29 бит rv32: угол |a| ≤ num.MAXIMUM (≈ ±16 рад,
+-- приведение к −π…π сложениями), длина и atan2 — |x|, |y| ≤ LIMIT (2^27 − 1),
+-- промежуточные числа не выше ~8·10^7 < 2^28. ITERATIONS шагов дают точность
+-- около 10^−6 (выведенные допуски — в checks/cases.saltic).
+--
+-- Cordic {} — sin(angle) / cos(angle) -> значение · ONE; AngleOutsideRange
+--     atan2(y, x) -> угол точки (x, y) в −PI…PI, · ONE; ZeroVector при (0, 0),
+--         ValueOutsideRange за LIMIT
+--     hypot(x, y) -> √(x² + y²) целым, в единицах x и y; ValueOutsideRange
+-- ONE, PI, HALF_PI, TWO_PI — масштаб и углы; LIMIT — предел входа atan2 и hypot
+-- Внутри: unit_point(angle) -> [cos, sin]; rotated(z) — поворот (1/K, 0) на z;
+--     vectored(x, y) -> [x_N, z_N, сдвиг] — доворот к оси x; normalized —
+--     вход в 2^24…2^25; round_shift(v, n) — сдвиг вправо с округлением; gained(v) —
+--     v / K сдвигами по битам GAIN; magnitude(a, b) -> max(|a|, |b|);
+--     outside(x, y) — ValueOutsideRange за LIMIT; ANGLES — atan(2^−i) · ONE,
+--     GAIN — ONE / K (K — растяжение за ITERATIONS шагов); LOW, HIGH — 2^24, 2^25
+
+use core.num
+use core.group
+
+ONE = 16777216
+PI = 52707179
+HALF_PI = 26353589
+TWO_PI = 105414357
+LIMIT = 134217727
+LOW = 16777216
+HIGH = 33554432
+ITERATIONS = 24
+GAIN = 10188014
+ANGLES = [13176795, 7778716, 4110060, 2086331, 1047214, 524117, 262123, 131069, 65536, 32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32, 16, 8, 4, 2]
+
+Cordic = Box {
+    skill sin(angle) {
+        out group.get(unit_point(angle), 1)
+    }
+
+    skill cos(angle) {
+        out group.get(unit_point(angle), 0)
+    }
+
+    skill atan2(y, x) {
+        ((x == 0) ○ (y == 0)) {
+            out error.ZeroVector
+        }
+        @found = vectored(x, y)
+        out group.get(found, 1)
+    }
+
+    skill hypot(x, y) {
+        ((x == 0) ○ (y == 0)) {
+            outside(x, y)
+            out 0
+        }
+        @found = vectored(x, y)
+        @made = gained(group.get(found, 0))
+        @shift = group.get(found, 2)
+        (shift > 0) {
+            out round_shift(made, shift)
+        }
+        out num.shift_left(made, 0 - shift)
+    }
+
+    skill outside(x, y) {
+        ((x > LIMIT) ○○ (x < 0 - LIMIT) ○○ (y > LIMIT) ○○ (y < 0 - LIMIT)) {
+            out error.ValueOutsideRange
+        }
+        out none
+    }
+
+    skill unit_point(angle) {
+        ((angle > num.MAXIMUM) ○○ (angle < 0 - num.MAXIMUM)) {
+            out error.AngleOutsideRange
+        }
+        @rest = angle
+        always {
+            (rest <= PI) { leave }
+            rest = rest - TWO_PI
+        }
+        always {
+            (rest >= 0 - PI) { leave }
+            rest = rest + TWO_PI
+        }
+        @flip = no
+        (rest > HALF_PI) {
+            rest = rest - PI
+            flip = yes
+        }
+        (rest < 0 - HALF_PI) {
+            rest = rest + PI
+            flip = yes
+        }
+        @pair = rotated(rest)
+        (flip == yes) {
+            out [0 - group.get(pair, 0), 0 - group.get(pair, 1)]
+        }
+        out pair
+    }
+
+    skill rotated(z) {
+        @x = GAIN
+        @y = 0
+        @left = z
+        drum (ITERATIONS) {
+            @dx = round_shift(y, beat)
+            @dy = round_shift(x, beat)
+            @step = group.get(ANGLES, beat)
+            @forward = (left >= 0)
+            (forward == yes) {
+                x = x - dx
+                y = y + dy
+                left = left - step
+            }
+            (forward == no) {
+                x = x + dx
+                y = y - dy
+                left = left + step
+            }
+        }
+        out [x, y]
+    }
+
+    skill vectored(x, y) {
+        outside(x, y)
+        @pair = normalized(x, y)
+        @a = group.get(pair, 0)
+        @b = group.get(pair, 1)
+        @z = 0
+        (a < 0) {
+            z = PI
+            (b < 0) {
+                z = 0 - PI
+            }
+            a = 0 - a
+            b = 0 - b
+        }
+        drum (ITERATIONS) {
+            @da = round_shift(b, beat)
+            @db = round_shift(a, beat)
+            @step = group.get(ANGLES, beat)
+            @below = (b < 0)
+            (below == yes) {
+                a = a - da
+                b = b + db
+                z = z - step
+            }
+            (below == no) {
+                a = a + da
+                b = b - db
+                z = z + step
+            }
+        }
+        out [a, z, group.get(pair, 2)]
+    }
+
+    skill normalized(x, y) {
+        @a = x
+        @b = y
+        @shift = 0
+        always {
+            @most = magnitude(a, b)
+            (most >= LOW) { leave }
+            a = a + a
+            b = b + b
+            shift = shift + 1
+        }
+        always {
+            @most = magnitude(a, b)
+            (most < HIGH) { leave }
+            a = round_shift(a, 1)
+            b = round_shift(b, 1)
+            shift = shift - 1
+        }
+        out [a, b, shift]
+    }
+
+    skill magnitude(a, b) {
+        @most = a
+        (a < 0) {
+            most = 0 - a
+        }
+        @other = b
+        (b < 0) {
+            other = 0 - b
+        }
+        (other > most) {
+            most = other
+        }
+        out most
+    }
+
+    skill round_shift(value, count) {
+        (count == 0) {
+            out value
+        }
+        out num.shift_right(value + num.shift_left(1, count - 1), count)
+    }
+
+    skill gained(value) {
+        @made = 0
+        drum (ITERATIONS) {
+            (num.bit(GAIN, ITERATIONS - 1 - beat) == yes) {
+                made = made + round_shift(value, beat + 1)
+            }
+        }
+        out made
+    }
+}

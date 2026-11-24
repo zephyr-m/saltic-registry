@@ -1,0 +1,120 @@
+-- cordic — проверка против Python math (cases.saltic, делает
+-- workbench/references/cordic.py): sin/cos по всем четвертям, края 0, ±π/2,
+-- ±π, малые углы, большие с приведением до ±num.MAXIMUM; atan2 и длина на
+-- осях, в четвертях, от единиц до LIMIT. Допуски выведены из числа шагов в
+-- эталоне; показывается и наибольшее найденное отклонение. Таблица углов и
+-- константы — как у Python. Ошибки: AngleOutsideRange, ZeroVector,
+-- ValueOutsideRange.
+--
+-- Probe { worst } — gap(a, b) -> |a − b|; note(gap) — запомнить наибольшее
+--     turns() / points() -> число расхождений
+-- program() -> none; TestsFailed
+
+use io
+use core.num
+use core.group
+use craft.testing
+use registry.libraries.cordic.cordic
+use registry.libraries.cordic.checks.cases
+
+Probe = Box {
+    worst = 0,
+    worst_angle = 0,
+    worst_length = 0
+
+    skill gap(a, b) {
+        (a < b) {
+            out b - a
+        }
+        out a - b
+    }
+
+    skill turns() {
+        @wave = cordic.Cordic {}
+        @wrong = 0
+        drum (cases.TURNS) {
+            @angle = group.get(beat, 0)
+            @far = gap(wave.cos(angle), group.get(beat, 1))
+            @other = gap(wave.sin(angle), group.get(beat, 2))
+            (other > far) {
+                far = other
+            }
+            (far > worst) {
+                worst = far
+            }
+            (far > cases.SINE_TOLERANCE) {
+                wrong = wrong + 1
+                io.show("  расхождение sin/cos: угол {angle}, отклонение {far}")
+            }
+        }
+        out wrong
+    }
+
+    skill points() {
+        @wave = cordic.Cordic {}
+        @wrong = 0
+        drum (cases.POINTS) {
+            @y = group.get(beat, 0)
+            @x = group.get(beat, 1)
+            @far = gap(wave.atan2(y, x), group.get(beat, 2))
+            (far > worst_angle) {
+                worst_angle = far
+            }
+            (far > cases.ANGLE_TOLERANCE) {
+                wrong = wrong + 1
+                io.show("  расхождение atan2: ({x}, {y}), отклонение {far}")
+            }
+            @want = group.get(beat, 3)
+            @long = gap(wave.hypot(x, y), want)
+            @share = (long - 1) * cordic.ONE / (want + 1)
+            (share > worst_length) {
+                worst_length = share
+            }
+            (share > cases.LENGTH_TOLERANCE) {
+                wrong = wrong + 1
+                io.show("  расхождение hypot: ({x}, {y}), отклонение {long}")
+            }
+        }
+        out wrong
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @wave = cordic.Cordic {}
+    @wrong = probe.turns() + probe.points()
+    @turns = group.count(cases.TURNS)
+    @points = group.count(cases.POINTS)
+    @worst = probe.worst
+    @worst_angle = probe.worst_angle
+    @worst_length = probe.worst_length
+    io.show("cordic: углов {turns}, точек {points}, расхождений {wrong}")
+    io.show("cordic: наибольшее отклонение (в 2^-24): sin/cos {worst}, atan2 {worst_angle}, длина (доля) {worst_length}")
+    suite = testing.test_equal(suite, "как у Python math в выведенных допусках", wrong, 0)
+    suite = testing.test_equal(suite, "константы как у Python", [cordic.ONE, cordic.PI, cordic.HALF_PI, cordic.TWO_PI, cordic.GAIN], cases.CONSTANTS)
+    suite = testing.test_equal(suite, "таблица atan(2^-i) как у Python", cordic.ANGLES, cases.TABLE)
+    suite = testing.test_equal(suite, "hypot(0, 0) — 0", wave.hypot(0, 0), 0)
+    suite = testing.test_equal(suite, "hypot(3, 4) — 5", wave.hypot(3, 4), 5)
+    @far = wave.sin(num.MAXIMUM + 1) rescue |err| {
+        suite = testing.test_yes(suite, "угол за MAXIMUM — AngleOutsideRange", (err == error.AngleOutsideRange))
+        none
+    }
+    @near = wave.cos(0 - num.MAXIMUM - 1) rescue |err| {
+        suite = testing.test_yes(suite, "угол за −MAXIMUM — AngleOutsideRange", (err == error.AngleOutsideRange))
+        none
+    }
+    @empty = wave.atan2(0, 0) rescue |err| {
+        suite = testing.test_yes(suite, "atan2(0, 0) — ZeroVector", (err == error.ZeroVector))
+        none
+    }
+    @wide = wave.atan2(0, 0 - cordic.LIMIT - 1) rescue |err| {
+        suite = testing.test_yes(suite, "atan2 за LIMIT — ValueOutsideRange", (err == error.ValueOutsideRange))
+        none
+    }
+    @long = wave.hypot(cordic.LIMIT + 1, 0) rescue |err| {
+        suite = testing.test_yes(suite, "hypot за LIMIT — ValueOutsideRange", (err == error.ValueOutsideRange))
+        none
+    }
+    out testing.test_finish(suite)
+}
