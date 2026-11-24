@@ -1,7 +1,7 @@
 {
   "title": "rsa — подпись RSA с SHA-256 (RFC 8017): PKCS1-v1_5 и PSS",
   "saltic_version": "в составе Saltic (ветка 25.11.2026)",
-  "own_version": "3",
+  "own_version": "4",
   "author": "Зэф",
   "role": "library",
   "purpose": "проверить подпись RSA открытым ключом (n, e) и подписать закрытым — (n, e, d) или по CRT (p, q, dP, dQ, qInv): RSASSA-PKCS1-v1_5 и RSASSA-PSS с SHA-256 и MGF1-SHA-256; ключи и подписи — байты; причина отказа — в имени ошибки",

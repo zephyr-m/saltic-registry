@@ -4,7 +4,7 @@
   "packages": {
     "bignum": "4",
     "karatsuba": "3",
-    "sha256": "2",
+    "sha256": "3",
     "hex": "1",
     "wire": "1"
   }

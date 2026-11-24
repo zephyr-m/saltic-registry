@@ -3,7 +3,7 @@
   "catalog": {"from": "git@github.com:zephyr-m/saltic-registry.git"},
   "packages": {
     "bignum": "4",
-    "sha256": "2",
+    "sha256": "3",
     "hex": "1"
   }
 }
