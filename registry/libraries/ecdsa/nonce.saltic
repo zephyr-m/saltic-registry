@@ -1,0 +1,72 @@
+-- nonce — детерминированный k для ECDSA по RFC 6979 (3.2) на HMAC-SHA256:
+-- qlen = hlen = 256, поэтому bits2int — просто число из 32 байт, а
+-- bits2octets(h) — (h mod n) в 32 байта. Порядок: started(…), потом drawn()
+-- столько раз, сколько k нужно (второй и дальше — если подпись вышла с r = 0
+-- или s = 0, по 3.4). Не за постоянное время.
+--
+-- Nonce { scalars, hash, key, chain, used, math } — scalars —
+--     modulus.Modulus по n, hash — sha256.Sha256; key и chain — K и V из RFC 6979; used — k уже
+--     выдавался; math — magnitude.Magnitude
+--     started(secret, digest) — шаги b–f: secret — 32 байта x, digest — H(m)
+--     drawn() -> k, 1 ≤ k < n (магнитуда): шаг h, со второго раза — сначала
+--     refreshed() (K = HMAC_K(V ‖ 0), V = HMAC_K(V)); glued(parts) -> склейка буферов
+
+use core.bytes
+use core.group
+use tarantul.bignum.magnitude
+use tarantul.sha256.sha256
+use modulus
+
+Nonce = Box {
+    scalars = modulus.Modulus {},
+    hash = sha256.Sha256 {},
+    key = bytes.new(32),
+    chain = bytes.new(32),
+    used = no,
+    math = magnitude.Magnitude {}
+
+    skill glued(parts) {
+        @made = []
+        drum (parts) {
+            made = group.concat(made, bytes.to_group(beat))
+        }
+        out bytes.from_group(made)
+    }
+
+    skill started(secret, digest) {
+        @material = glued([secret, scalars.written(scalars.reduced(scalars.number_at(digest, 0)))])
+        key = bytes.new(32)
+        chain = bytes.new(32)
+        drum (32) {
+            bytes.set(chain, beat, 1)
+        }
+        used = no
+        @zero = bytes.new(1)
+        @one = bytes.new(1)
+        bytes.set(one, 0, 1)
+        key = hash.hmac(key, glued([chain, zero, material]))
+        chain = hash.hmac(key, chain)
+        key = hash.hmac(key, glued([chain, one, material]))
+        chain = hash.hmac(key, chain)
+    }
+
+    skill refreshed() {
+        key = hash.hmac(key, glued([chain, bytes.new(1)]))
+        chain = hash.hmac(key, chain)
+    }
+
+    skill drawn() {
+        (used == yes) {
+            refreshed()
+        }
+        used = yes
+        always {
+            chain = hash.hmac(key, chain)
+            @k = scalars.number_at(chain, 0)
+            ((group.count(k) > 0) ○ (math.order(k, scalars.value) < 0)) {
+                out k
+            }
+            refreshed()
+        }
+    }
+}

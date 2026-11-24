@@ -1,0 +1,94 @@
+-- modulus — остатки по модулю m на цифрах bignum (magnitude): общий у поля
+-- кривой P-256 (m = p) и порядка её точки (m = n). Приведение — Барретт:
+-- mu = ⌊2^(2k) / m⌋, k — бит в m, считается один раз при первом приведении;
+-- на вход — числа меньше 2^(2k) (произведение двух остатков). Числа —
+-- магнитуды; 32 байта — старшим вперёд. Не за постоянное время.
+--
+-- Modulus { value, mu, math } — value — m (магнитуда), mu — пусто до первого
+--     приведения, math — magnitude.Magnitude
+--     reduced(x) -> x mod m (x < 2^(2k))
+--     add(a, b) / sub(a, b) / mul(a, b) -> по модулю m (a, b < m)
+--     power_of(a, exponent) -> a^exponent mod m
+--     inverse(a) -> a^(m − 2) — обратный для простого m
+--     number_at(buffer, from) -> 32 байта с from → магнитуда
+--     written(value) -> 32 байта value < 2^256
+
+use core.bytes
+use core.group
+use tarantul.bignum.magnitude
+
+Modulus = Box {
+    value = [],
+    mu = [],
+    math = magnitude.Magnitude {}
+
+    skill reduced(x) {
+        @size = math.bits(value)
+        (group.count(mu) == 0) {
+            mu = group.get(math.split(math.two_to(size * 2), value), 0)
+        }
+        @high = group.get(math.cut_bits(x, size - 1), 0)
+        @guess = group.get(math.cut_bits(math.product(high, mu), size + 1), 0)
+        @result = math.difference(x, math.product(guess, value))
+        drum (2) {
+            ((math.order(result, value) < 0) == no) {
+                result = math.difference(result, value)
+            }
+        }
+        out result
+    }
+
+    skill add(a, b) {
+        @total = math.sum(a, b)
+        ((math.order(total, value) < 0) == no) {
+            out math.difference(total, value)
+        }
+        out total
+    }
+
+    skill sub(a, b) {
+        (math.order(a, b) < 0) {
+            out math.difference(math.sum(a, value), b)
+        }
+        out math.difference(a, b)
+    }
+
+    skill mul(a, b) {
+        out reduced(math.product(a, b))
+    }
+
+    skill power_of(a, exponent) {
+        @result = math.of(1)
+        @top = math.bits(exponent)
+        drum (top) {
+            result = mul(result, result)
+            (math.bit(exponent, top - 1 - beat) == 1) {
+                result = mul(result, a)
+            }
+        }
+        out result
+    }
+
+    skill inverse(a) {
+        out power_of(a, math.difference(value, math.of(2)))
+    }
+
+    skill number_at(buffer, from) {
+        @made = []
+        drum (32) {
+            made = math.sum(math.scaled(made, 256), math.of(bytes.get(buffer, from + beat)))
+        }
+        out made
+    }
+
+    skill written(number) {
+        @made = bytes.new(32)
+        @rest = number
+        drum (32) {
+            @parts = math.split_small(rest, 256)
+            bytes.set(made, 31 - beat, group.get(parts, 1))
+            rest = group.get(parts, 0)
+        }
+        out made
+    }
+}

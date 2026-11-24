@@ -1,0 +1,137 @@
+-- ecdsa — подпись ECDSA на кривой P-256 (secp256r1; FIPS 186-5, SEC 1) с
+-- SHA-256 и детерминированным nonce по RFC 6979 — та же рука, что у ed25519:
+-- public_of / sign / verify. Секрет — 32 байта d (1 ≤ d < n) старшим вперёд;
+-- открытый ключ — 65 байт 04 ‖ X ‖ Y (несжатая точка SEC 1); подпись — 64
+-- байта r ‖ s (как IEEE P1363), без нормализации s. Не за постоянное время:
+-- от атак по времени не защищён.
+--
+-- Ecdsa { points, generator, hash, math } — points — curve.Curve, generator —
+--     nonce.Nonce, hash — sha256.Sha256, math — magnitude.Magnitude
+--     public_of(secret) -> открытый ключ; BadSecret
+--     sign(secret, message) -> подпись; BadSecret
+--     verify(public, message, signature) -> yes, если подпись верна; плохая
+--         точка или подпись — no (их ошибки — у point_from и signature_parts)
+--     point_from(buffer) -> [x, y]; BadPoint — не 65 байт, не 04 впереди,
+--         координата ≥ p или точка не на кривой
+--     point_bytes(point) -> 65 байт 04 ‖ X ‖ Y
+--     signature_parts(signature) -> [r, s]; BadSignature — не 64 байта, r или s
+--         ноль или ≥ n
+-- Внутри: secret_number(secret) -> d; BadSecret; digest_number(message) -> H(m) mod n
+
+use core.bytes
+use core.group
+use tarantul.bignum.magnitude
+use tarantul.sha256.sha256
+use curve
+use nonce
+
+Ecdsa = Box {
+    points = curve.Curve {},
+    generator = nonce.Nonce {},
+    hash = sha256.Sha256 {},
+    math = magnitude.Magnitude {}
+
+    skill secret_number(secret) {
+        ((bytes.count(secret) == 32) == no) {
+            out error.BadSecret
+        }
+        points.ready()
+        @scalars = points.scalars
+        @d = scalars.number_at(secret, 0)
+        ((group.count(d) == 0) ○○ ((math.order(d, scalars.value) < 0) == no)) {
+            out error.BadSecret
+        }
+        out d
+    }
+
+    skill digest_number(message) {
+        @scalars = points.scalars
+        out scalars.reduced(scalars.number_at(hash.digest(message), 0))
+    }
+
+    skill point_bytes(point) {
+        @space = points.space
+        @head = bytes.new(1)
+        bytes.set(head, 0, 4)
+        out generator.glued([head, space.written(group.get(point, 0)), space.written(group.get(point, 1))])
+    }
+
+    skill point_from(buffer) {
+        ((bytes.count(buffer) == 65) == no) {
+            out error.BadPoint
+        }
+        ((bytes.get(buffer, 0) == 4) == no) {
+            out error.BadPoint
+        }
+        points.ready()
+        @space = points.space
+        @point = [space.number_at(buffer, 1), space.number_at(buffer, 33)]
+        drum (point) {
+            ((math.order(beat, space.value) < 0) == no) {
+                out error.BadPoint
+            }
+        }
+        (points.lies_on(point) == no) {
+            out error.BadPoint
+        }
+        out point
+    }
+
+    skill signature_parts(signature) {
+        ((bytes.count(signature) == 64) == no) {
+            out error.BadSignature
+        }
+        points.ready()
+        @scalars = points.scalars
+        @parts = [scalars.number_at(signature, 0), scalars.number_at(signature, 32)]
+        drum (parts) {
+            ((group.count(beat) == 0) ○○ ((math.order(beat, scalars.value) < 0) == no)) {
+                out error.BadSignature
+            }
+        }
+        out parts
+    }
+
+    skill public_of(secret) {
+        @d = secret_number(secret)
+        @g = points.base()
+        out point_bytes(points.affine(points.combined(d, g, [], g)))
+    }
+
+    skill sign(secret, message) {
+        @d = secret_number(secret)
+        @scalars = points.scalars
+        @e = digest_number(message)
+        @g = points.base()
+        generator = nonce.Nonce {
+            scalars = scalars
+        }
+        generator.started(scalars.written(d), hash.digest(message))
+        always {
+            @k = generator.drawn()
+            @point = points.affine(points.combined(k, g, [], g))
+            @r = scalars.reduced(group.get(point, 0))
+            @s = scalars.mul(scalars.inverse(k), scalars.add(e, scalars.mul(r, d)))
+            ((group.count(r) > 0) ○ (group.count(s) > 0)) {
+                out generator.glued([scalars.written(r), scalars.written(s)])
+            }
+        }
+    }
+
+    skill verify(public, message, signature) {
+        @point = point_from(public) rescue |err| {
+            out no
+        }
+        @parts = signature_parts(signature) rescue |err| {
+            out no
+        }
+        @scalars = points.scalars
+        @r = group.get(parts, 0)
+        @back = scalars.inverse(group.get(parts, 1))
+        @total = points.combined(scalars.mul(digest_number(message), back), points.base(), scalars.mul(r, back), point)
+        @flat = points.affine(total) rescue |err| {
+            out no
+        }
+        out (math.order(scalars.reduced(group.get(flat, 0)), r) == 0)
+    }
+}

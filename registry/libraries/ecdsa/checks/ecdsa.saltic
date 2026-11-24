@@ -1,0 +1,171 @@
+-- ecdsa — проверка ECDSA P-256 + SHA-256 (cases.saltic, делает
+-- workbench/references/ecdsa.py): RFC 6979 A.2.5 и случайные ключи — открытый
+-- ключ, k и подпись бит в бит, своя подпись проходит, испорченная — нет;
+-- Wycheproof ecdsa_secp256r1_sha256_p1363 — вердикт verify как у эталона, а
+-- r/s ноль, ≥ n и не 64 байта — ещё и BadSignature у signature_parts; не
+-- точки — BadPoint; негодный секрет — BadSecret у public_of и sign. В конце —
+-- замер подписи и проверки (core.time, миллисекунды).
+--
+-- Probe { sign, nonces, text } — sign — ecdsa.Ecdsa, nonces — nonce.Nonce,
+--     text — hex.Hex
+--     signed(row) -> yes, если ключ, k, подпись и проверка сошлись
+--     verified(row) -> yes, если вердикт как у эталона
+--     spent(start) -> миллисекунд с start
+-- program() -> none; TestsFailed
+
+use io
+use core.num
+use core.time
+use core.bytes
+use core.group
+use craft.testing
+use ecdsa
+use nonce
+use checks.cases
+use tarantul.hex.hex
+
+Probe = Box {
+    sign = ecdsa.Ecdsa {},
+    nonces = nonce.Nonce {},
+    text = hex.Hex {}
+
+    skill signed(row) {
+        @secret = text.decode(group.get(row, 0))
+        @message = text.decode(group.get(row, 2))
+        ((text.encode(sign.public_of(secret)) == group.get(row, 1)) == no) {
+            out no
+        }
+        @points = sign.points
+        points.ready()
+        @scalars = points.scalars
+        @hash = sign.hash
+        nonces = nonce.Nonce {
+            scalars = scalars
+        }
+        nonces.started(secret, hash.digest(message))
+        @k = nonces.drawn()
+        ((text.encode(scalars.written(k)) == group.get(row, 3)) == no) {
+            out no
+        }
+        @signature = sign.sign(secret, message)
+        ((text.encode(signature) == group.get(row, 4)) == no) {
+            out no
+        }
+        (sign.verify(text.decode(group.get(row, 1)), message, signature) == no) {
+            out no
+        }
+        bytes.set(signature, 63, num.xor(bytes.get(signature, 63), 1))
+        out (sign.verify(text.decode(group.get(row, 1)), message, signature) == no)
+    }
+
+    skill verified(row) {
+        @verdict = group.get(row, 4)
+        @answer = sign.verify(text.decode(group.get(row, 1)), text.decode(group.get(row, 2)), text.decode(group.get(row, 3)))
+        (verdict == "BadSignature") {
+            @hit = no
+            @parts = sign.signature_parts(text.decode(group.get(row, 3))) rescue |err| {
+                hit = (err == error.BadSignature)
+                none
+            }
+            out ((hit == yes) ○ (answer == no))
+        }
+        out (answer == (verdict == "yes"))
+    }
+
+    skill spent(start) {
+        @gone = time.now() - start
+        (gone < 0) {
+            gone = gone + time.DAY_MILLISECONDS
+        }
+        out gone
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @text = hex.Hex {}
+    @sign = ecdsa.Ecdsa {}
+    @wrong = 0
+    @finished = 0
+    @count = group.count(cases.SIGNED)
+    drum (cases.SIGNED) {
+        (probe.signed(beat) == no) {
+            wrong = wrong + 1
+            @secret = group.get(beat, 0)
+            io.show("  расхождение подписи: секрет {secret}")
+        }
+        finished = finished + 1
+        io.show("  подписи: {finished} из {count}")
+    }
+    io.show("ecdsa: подписей {count}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "RFC 6979 A.2.5 и Python: ключ, k и подпись бит в бит, проверка проходит", wrong, 0)
+
+    wrong = 0
+    @done = 0
+    @total = group.count(cases.VERIFIED)
+    drum (cases.VERIFIED) {
+        (probe.verified(beat) == no) {
+            wrong = wrong + 1
+            @number = group.get(beat, 0)
+            io.show("  расхождение Wycheproof: случай {number}")
+        }
+        done = done + 1
+        ((done % 5) == 0) {
+            io.show("  Wycheproof: {done} из {total}")
+        }
+    }
+    io.show("ecdsa: Wycheproof {total}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "Wycheproof p1363: вердикты как у эталона, плохие r/s — BadSignature", wrong, 0)
+
+    @bad_points = 0
+    drum (cases.POINTS) {
+        @hit = no
+        @point = sign.point_from(text.decode(group.get(beat, 0))) rescue |err| {
+            hit = (err == error.BadPoint)
+            none
+        }
+        (hit == no) {
+            bad_points = bad_points + 1
+            @why = group.get(beat, 1)
+            io.show("  точка прошла: {why}")
+        }
+    }
+    suite = testing.test_equal(suite, "не точки — BadPoint", bad_points, 0)
+
+    @bad_secrets = 0
+    @message = text.decode("616263")
+    drum (cases.SECRETS) {
+        @secret = text.decode(group.get(beat, 0))
+        @public_hit = no
+        @public = sign.public_of(secret) rescue |err| {
+            public_hit = (err == error.BadSecret)
+            none
+        }
+        @sign_hit = no
+        @signature = sign.sign(secret, message) rescue |err| {
+            sign_hit = (err == error.BadSecret)
+            none
+        }
+        ((public_hit == no) ○○ (sign_hit == no)) {
+            bad_secrets = bad_secrets + 1
+        }
+    }
+    suite = testing.test_equal(suite, "негодный секрет — BadSecret", bad_secrets, 0)
+
+    @row = group.get(cases.SIGNED, 0)
+    @secret = text.decode(group.get(row, 0))
+    @key = text.decode(group.get(row, 1))
+    @same = text.encode(sign.point_bytes(sign.point_from(key)))
+    suite = testing.test_yes(suite, "point_from → point_bytes — та же точка", (same == group.get(row, 1)))
+
+    @start = time.now()
+    @signature = sign.sign(secret, message)
+    @signing = probe.spent(start)
+    start = time.now()
+    @good = sign.verify(key, message, signature)
+    @checking = probe.spent(start)
+    suite = testing.test_yes(suite, "замер: своя подпись проходит", good)
+    io.show("ecdsa: подпись {signing} мс, проверка {checking} мс")
+    out testing.test_finish(suite)
+}

@@ -1,0 +1,8 @@
+{
+  "catalog": {"from": "git@github.com:zephyr-m/saltic-registry.git", "commit": "30198d7f694dce94682ab6b916e4160ecf7aea7f"},
+  "packages": {
+    "bignum": {"version": "4", "source": "registry/libraries/bignum", "fingerprint": "crc32 c08011d2", "required_by": "project"},
+    "sha256": {"version": "2", "source": "registry/libraries/sha256", "fingerprint": "crc32 8312490a", "required_by": "project"},
+    "hex": {"version": "1", "source": "registry/libraries/hex", "fingerprint": "crc32 f60254d8", "required_by": "project"}
+  }
+}

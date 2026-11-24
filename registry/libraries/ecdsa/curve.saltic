@@ -1,0 +1,162 @@
+-- curve — кривая P-256 (secp256r1, FIPS 186-5 / SEC 2): y² = x³ − 3x + b над
+-- полем p = 2^256 − 2^224 + 2^192 + 2^96 − 1, порядок базовой точки — n.
+-- Точка на выходе — [x, y] (магнитуды); внутри — Якоби [X, Y, Z] (x = X/Z²,
+-- y = Y/Z³), бесконечность — Z = 0. Удвоение — dbl-2001-b (a = −3),
+-- сложение — add-2007-bl. Константы — hex старшим вперёд, разбираются один
+-- раз при первом обращении. Не за постоянное время.
+--
+-- Curve { space, scalars, math, known } — space — поле (modulus.Modulus по
+--     p), scalars — по n; known — [b, базовая точка]; math — magnitude.Magnitude
+--     ready() — разобрать константы (зовут навыки ниже сами)
+--     base() -> базовая точка G; lies_on(point) -> yes, если y² = x³ − 3x + b
+--     combined(a, p, b, q) -> a·p + b·q в Якоби (p, q — [x, y]; Шамир)
+--     affine(point) -> [x, y]; PointAtInfinity
+--     doubled(point) / plus(left, right) — в Якоби
+-- PRIME, ORDER, CURVE_B, BASE_X, BASE_Y — константы P-256 (SEC 2, 2.4.2)
+
+use core.group
+use tarantul.bignum.magnitude
+use tarantul.hex.hex
+use modulus
+
+PRIME = "ffffffff00000001000000000000000000000000ffffffffffffffffffffffff"
+ORDER = "ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551"
+CURVE_B = "5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b"
+BASE_X = "6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296"
+BASE_Y = "4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5"
+
+Curve = Box {
+    space = modulus.Modulus {},
+    scalars = modulus.Modulus {},
+    math = magnitude.Magnitude {},
+    known = []
+
+    skill ready() {
+        (group.count(known) == 0) {
+            @text = hex.Hex {}
+            space = modulus.Modulus {
+                value = space.number_at(text.decode(PRIME), 0)
+            }
+            scalars = modulus.Modulus {
+                value = space.number_at(text.decode(ORDER), 0)
+            }
+            @point = [space.number_at(text.decode(BASE_X), 0), space.number_at(text.decode(BASE_Y), 0)]
+            known = [space.number_at(text.decode(CURVE_B), 0), point]
+        }
+    }
+
+    skill base() {
+        ready()
+        out group.get(known, 1)
+    }
+
+    skill lies_on(point) {
+        ready()
+        @x = group.get(point, 0)
+        @y = group.get(point, 1)
+        @right = space.mul(space.sub(space.mul(x, x), math.of(3)), x)
+        right = space.add(right, group.get(known, 0))
+        out (math.order(space.mul(y, y), right) == 0)
+    }
+
+    skill doubled(point) {
+        @z = group.get(point, 2)
+        (group.count(z) == 0) {
+            out point
+        }
+        @x = group.get(point, 0)
+        @y = group.get(point, 1)
+        @delta = space.mul(z, z)
+        @gamma = space.mul(y, y)
+        @beta = space.mul(x, gamma)
+        @alpha = space.mul(space.sub(x, delta), space.add(x, delta))
+        alpha = space.add(space.add(alpha, alpha), alpha)
+        @beta4 = space.add(beta, beta)
+        beta4 = space.add(beta4, beta4)
+        @x3 = space.sub(space.mul(alpha, alpha), space.add(beta4, beta4))
+        @yz = space.add(y, z)
+        @z3 = space.sub(space.sub(space.mul(yz, yz), gamma), delta)
+        @gamma8 = space.mul(gamma, gamma)
+        gamma8 = space.add(gamma8, gamma8)
+        gamma8 = space.add(gamma8, gamma8)
+        gamma8 = space.add(gamma8, gamma8)
+        @y3 = space.sub(space.mul(alpha, space.sub(beta4, x3)), gamma8)
+        out [x3, y3, z3]
+    }
+
+    skill plus(left, right) {
+        @z1 = group.get(left, 2)
+        @z2 = group.get(right, 2)
+        (group.count(z1) == 0) {
+            out right
+        }
+        (group.count(z2) == 0) {
+            out left
+        }
+        @z1z1 = space.mul(z1, z1)
+        @z2z2 = space.mul(z2, z2)
+        @u1 = space.mul(group.get(left, 0), z2z2)
+        @u2 = space.mul(group.get(right, 0), z1z1)
+        @s1 = space.mul(space.mul(group.get(left, 1), z2), z2z2)
+        @s2 = space.mul(space.mul(group.get(right, 1), z1), z1z1)
+        (math.order(u1, u2) == 0) {
+            (math.order(s1, s2) == 0) {
+                out doubled(left)
+            }
+            out [math.of(1), math.of(1), []]
+        }
+        @h = space.sub(u2, u1)
+        @twice = space.add(h, h)
+        @i = space.mul(twice, twice)
+        @j = space.mul(h, i)
+        @r = space.sub(s2, s1)
+        r = space.add(r, r)
+        @v = space.mul(u1, i)
+        @x3 = space.sub(space.sub(space.mul(r, r), j), space.add(v, v))
+        @s1j = space.mul(s1, j)
+        @y3 = space.sub(space.mul(r, space.sub(v, x3)), space.add(s1j, s1j))
+        @zz = space.add(z1, z2)
+        @z3 = space.mul(space.sub(space.sub(space.mul(zz, zz), z1z1), z2z2), h)
+        out [x3, y3, z3]
+    }
+
+    skill combined(a, p, b, q) {
+        ready()
+        @first = [group.get(p, 0), group.get(p, 1), math.of(1)]
+        @second = [group.get(q, 0), group.get(q, 1), math.of(1)]
+        @both = plus(first, second)
+        @result = [math.of(1), math.of(1), []]
+        @top = math.bits(a)
+        (math.bits(b) > top) {
+            top = math.bits(b)
+        }
+        drum (top) {
+            result = doubled(result)
+            @index = top - 1 - beat
+            @choice = math.bit(a, index) + math.bit(b, index) * 2
+            (choice == 1) {
+                result = plus(result, first)
+            }
+            (choice == 2) {
+                result = plus(result, second)
+            }
+            (choice == 3) {
+                result = plus(result, both)
+            }
+        }
+        out result
+    }
+
+    skill affine(point) {
+        ready()
+        @z = group.get(point, 2)
+        (group.count(z) == 0) {
+            out error.PointAtInfinity
+        }
+        @back = space.inverse(z)
+        @back2 = space.mul(back, back)
+        @x = space.mul(group.get(point, 0), back2)
+        @y = space.mul(group.get(point, 1), space.mul(back2, back))
+        out [x, y]
+    }
+}
