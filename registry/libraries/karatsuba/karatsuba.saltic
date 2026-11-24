@@ -18,7 +18,7 @@ use core.group
 use tarantul.bignum.bignum
 use tarantul.bignum.magnitude
 
-THRESHOLD = 20
+THRESHOLD = 1024
 SMALLEST = 4
 
 Karatsuba = Box {
