@@ -1,0 +1,114 @@
+-- pcg — случайные числа: PCG32 (XSH RR) О'Нил, pcg-random.org и эталонная
+-- pcg-c. Состояние 64 бита: s' = s·6364136223846793005 + inc mod 2^64; выход
+-- из старого s — ((s >> 18) ^ s) >> 27 (младшие 32 бита), повёрнутое вправо на
+-- s >> 59. Засев — pcg32_srandom(зерно, поток 54). Наши числа — 61 бит, поэтому
+-- 64-битное слово — пара [hi, lo] 32-битных половин, произведение — по 16 бит.
+-- Не для криптографии. Лицо — как у lcg и xorshift: можно подменять.
+--
+-- Pcg { state, inc } — пары [hi, lo]; Pcg {} — то же, что seeded(42)
+--     seeded(n) -> Pcg; SeedOutsideRange вне 0 … 2^32 − 1
+--     next() -> следующее 32-битное слово
+--     below(n) -> целое 0 … n − 1 без перекоса (отбрасывание хвоста);
+--         EmptyRange при n < 1; ValueOutsideRange при n > 2^32
+--     lifted(x, k) / low_product(a, b) / wide(a, b) / sum(a, b) /
+--     product(a, b) — внутри: сдвиг, умножения 32 и 64 бит, сложение пар
+-- MASK — 32 бита; SPAN — 2^32; MULTIPLIER — множитель парой; STREAM — поток
+-- 54 (2·54 + 1 = 109 — inc); START — состояние после seeded(42)
+
+use core.num
+use core.group
+
+MASK = 4294967295
+SPAN = 4294967296
+MULTIPLIER = [1481765933, 1284865837]
+STREAM = [0, 109]
+START = [408356536, 741213176]
+
+Pcg = Box {
+    state = START,
+    inc = STREAM
+
+    skill lifted(x, k) {
+        out num.shift_left(num.and(x, num.power2(32 - k) - 1), k)
+    }
+
+    skill low_product(a, b) {
+        @a_low = num.and(a, 65535)
+        @a_high = num.shift_right(a, 16)
+        @b_low = num.and(b, 65535)
+        @b_high = num.shift_right(b, 16)
+        @cross = num.and(a_high * b_low + a_low * b_high, 65535)
+        out num.and(num.shift_left(cross, 16) + a_low * b_low, MASK)
+    }
+
+    skill wide(a, b) {
+        @a_low = num.and(a, 65535)
+        @a_high = num.shift_right(a, 16)
+        @b_low = num.and(b, 65535)
+        @b_high = num.shift_right(b, 16)
+        @cross = a_high * b_low + a_low * b_high
+        @low = a_low * b_low + num.shift_left(num.and(cross, 65535), 16)
+        @high = a_high * b_high + num.shift_right(cross, 16) + num.shift_right(low, 32)
+        out [num.and(high, MASK), num.and(low, MASK)]
+    }
+
+    skill sum(a, b) {
+        @low = group.get(a, 1) + group.get(b, 1)
+        @high = group.get(a, 0) + group.get(b, 0) + num.shift_right(low, 32)
+        out [num.and(high, MASK), num.and(low, MASK)]
+    }
+
+    skill product(a, b) {
+        @a_high = group.get(a, 0)
+        @a_low = group.get(a, 1)
+        @b_high = group.get(b, 0)
+        @b_low = group.get(b, 1)
+        @full = wide(a_low, b_low)
+        @high = group.get(full, 0) + low_product(a_high, b_low) + low_product(a_low, b_high)
+        out [num.and(high, MASK), group.get(full, 1)]
+    }
+
+    skill seeded(n) {
+        ((n < 0) ○○ (n > MASK)) {
+            out error.SeedOutsideRange
+        }
+        @made = Pcg {
+            state = [0, 0],
+            inc = STREAM
+        }
+        made.next()
+        made.state = sum(made.state, [0, n])
+        made.next()
+        out made
+    }
+
+    skill next() {
+        @old_high = group.get(state, 0)
+        @old_low = group.get(state, 1)
+        state = sum(product(state, MULTIPLIER), inc)
+        @x_high = num.xor(num.shift_right(old_high, 18), old_high)
+        @x_low = num.xor(num.or(num.shift_right(old_low, 18), lifted(old_high, 14)), old_low)
+        @shifted = num.or(num.shift_right(x_low, 27), lifted(x_high, 5))
+        @rot = num.shift_right(old_high, 27)
+        out num.or(num.shift_right(shifted, rot), lifted(shifted, 32 - rot))
+    }
+
+    skill below(n) {
+        (n < 1) {
+            out error.EmptyRange
+        }
+        (n > SPAN) {
+            out error.ValueOutsideRange
+        }
+        @threshold = (SPAN - n) % n
+        @picked = 0
+        always {
+            @r = next()
+            (r >= threshold) {
+                picked = r % n
+                leave
+            }
+        }
+        out picked
+    }
+}

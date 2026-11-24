@@ -1,0 +1,68 @@
+-- xorshift — случайные числа: xorshift32 Марсальи («Xorshift RNGs», Journal
+-- of Statistical Software 8(14), 2003) — тройка сдвигов (13, 17, 5):
+-- x ^= x << 13; x ^= x >> 17; x ^= x << 5 по модулю 2^32, период 2^32 − 1.
+-- Отдаёт новое состояние. Ноль — неподвижная точка, поэтому зерно 0 — ошибка.
+-- Не для криптографии. Лицо — как у lcg и pcg: можно подменять друг другом.
+--
+-- Xorshift { state } — state — 32-битное слово ≠ 0; Xorshift {} — то же, что
+--     seeded(2463534242) (зерно из статьи Марсальи)
+--     seeded(n) -> Xorshift с состоянием n; ZeroSeed при 0;
+--         SeedOutsideRange вне 0 … 2^32 − 1
+--     next() -> следующее 32-битное слово
+--     below(n) -> целое 0 … n − 1 без перекоса (отбрасывание хвоста);
+--         EmptyRange при n < 1; ValueOutsideRange при n > 2^32
+--     lifted(x, k) — внутри: x << k mod 2^32 (лишние биты срезаны до сдвига)
+-- MASK — 32 бита; SPAN — 2^32; PAPER — зерно из статьи
+
+use core.num
+
+MASK = 4294967295
+SPAN = 4294967296
+PAPER = 2463534242
+
+Xorshift = Box {
+    state = PAPER
+
+    skill lifted(x, k) {
+        out num.shift_left(num.and(x, num.power2(32 - k) - 1), k)
+    }
+
+    skill seeded(n) {
+        ((n < 0) ○○ (n > MASK)) {
+            out error.SeedOutsideRange
+        }
+        (n == 0) {
+            out error.ZeroSeed
+        }
+        out Xorshift {
+            state = n
+        }
+    }
+
+    skill next() {
+        @x = num.xor(state, lifted(state, 13))
+        x = num.xor(x, num.shift_right(x, 17))
+        x = num.xor(x, lifted(x, 5))
+        state = x
+        out x
+    }
+
+    skill below(n) {
+        (n < 1) {
+            out error.EmptyRange
+        }
+        (n > SPAN) {
+            out error.ValueOutsideRange
+        }
+        @threshold = (SPAN - n) % n
+        @picked = 0
+        always {
+            @r = next()
+            (r >= threshold) {
+                picked = r % n
+                leave
+            }
+        }
+        out picked
+    }
+}

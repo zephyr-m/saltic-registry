@@ -1,0 +1,13 @@
+{
+  "title": "lcg — случайные числа: линейный конгруэнтный генератор",
+  "saltic_version": "в составе Saltic (ветка 24.11.2026)",
+  "own_version": "1",
+  "author": "Зэф",
+  "role": "library",
+  "purpose": "LCG «quick and dirty» из Numerical Recipes (a = 1664525, c = 1013904223, m = 2^32): засеять, следующее слово, целое в диапазоне без перекоса — для игр, наглядности, повторяемых последовательностей; лицо как у xorshift и pcg; не для статистики и криптографии",
+  "depends_on": "нет",
+  "architectures": "все цели",
+  "state": "рабочий: 6 зёрен по 20 слов и below(n) на 5 парах бит в бит против Python (эталон сверен с 11 словами из книги), ошибки SeedOutsideRange / EmptyRange / ValueOutsideRange (checks/lcg.saltic, эталоны — workbench/references/lcg.py реестра)",
+  "log": "нет: ошибки — ошибкой вызывающему",
+  "filled_by": "агентом по коду, 24.11.2026; автор проверяет"
+}

@@ -1,0 +1,13 @@
+{
+  "title": "pcg — случайные числа: PCG32 (XSH RR)",
+  "saltic_version": "в составе Saltic (ветка 24.11.2026)",
+  "own_version": "1",
+  "author": "Зэф",
+  "role": "library",
+  "purpose": "PCG32 О'Нил (pcg-random.org): 64-битное состояние парой 32-битных половин, засев pcg32_srandom(зерно, поток 54), следующее слово, целое в диапазоне без перекоса — качественный некриптографический генератор; лицо как у lcg и xorshift",
+  "depends_on": "нет",
+  "architectures": "все цели",
+  "state": "рабочий: 6 опубликованных слов pcg-c (check-pcg32.out, pcg32_srandom(42, 54)), 6 зёрен по 20 слов и below(n) на 5 парах бит в бит против Python, ошибки SeedOutsideRange / EmptyRange / ValueOutsideRange (checks/pcg.saltic, эталоны — workbench/references/pcg.py реестра)",
+  "log": "нет: ошибки — ошибкой вызывающему",
+  "filled_by": "агентом по коду, 24.11.2026; автор проверяет"
+}

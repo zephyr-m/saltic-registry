@@ -29,3 +29,6 @@ optimize   registry/libraries/optimize/optimize
 tcp        registry/libraries/tcp/tcp
 hex        registry/libraries/hex/hex
 wire       registry/libraries/wire/wire
+lcg        registry/libraries/lcg/lcg
+xorshift   registry/libraries/xorshift/xorshift
+pcg        registry/libraries/pcg/pcg

@@ -1,0 +1,67 @@
+-- lcg — случайные числа: линейный конгруэнтный генератор «quick and dirty» из
+-- Numerical Recipes in C, 2-е изд., §7.1 (Press и др.): x' = (1664525·x +
+-- 1013904223) mod 2^32 — параметры Кнута (a) и Льюиса (c), полный период 2^32.
+-- Отдаёт новое состояние целиком. Слабые младшие биты: below берёт остаток —
+-- для игр и наглядности, не для статистики и не для криптографии. Лицо — как у
+-- xorshift и pcg: можно подменять друг другом.
+--
+-- Lcg { state } — state — 32-битное слово; Lcg {} — то же, что seeded(0)
+--     seeded(n) -> Lcg с состоянием n; SeedOutsideRange вне 0 … 2^32 − 1
+--     next() -> следующее 32-битное слово
+--     below(n) -> целое 0 … n − 1 без перекоса (отбрасывание хвоста);
+--         EmptyRange при n < 1; ValueOutsideRange при n > 2^32
+--     times(a, b) — внутри: a·b mod 2^32 без переполнения (половинки по 16 бит)
+-- MASK — 32 бита; MULTIPLIER, INCREMENT — a и c; SPAN — 2^32
+
+use core.num
+
+MASK = 4294967295
+SPAN = 4294967296
+MULTIPLIER = 1664525
+INCREMENT = 1013904223
+
+Lcg = Box {
+    state = 0
+
+    skill times(a, b) {
+        @a_low = num.and(a, 65535)
+        @a_high = num.shift_right(a, 16)
+        @b_low = num.and(b, 65535)
+        @b_high = num.shift_right(b, 16)
+        @cross = num.and(a_high * b_low + a_low * b_high, 65535)
+        out num.and(num.shift_left(cross, 16) + a_low * b_low, MASK)
+    }
+
+    skill seeded(n) {
+        ((n < 0) ○○ (n > MASK)) {
+            out error.SeedOutsideRange
+        }
+        out Lcg {
+            state = n
+        }
+    }
+
+    skill next() {
+        state = num.and(times(MULTIPLIER, state) + INCREMENT, MASK)
+        out state
+    }
+
+    skill below(n) {
+        (n < 1) {
+            out error.EmptyRange
+        }
+        (n > SPAN) {
+            out error.ValueOutsideRange
+        }
+        @threshold = (SPAN - n) % n
+        @picked = 0
+        always {
+            @r = next()
+            (r >= threshold) {
+                picked = r % n
+                leave
+            }
+        }
+        out picked
+    }
+}

@@ -1,0 +1,13 @@
+{
+  "title": "xorshift — случайные числа: xorshift32 Марсальи",
+  "saltic_version": "в составе Saltic (ветка 24.11.2026)",
+  "own_version": "1",
+  "author": "Зэф",
+  "role": "library",
+  "purpose": "xorshift32 (сдвиги 13, 17, 5; Марсалья, 2003): засеять, следующее слово, целое в диапазоне без перекоса — быстрый и простой генератор для игр и симуляций; лицо как у lcg и pcg; не для криптографии",
+  "depends_on": "нет",
+  "architectures": "все цели",
+  "state": "рабочий: 6 зёрен по 20 слов и below(n) на 5 парах бит в бит против Python по статье, ошибки ZeroSeed / SeedOutsideRange / EmptyRange / ValueOutsideRange (checks/xorshift.saltic, эталоны — workbench/references/xorshift.py реестра)",
+  "log": "нет: ошибки — ошибкой вызывающему",
+  "filled_by": "агентом по коду, 24.11.2026; автор проверяет"
+}

@@ -1,0 +1,100 @@
+-- pcg — проверка бит в бит против Python по pcg-random.org (cases.saltic,
+-- делает workbench/references/pcg.py): 6 опубликованных слов pcg-c для
+-- pcg32_srandom(42, 54), 6 зёрен по 20 слов, below(n) на 5 парах зерно/n,
+-- Pcg {} = seeded(42);
+-- ошибки — зерно −1 и 2^32 (SeedOutsideRange), below(0) и below(−3)
+-- (EmptyRange), below(2^32 + 1) (ValueOutsideRange).
+--
+-- Probe { maker } — failure(kind) -> имя ошибки случая kind
+-- program() -> none; TestsFailed
+
+use io
+use core.group
+use craft.testing
+use registry.libraries.pcg.pcg
+use registry.libraries.pcg.checks.cases
+
+Probe = Box {
+    maker = pcg.Pcg {}
+
+    skill failure(kind) {
+        @named = "нет ошибки"
+        pick {
+            (kind == "minus") {
+                maker.seeded(-1) rescue |err| {
+                    named = "{err}"
+                }
+            }
+            (kind == "big") {
+                maker.seeded(4294967296) rescue |err| {
+                    named = "{err}"
+                }
+            }
+            (kind == "zero") {
+                maker.below(0) rescue |err| {
+                    named = "{err}"
+                }
+            }
+            (kind == "negative") {
+                maker.below(-3) rescue |err| {
+                    named = "{err}"
+                }
+            }
+            {
+                maker.below(4294967297) rescue |err| {
+                    named = "{err}"
+                }
+            }
+        }
+        out named
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @maker = pcg.Pcg {}
+    @probe = Probe {}
+    @wrong = 0
+    drum (cases.CASES) {
+        @row = beat
+        @source = maker.seeded(group.get(row, 0))
+        drum (20) {
+            ((source.next() == group.get(row, 1 + beat)) == no) {
+                wrong = wrong + 1
+            }
+        }
+    }
+    @count = group.count(cases.CASES)
+    io.show("pcg: зёрен {count}, неверных слов {wrong}")
+    suite = testing.test_equal(suite, "последовательность как PCG32 на Python", wrong, 0)
+    @demo = maker.seeded(42)
+    @strayed = 0
+    drum (cases.PUBLISHED) {
+        ((demo.next() == beat) == no) {
+            strayed = strayed + 1
+        }
+    }
+    suite = testing.test_equal(suite, "6 слов как в pcg-c (check-pcg32.out)", strayed, 0)
+    @missed = 0
+    drum (cases.BELOW) {
+        @row = beat
+        @source = maker.seeded(group.get(row, 0))
+        @n = group.get(row, 1)
+        drum (10) {
+            ((source.below(n) == group.get(row, 2 + beat)) == no) {
+                missed = missed + 1
+            }
+        }
+    }
+    io.show("pcg: below — неверных {missed}")
+    suite = testing.test_equal(suite, "below(n) как у эталона", missed, 0)
+    @plain = pcg.Pcg {}
+    @first = group.get(cases.CASES, 0)
+    suite = testing.test_equal(suite, "пустой Pcg = seeded(42)", plain.next(), group.get(first, 1))
+    suite = testing.test_equal(suite, "зерно −1 — SeedOutsideRange", probe.failure("minus"), "SeedOutsideRange")
+    suite = testing.test_equal(suite, "зерно 2^32 — SeedOutsideRange", probe.failure("big"), "SeedOutsideRange")
+    suite = testing.test_equal(suite, "below(0) — EmptyRange", probe.failure("zero"), "EmptyRange")
+    suite = testing.test_equal(suite, "below(−3) — EmptyRange", probe.failure("negative"), "EmptyRange")
+    suite = testing.test_equal(suite, "below(2^32 + 1) — ValueOutsideRange", probe.failure("wide"), "ValueOutsideRange")
+    out testing.test_finish(suite)
+}
