@@ -7,7 +7,8 @@
 -- свернуть окно (xdg_toplevel.set_minimized). sized(title, width, height) —
 -- то же окно своего размера и заголовка; open() — 1366×768, «Saltic».
 -- Сырой ввод — ещё и в ядро событий way_events (input/events, имена —
--- input/gestures): место указателя (pair), нажатия левой (bump), шаги колеса
+-- input/gestures): место указателя (pair), нажатия левой (bump), удержание левой и
+-- средней (1 зажата, 0 отпущена), шаги колеса
 -- (сумма, вниз — плюс), набранные знаки (раскладка US, Shift — заглавные и
 -- верхний ряд; кириллица — когда будет раскладка от композитора; Backspace —
 -- знаком ⌫, стирать решает программа), клавиши без знака — счётчиками
@@ -50,6 +51,7 @@ TITLE = "Saltic"
 PIXEL = 4
 FORMAT_BGR = 1
 LEFT_BUTTON = 272
+MIDDLE_BUTTON = 274
 SHIFT = 1
 CONTROL = 4
 SIGN = 2147483648
@@ -254,7 +256,11 @@ skill take(link, packet, count) {
                 (size >= 24) {
                     @button = wire.get32(packet, at + 16)
                     @state = wire.get32(packet, at + 20)
+                    (button == MIDDLE_BUTTON) {
+                        link.way_events = events.change(link.way_events, gestures.POINTER_MIDDLE_HELD, state, "", wire.get32(packet, at + 12))
+                    }
                     (button == LEFT_BUTTON) {
+                        link.way_events = events.change(link.way_events, gestures.POINTER_LEFT_HELD, state, "", wire.get32(packet, at + 12))
                         (state == 1) {
                             link.way_clicked = yes
                             link.way_click_x = link.way_pointer_x

@@ -13,10 +13,18 @@
 -- fill(screen, x, y, width, height, value) — прямоугольник, обрезанный по краям холста
 -- blend(screen, x, y, width, height, value, alpha) — то же полупрозрачно: alpha 0…255
 -- mix(under, over, alpha) -> точка: over поверх under, каждый канал отдельно
+-- canvas_dot(screen, x, y, value, alpha) — одна точка; за краем холста — ничего
+-- canvas_line(screen, x0, y0, x1, y1, value, alpha) — отрезок по Брезенхему, оба конца
+-- canvas_polygon(screen, points, value, alpha) — залитый многоугольник, points — [[x, y], …];
+--     точка закрашена, если её центр внутри (левый край включён, правый нет),
+--     внутри — по правилу чёт-нечет
+-- canvas_edges(points, y) -> первые точки справа от рёбер на строке y, по возрастанию;
+--     ceiling_of(top, under) -> ⌈top / under⌉ при under > 0 — внутри polygon
 -- format_name(screen) -> текст
 
 use core.mem
 use core.num
+use core.group
 use core.usize
 use core.address
 use core.u32
@@ -103,6 +111,156 @@ skill fill(screen, x0, y0, width0, height0, value) {
     drum (height) {
         @row = ((y + beat) * screen.stride + x) * PIXEL_BYTES
         drum (width) { mem.store32(address.from(screen.memory), usize.from(row + beat * PIXEL_BYTES), u32.from(value)) }
+    }
+    out none
+}
+
+skill canvas_dot(screen, x, y, value, alpha) {
+    ((x < 0) ○○ (y < 0)) {
+        out none
+    }
+    ((x >= screen.width) ○○ (y >= screen.height)) {
+        out none
+    }
+    @at = usize.from((y * screen.stride + x) * PIXEL_BYTES)
+    (alpha >= 255) {
+        mem.store32(address.from(screen.memory), at, u32.from(value))
+        out none
+    }
+    @under = num.from(mem.load32(address.from(screen.memory), at))
+    mem.store32(address.from(screen.memory), at, u32.from(mix(under, value, alpha)))
+    out none
+}
+
+skill canvas_line(screen, x0, y0, x1, y1, value, alpha) {
+    (alpha <= 0) {
+        out none
+    }
+    ((x0 < 0) ○ (x1 < 0)) {
+        out none
+    }
+    ((y0 < 0) ○ (y1 < 0)) {
+        out none
+    }
+    ((x0 >= screen.width) ○ (x1 >= screen.width)) {
+        out none
+    }
+    ((y0 >= screen.height) ○ (y1 >= screen.height)) {
+        out none
+    }
+    @dx = x1 - x0
+    @step_x = 1
+    (dx < 0) {
+        dx = 0 - dx
+        step_x = -1
+    }
+    @dy = y1 - y0
+    @step_y = 1
+    (dy < 0) {
+        dy = 0 - dy
+        step_y = -1
+    }
+    @count = dx + 1
+    (dy > dx) {
+        count = dy + 1
+    }
+    @x = x0
+    @y = y0
+    @error = dx - dy
+    drum (count) {
+        canvas_dot(screen, x, y, value, alpha)
+        @twice = error * 2
+        (twice > 0 - dy) {
+            error = error - dy
+            x = x + step_x
+        }
+        (twice < dx) {
+            error = error + dx
+            y = y + step_y
+        }
+    }
+    out none
+}
+
+skill canvas_edges(points, y) {
+    @count = group.count(points)
+    @scan = y * 2 + 1
+    @found = []
+    drum (count) {
+        @a = group.get(points, beat)
+        @b = group.get(points, (beat + 1) % count)
+        @ay = group.get(a, 1) * 2
+        @by = group.get(b, 1) * 2
+        (((ay <= scan) ○ (by > scan)) ○○ ((by <= scan) ○ (ay > scan))) {
+            @ax = group.get(a, 0)
+            @under = by - ay
+            @shift = (scan - ay) * (group.get(b, 0) - ax) * 2
+            (under < 0) {
+                under = 0 - under
+                shift = 0 - shift
+            }
+            @x = ceiling_of((ax * 2 - 1) * under + shift, under * 2)
+            @sorted = []
+            @placed = no
+            drum (found) {
+                ((placed == no) ○ (x < beat)) {
+                    sorted = group.add(sorted, x)
+                    placed = yes
+                }
+                sorted = group.add(sorted, beat)
+            }
+            (placed == no) {
+                sorted = group.add(sorted, x)
+            }
+            found = sorted
+        }
+    }
+    out found
+}
+
+skill ceiling_of(top, under) {
+    @whole = top / under
+    ((top > 0) ○ (whole * under < top)) {
+        out whole + 1
+    }
+    out whole
+}
+
+skill canvas_polygon(screen, points, value, alpha) {
+    (group.count(points) < 3) {
+        out none
+    }
+    (alpha <= 0) {
+        out none
+    }
+    @top = screen.height
+    @bottom = -1
+    drum (points) {
+        @y = group.get(beat, 1)
+        (y < top) {
+            top = y
+        }
+        (y > bottom) {
+            bottom = y
+        }
+    }
+    (top < 0) {
+        top = 0
+    }
+    (bottom >= screen.height) {
+        bottom = screen.height - 1
+    }
+    (bottom < top) {
+        out none
+    }
+    drum (bottom - top + 1) {
+        @y = top + beat
+        @edges = canvas_edges(points, y)
+        drum (group.count(edges) / 2) {
+            @left = group.get(edges, beat * 2)
+            @right = group.get(edges, beat * 2 + 1)
+            blend(screen, left, y, right - left, 1, value, alpha)
+        }
     }
     out none
 }

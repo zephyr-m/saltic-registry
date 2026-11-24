@@ -1,0 +1,89 @@
+-- graphics — проверка точки, отрезка и многоугольника на холсте 16 × 16 в памяти
+-- хоста (memfd, как у Wayland). Ожидания посчитаны геометрией, не этим же кодом:
+-- диагональ — 16 точек, отрезок (2, 3)–(12, 7) — 11 точек и оба конца,
+-- квадрат 8 × 8 — 64 точки, прямоугольный треугольник с катетами 16 — 120
+-- (центр точки внутри: x + y < 15), полупрозрачность — mix 50/50,
+-- отрезок целиком за краем — ни одной точки.
+--
+-- Canvas { screen } — холст: clear() — залить нулём; lit() -> сколько точек не ноль;
+--     at(x, y) -> точка
+-- program() -> none; TestsFailed
+
+use io
+use core.mem
+use core.num
+use core.usize
+use core.address
+use core.socket
+use craft.testing
+use registry.libraries.graphics.graphics
+
+SIDE = 16
+
+Canvas = Box {
+    screen = graphics.Screen {}
+
+    skill clear() {
+        graphics.fill(screen, 0, 0, SIDE, SIDE, 0)
+    }
+
+    skill at(x, y) {
+        out num.from(mem.load32(address.from(screen.memory), usize.from((y * SIDE + x) * graphics.PIXEL_BYTES)))
+    }
+
+    skill lit() {
+        @count = 0
+        drum (SIDE) {
+            @y = beat
+            drum (SIDE) {
+                ((at(beat, y) == 0) == no) {
+                    count = count + 1
+                }
+            }
+        }
+        out count
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @fd = socket.memory("graphics-check")
+    socket.resize(fd, SIDE * SIDE * graphics.PIXEL_BYTES)
+    @memory = socket.map(fd, SIDE * SIDE * graphics.PIXEL_BYTES)
+    @canvas = Canvas {
+        screen = graphics.Screen {
+            width = SIDE,
+            height = SIDE,
+            stride = SIDE,
+            format = graphics.FORMAT_BGR,
+            frame = 0,
+            memory = memory,
+            accel = [],
+            vsync = no
+        }
+    }
+    @screen = canvas.screen
+    canvas.clear()
+    graphics.canvas_line(screen, 0, 0, 15, 15, 255, 255)
+    suite = testing.test_equal(suite, "диагональ — 16 точек", canvas.lit(), 16)
+    suite = testing.test_equal(suite, "диагональ проходит (5, 5)", canvas.at(5, 5), 255)
+    canvas.clear()
+    graphics.canvas_line(screen, 12, 7, 2, 3, 255, 255)
+    suite = testing.test_equal(suite, "отрезок (2, 3)–(12, 7) — 11 точек", canvas.lit(), 11)
+    suite = testing.test_equal(suite, "оба конца на месте", canvas.at(2, 3) + canvas.at(12, 7), 510)
+    canvas.clear()
+    graphics.canvas_polygon(screen, [[2, 2], [10, 2], [10, 10], [2, 10]], 255, 255)
+    suite = testing.test_equal(suite, "квадрат 8 × 8 — 64 точки", canvas.lit(), 64)
+    canvas.clear()
+    graphics.canvas_polygon(screen, [[0, 0], [16, 0], [0, 16]], 255, 255)
+    suite = testing.test_equal(suite, "треугольник с катетами 16 — 120 точек", canvas.lit(), 120)
+    canvas.clear()
+    graphics.fill(screen, 0, 0, SIDE, SIDE, 200)
+    graphics.canvas_line(screen, 0, 4, 15, 4, 100, 128)
+    suite = testing.test_equal(suite, "полупрозрачно: 200 и 100 пополам", canvas.at(7, 4), graphics.mix(200, 100, 128))
+    canvas.clear()
+    graphics.canvas_line(screen, -40, -5, -2, -30, 255, 255)
+    graphics.canvas_line(screen, 20, 3, 90, 9, 255, 255)
+    suite = testing.test_equal(suite, "отрезок за краем — ни одной точки", canvas.lit(), 0)
+    out testing.test_finish(suite)
+}

@@ -1,0 +1,91 @@
+-- gestures — проверка ядра жестов на изменениях нижнего ядра, как их даёт
+-- Wayland: указатель без кнопки — ни одного жеста; левая зажата — тяга left
+-- со сдвигом по x и по y; отпущена — тяги нет; средняя зажата — тяга middle;
+-- клик левой и шаг колеса — по-прежнему CLICK и WHEEL.
+--
+-- Script { core, time } — сценарий: moved(x, y), held(id, number), clicked(),
+--     wheeled(total) — изменение в ядро; taken() -> жесты из ядра строкой (ядро пустеет)
+-- Line — описание жеста одной строкой: described(gesture) -> «DRAG left 5 0»
+-- program() -> none; TestsFailed
+
+use core.str
+use core.group
+use craft.testing
+use registry.libraries.input.events
+use registry.libraries.input.gestures
+
+Script = Box {
+    core = events.Core {},
+    reader = gestures.Reader {},
+    line = Line {},
+    time = 0
+
+    skill moved(x, y) {
+        time = time + 10
+        core = events.pair(core, gestures.POINTER_X, x, gestures.POINTER_Y, y, time)
+    }
+
+    skill held(id, number) {
+        time = time + 10
+        core = events.change(core, id, number, "", time)
+    }
+
+    skill clicked() {
+        time = time + 1000
+        core = events.bump(core, gestures.POINTER_LEFT, time)
+    }
+
+    skill wheeled(total) {
+        time = time + 10
+        core = events.change(core, gestures.POINTER_WHEEL, total, "", time)
+    }
+
+    skill taken() {
+        @drained = reader.drain(core)
+        core = drained.core
+        @lines = []
+        drum (drained.gestures) {
+            lines = group.add(lines, line.described(beat))
+        }
+        out str.join(lines, " | ")
+    }
+}
+
+Line = Box {
+    skill described(gesture) {
+        (gesture.kind == gestures.Kind.DRAG) {
+            out "DRAG {gesture.text} {gesture.dx} {gesture.dy}"
+        }
+        (gesture.kind == gestures.Kind.CLICK) {
+            out "CLICK {gesture.x} {gesture.y}"
+        }
+        (gesture.kind == gestures.Kind.WHEEL) {
+            out "WHEEL {gesture.amount}"
+        }
+        out "другой"
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @script = Script {}
+    script.moved(10, 10)
+    suite = testing.test_equal(suite, "указатель без кнопки — жестов нет", script.taken(), "")
+    script.held(gestures.POINTER_LEFT_HELD, 1)
+    script.moved(15, 12)
+    suite = testing.test_equal(suite, "левая зажата — тяга по x и по y", script.taken(), "DRAG left 5 0 | DRAG left 0 2")
+    script.moved(15, 4)
+    suite = testing.test_equal(suite, "тяга вверх — минус по y", script.taken(), "DRAG left 0 -8")
+    script.held(gestures.POINTER_LEFT_HELD, 0)
+    script.moved(30, 30)
+    suite = testing.test_equal(suite, "левая отпущена — тяги нет", script.taken(), "")
+    script.held(gestures.POINTER_MIDDLE_HELD, 1)
+    script.moved(27, 30)
+    suite = testing.test_equal(suite, "средняя зажата — тяга middle", script.taken(), "DRAG middle -3 0")
+    script.held(gestures.POINTER_MIDDLE_HELD, 0)
+    script.clicked()
+    suite = testing.test_equal(suite, "клик левой — как раньше", script.taken(), "CLICK 27 30")
+    script.wheeled(2)
+    suite = testing.test_equal(suite, "колесо — как раньше", script.taken(), "WHEEL 2")
+    out testing.test_finish(suite)
+}

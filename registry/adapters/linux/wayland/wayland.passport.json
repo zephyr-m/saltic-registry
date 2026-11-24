@@ -8,7 +8,7 @@
   "effects": "говорит с композитором через сокет Wayland, общая память кадра",
   "hardware": "любой Linux с Wayland",
   "identifiers": "нет",
-  "own_version": "1",
+  "own_version": "2",
   "protocols": "—",
   "architectures": "x86_64 (Linux)",
   "primitives": "окно заданного размера, холст graphics, события ввода в ядро событий, показать кадр",

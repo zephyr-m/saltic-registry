@@ -2,26 +2,29 @@
 -- (docs/os/EVENTS.md): изменения нижнего ядра → жесты фиксированного словаря
 -- (первая версия, решение автора 17.11.2026): клик, двойной клик, колесо,
 -- набор текста; с 21.11 — нажатие клавиши без знака (стрелки, Home, End,
--- Delete, страницы) и Ctrl. Программа своих жестов не задаёт, словарь
--- пополняет автор.
+-- Delete, страницы) и Ctrl; с 25.11 — перетаскивание левой и средней.
+-- Программа своих жестов не задаёт, словарь пополняет автор.
 -- Канал не важен: мышь, другая машина или агент дают те же изменения.
 -- Имена нижнего ядра — POINTER_X / POINTER_Y (место, events.pair),
 -- POINTER_LEFT (счётчик нажатий левой, events.bump), POINTER_WHEEL (сумма
 -- шагов колеса: вниз — плюс), TYPED (счётчик набранного, знак — в text),
 -- KEY и имя клавиши (key.left… — счётчик нажатий, events.bump), CTRL (1 —
--- зажат, 0 — отпущен). Знак, набранный с зажатым Ctrl, — не набор, а нажатие
+-- зажат, 0 — отпущен), POINTER_LEFT_HELD / POINTER_MIDDLE_HELD (кнопка: 1 —
+-- зажата, 0 — отпущена). Знак, набранный с зажатым Ctrl, — не набор, а нажатие
 -- PRESS с этим знаком (Ctrl+S — PRESS «s», ctrl yes); у клика тоже есть ctrl.
 -- Место жеста — где был указатель в момент изменения; что под ним, решает
 -- программа (jtml.hit) — переезд попадания сюда ещё впереди.
 --
--- Kind — CLICK, DOUBLE, WHEEL, TYPE, PRESS
--- Gesture { kind, x, y, amount, text, ctrl, time } — amount — шагов колеса,
---     text — знак набора или имя клавиши нажатия (left, right, up, down, home,
---     end, delete, page_up, page_down — без KEY), ctrl — зажат ли Ctrl
+-- Kind — CLICK, DOUBLE, WHEEL, TYPE, PRESS, DRAG (указатель сдвинулся с зажатой кнопкой)
+-- Gesture { kind, x, y, amount, text, ctrl, time, dx, dy } — amount — шагов колеса,
+--     text — знак набора, имя клавиши нажатия (left, right, up, down, home, end,
+--     delete, page_up, page_down — без KEY) или кнопка тяги (left, middle);
+--     ctrl — зажат ли Ctrl; dx, dy — сдвиг тяги от прошлого места
 -- Drained { core, gestures } — ядро без прочитанного и жесты по порядку
--- Reader { x, y, wheel, ctrl, last_time, last_x, last_y } — что ядро жестов
---     помнит между изменениями: read(change) -> [Gesture] (клик — один, клик
---     рядом и вскоре после прошлого — ещё и двойной); drain(kernel) -> Drained
+-- Reader { x, y, wheel, ctrl, left_held, middle_held, last_time, last_x, last_y } —
+--     что ядро жестов помнит: read(change) -> [Gesture] (клик — один, клик рядом и
+--     вскоре после прошлого — ещё и двойной); drain(kernel) -> Drained;
+--     dragged(dx, dy, time) -> тяга каждой зажатой кнопки
 -- DOUBLE_TIME — мс между кликами двойного; NEAR — на сколько точек можно
 --     сдвинуться между ними
 
@@ -33,6 +36,8 @@ POINTER_X = "pointer.x"
 POINTER_Y = "pointer.y"
 POINTER_LEFT = "pointer.left"
 POINTER_WHEEL = "pointer.wheel"
+POINTER_LEFT_HELD = "pointer.left.held"
+POINTER_MIDDLE_HELD = "pointer.middle.held"
 TYPED = "keyboard.typed"
 KEY = "key."
 CTRL = "key.ctrl"
@@ -44,7 +49,8 @@ Kind = enum {
     DOUBLE,
     WHEEL,
     TYPE,
-    PRESS
+    PRESS,
+    DRAG
 }
 
 Gesture = Box {
@@ -54,7 +60,9 @@ Gesture = Box {
     amount = 0,
     text = "",
     ctrl = no,
-    time = 0
+    time = 0,
+    dx = 0,
+    dy = 0
 }
 
 Drained = Box {
@@ -72,17 +80,29 @@ Reader = Box {
     y = 0,
     wheel = 0,
     ctrl = no,
+    left_held = no,
+    middle_held = no,
     last_time = -1000000,
     last_x = -1000,
     last_y = -1000
 
     skill read(change) {
         (change.id == POINTER_X) {
+            @moved = change.number - x
             x = change.number
-            out []
+            out dragged(moved, 0, change.time)
         }
         (change.id == POINTER_Y) {
+            @moved = change.number - y
             y = change.number
+            out dragged(0, moved, change.time)
+        }
+        (change.id == POINTER_LEFT_HELD) {
+            left_held = change.number == 1
+            out []
+        }
+        (change.id == POINTER_MIDDLE_HELD) {
+            middle_held = change.number == 1
             out []
         }
         (change.id == POINTER_LEFT) {
@@ -145,6 +165,20 @@ Reader = Box {
             ]
         }
         out []
+    }
+
+    skill dragged(dx, dy, time) {
+        @made = []
+        ((dx == 0) ○ (dy == 0)) {
+            out made
+        }
+        (left_held == yes) {
+            made = group.add(made, Gesture { kind = Kind.DRAG, x = x, y = y, text = "left", ctrl = ctrl, time = time, dx = dx, dy = dy })
+        }
+        (middle_held == yes) {
+            made = group.add(made, Gesture { kind = Kind.DRAG, x = x, y = y, text = "middle", ctrl = ctrl, time = time, dx = dx, dy = dy })
+        }
+        out made
     }
 
     skill drain(kernel) {
