@@ -7,7 +7,8 @@
 --     trimmed(a) -> a без старших нулей; of(n) -> цифры целого n ≥ 0
 --     order(a, b) -> -1, 0, 1 — меньше, равно, больше
 --     sum(a, b) / difference(a, b) -> a + b / a - b (a ≥ b)
---     scaled(a, k) -> a · k, 0 ≤ k < BASE; product(a, b) -> a · b
+--     scaled(a, k) -> a · k, 0 ≤ k < BASE; product(a, b) -> a · b (по столбцам:
+--         цифра итога — сумма произведений цифр, перенос двумя половинками)
 --     shifted(a, places) -> a · BASE^places
 --     split_small(a, k) -> [частное, остаток] от деления на 0 < k < BASE
 --     split(a, b) -> [частное, остаток] от деления на b ≠ 0 (столбиком по цифрам:
@@ -145,21 +146,48 @@ Magnitude = Box {
     }
 
     skill product(a, b) {
-        @total = []
-        drum (group.count(b)) {
-            total = sum(total, shifted(scaled(a, group.get(b, beat)), beat))
+        @left = group.count(a)
+        @right = group.count(b)
+        ((left == 0) ○○ (right == 0)) {
+            out []
         }
-        out trimmed(total)
+        @digits = []
+        @carry = 0
+        drum (left + right - 1) {
+            @column = beat
+            @low = carry % BASE
+            @high = carry / BASE
+            @first_at = 0
+            (column >= right) {
+                first_at = column - right + 1
+            }
+            @last_at = column
+            (last_at >= left) {
+                last_at = left - 1
+            }
+            drum (last_at - first_at + 1) {
+                @made = group.get(a, first_at + beat) * group.get(b, column - first_at - beat)
+                low = low + made % BASE
+                high = high + made / BASE
+            }
+            digits = group.add(digits, low % BASE)
+            carry = high + low / BASE
+        }
+        out trimmed(group.concat(digits, of(carry)))
     }
 
     skill split_small(a, k) {
-        @digits = []
+        @high = []
         @rest = 0
-        drum (group.count(a)) {
-            @at = group.count(a) - 1 - beat
-            @current = rest * BASE + group.get(a, at)
-            digits = group.concat([current / k], digits)
+        @size = group.count(a)
+        drum (size) {
+            @current = rest * BASE + group.get(a, size - 1 - beat)
+            high = group.add(high, current / k)
             rest = current % k
+        }
+        @digits = []
+        drum (size) {
+            digits = group.add(digits, group.get(high, size - 1 - beat))
         }
         out [trimmed(digits), rest]
     }

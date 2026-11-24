@@ -1,6 +1,7 @@
 -- split — проверка деления bignum с остатком против Python (split_cases.saltic,
 -- делает workbench/references/bignum_split.py): частное и остаток каждого
--- случая совпадают с эталоном. Среди случаев — редкие ветки деления по цифрам
+-- случая совпадают с эталоном, и частное · делитель + остаток = делимое
+-- (сверка умножения на тех же числах). Среди случаев — редкие ветки деления по цифрам
 -- (угаданная цифра ≥ BASE, две поправки, «вернуть назад»), найденные моделью
 -- того же алгоритма, и деление длины RSA-2048 (4096 бит на 2048). Замер — мс
 -- на всё деление (не проверяется).
@@ -32,10 +33,16 @@ program() {
             io.show("остаток разошёлся: {name}")
             wrong = wrong + 1
         }
+        @back = share.times(b)
+        @whole = back.plus(left)
+        ((whole.text() == group.get(beat, 1)) == no) {
+            io.show("частное · делитель + остаток ≠ делимое: {name}")
+            wrong = wrong + 1
+        }
     }
     @spent = time.now() - start
     @total = group.count(split_cases.CASES)
     io.show("  деление, случаев {total}: {spent} мс")
-    suite = testing.test_equal(suite, "частное и остаток как у Python", wrong, 0)
+    suite = testing.test_equal(suite, "частное, остаток и обратное умножение как у Python", wrong, 0)
     out testing.test_finish(suite)
 }
