@@ -1,0 +1,119 @@
+-- blake3 — проверка хеша: официальные векторы BLAKE3 (test_vectors.json — 35
+-- длин входа, байты i % 251, три режима, вывод 131 байт и его первые 32) и
+-- свои случаи у границ блока и чанка от эталона на Python (cases.saltic,
+-- делает workbench/references/blake3.py); ошибки — BadKey и BadLength.
+--
+-- Probe { hasher, text } — hasher — blake3.Blake3, text — hex.Hex (tarantul.hex)
+--     pattern(size) -> байты i % 251; of_text(line) -> байты текста как есть
+--     official(row) -> сколько расхождений в строке (0…6)
+--     check(row) -> yes, если свой случай сошёлся
+-- program() -> none; TestsFailed
+
+use io
+use core.str
+use core.bytes
+use core.group
+use craft.testing
+use blake3
+use checks.cases
+use tarantul.hex.hex
+
+Probe = Box {
+    hasher = blake3.Blake3 {},
+    text = hex.Hex {}
+
+    skill pattern(size) {
+        @made = bytes.new(size)
+        drum (size) {
+            bytes.set(made, beat, beat % 251)
+        }
+        out made
+    }
+
+    skill of_text(line) {
+        @made = bytes.new(str.bytes(line))
+        drum (str.bytes(line)) {
+            bytes.set(made, beat, str.byte(line, beat))
+        }
+        out made
+    }
+
+    skill official(row) {
+        @message = pattern(group.get(row, 0))
+        @key = of_text(cases.KEY)
+        @wanted = [group.get(row, 1), group.get(row, 2), group.get(row, 3)]
+        @made = [hasher.hash(message, 131), hasher.keyed_hash(key, message, 131), hasher.derive_key(cases.CONTEXT, message, 131)]
+        @short = [hasher.digest(message), hasher.keyed_hash(key, message, 32), hasher.derive_key(cases.CONTEXT, message, 32)]
+        @wrong = 0
+        drum (3) {
+            @full = group.get(wanted, beat)
+            ((text.encode(group.get(made, beat)) == full) == no) {
+                wrong = wrong + 1
+            }
+            ((text.encode(group.get(short, beat)) == str.slice(full, 0, 64)) == no) {
+                wrong = wrong + 1
+            }
+        }
+        out wrong
+    }
+
+    skill check(row) {
+        @kind = group.get(row, 0)
+        @message = text.decode(group.get(row, 1))
+        @wanted = group.get(row, 3)
+        @length = str.bytes(wanted) / 2
+        (kind == "hash") {
+            out (text.encode(hasher.hash(message, length)) == wanted)
+        }
+        (kind == "keyed") {
+            out (text.encode(hasher.keyed_hash(text.decode(group.get(row, 2)), message, length)) == wanted)
+        }
+        out (text.encode(hasher.derive_key(group.get(row, 2), message, length)) == wanted)
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @hasher = blake3.Blake3 {}
+    @wrong = 0
+    drum (cases.OFFICIAL) {
+        @missed = probe.official(beat)
+        ((missed == 0) == no) {
+            wrong = wrong + missed
+            @size = group.get(beat, 0)
+            io.show("  расхождение с официальным вектором: длина {size}, мимо {missed}")
+        }
+    }
+    @count = group.count(cases.OFFICIAL)
+    io.show("blake3: официальных длин {count} (по 6 сверок), расхождений {wrong}")
+    suite = testing.test_equal(suite, "как в официальном test_vectors.json", wrong, 0)
+    @own = 0
+    drum (cases.CASES) {
+        (probe.check(beat) == no) {
+            own = own + 1
+            @kind = group.get(beat, 0)
+            @message = group.get(beat, 1)
+            io.show("  расхождение {kind}: {message}")
+        }
+    }
+    @total = group.count(cases.CASES)
+    io.show("blake3: своих случаев {total}, расхождений {own}")
+    suite = testing.test_equal(suite, "как у эталона на Python", own, 0)
+    @short_key = bytes.new(31)
+    @refused = no
+    @wrong_key = hasher.keyed_hash(short_key, short_key, 32) rescue |err| {
+        refused = (err == error.BadKey)
+        none
+    }
+    suite = testing.test_yes(suite, "ключ 31 байт — BadKey", refused)
+    @negative = no
+    @wrong_length = hasher.hash(short_key, -1) rescue |err| {
+        negative = (err == error.BadLength)
+        none
+    }
+    suite = testing.test_yes(suite, "длина −1 — BadLength", negative)
+    @empty = hasher.hash(short_key, 0)
+    suite = testing.test_equal(suite, "длина 0 — пустой ответ", bytes.count(empty), 0)
+    out testing.test_finish(suite)
+}

@@ -1,0 +1,154 @@
+-- blake3 — хеш BLAKE3 (github.com/BLAKE3-team/BLAKE3-specs): дерево чанков по
+-- 1024 байта, вывод любой длины (XOF), режимы с ключом и выводом ключа.
+-- Слова — обычные числа с маской 32 бита: 64-битные цели. Вход и ответ —
+-- core.bytes; digest — то же лицо, что у sha256, хеши подменяются.
+--
+-- Blake3 { press } — press — compression.Compression (жилец пакета):
+--     digest(message) -> 32 байта хеша
+--     hash(message, length) -> length байт хеша; BadLength — длина меньше нуля
+--     keyed_hash(key, message, length) -> length байт; BadKey — ключ не 32 байта
+--     derive_key(context, material, length) -> length байт ключа; context —
+--         текст, байты UTF-8 как есть
+--     chunk(key, message, index, flags) / parent(key, left, right, flags) /
+--     chaining(node) / root(key, message, flags) / output(node, length) /
+--     key_words(key) — внутри; вершина — [звено, блок, счётчик, длина, флаги]
+-- CHUNK — байт в чанке; флаги: START, END, PARENT, ROOT, KEYED, CONTEXT, MATERIAL
+
+use core.num
+use core.str
+use core.bytes
+use core.group
+use compression
+
+CHUNK = 1024
+START = 1
+END = 2
+PARENT = 4
+ROOT = 8
+KEYED = 16
+CONTEXT = 32
+MATERIAL = 64
+
+Blake3 = Box {
+    press = compression.Compression {}
+
+    skill chaining(node) {
+        @made = press.compress(group.get(node, 0), group.get(node, 1), group.get(node, 2), group.get(node, 3), group.get(node, 4))
+        out group.slice(made, 0, 8)
+    }
+
+    skill chunk(key, message, index, flags) {
+        @start = index * CHUNK
+        @end = bytes.count(message)
+        (end > start + CHUNK) {
+            end = start + CHUNK
+        }
+        @blocks = (end - start + 63) / 64
+        (blocks == 0) {
+            blocks = 1
+        }
+        @chain = key
+        drum (blocks - 1) {
+            @first = 0
+            (beat == 0) {
+                first = START
+            }
+            @block = press.words(message, start + beat * 64, end)
+            @made = press.compress(chain, block, index, 64, num.or(flags, first))
+            chain = group.slice(made, 0, 8)
+        }
+        @last = start + (blocks - 1) * 64
+        @finish = num.or(flags, END)
+        (blocks == 1) {
+            finish = num.or(finish, START)
+        }
+        out [chain, press.words(message, last, end), index, end - last, finish]
+    }
+
+    skill parent(key, left, right, flags) {
+        out [key, group.concat(left, right), 0, 64, num.or(flags, PARENT)]
+    }
+
+    skill root(key, message, flags) {
+        @count = (bytes.count(message) + CHUNK - 1) / CHUNK
+        (count == 0) {
+            count = 1
+        }
+        @stack = []
+        drum (count - 1) {
+            @chain = chaining(chunk(key, message, beat, flags))
+            @total = beat + 1
+            always {
+                ((total % 2) == 1) {
+                    leave
+                }
+                @top = group.count(stack) - 1
+                chain = chaining(parent(key, group.get(stack, top), chain, flags))
+                stack = group.slice(stack, 0, top)
+                total = total / 2
+            }
+            stack = group.add(stack, chain)
+        }
+        @node = chunk(key, message, count - 1, flags)
+        @depth = group.count(stack)
+        drum (depth) {
+            node = parent(key, group.get(stack, depth - 1 - beat), chaining(node), flags)
+        }
+        out node
+    }
+
+    skill output(node, length) {
+        @made = bytes.new(length)
+        @finish = num.or(group.get(node, 4), ROOT)
+        drum ((length + 63) / 64) {
+            @words = press.compress(group.get(node, 0), group.get(node, 1), beat, group.get(node, 3), finish)
+            @base = beat * 64
+            drum (64) {
+                @at = base + beat
+                (at < length) {
+                    @word = group.get(words, beat / 4)
+                    bytes.set(made, at, num.and(num.shift_right(word, (beat % 4) * 8), 255))
+                }
+            }
+        }
+        out made
+    }
+
+    skill key_words(key) {
+        out group.slice(press.words(key, 0, 32), 0, 8)
+    }
+
+    skill hash(message, length) {
+        (length < 0) {
+            out error.BadLength
+        }
+        out output(root(compression.IV, message, 0), length)
+    }
+
+    skill digest(message) {
+        out hash(message, 32)
+    }
+
+    skill keyed_hash(key, message, length) {
+        ((bytes.count(key) == 32) == no) {
+            out error.BadKey
+        }
+        (length < 0) {
+            out error.BadLength
+        }
+        out output(root(key_words(key), message, KEYED), length)
+    }
+
+    skill derive_key(context, material, length) {
+        (length < 0) {
+            out error.BadLength
+        }
+        @size = str.bytes(context)
+        @text = bytes.new(size)
+        drum (size) {
+            bytes.set(text, beat, str.byte(context, beat))
+        }
+        @context_key = output(root(compression.IV, text, CONTEXT), 32)
+        out output(root(key_words(context_key), material, MATERIAL), length)
+    }
+}

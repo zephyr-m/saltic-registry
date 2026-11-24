@@ -1,0 +1,7 @@
+{
+  "project": "blake3",
+  "catalog": {"from": "git@github.com:zephyr-m/saltic-registry.git"},
+  "packages": {
+    "hex": "1"
+  }
+}

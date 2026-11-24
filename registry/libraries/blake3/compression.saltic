@@ -1,0 +1,96 @@
+-- compression — сжатие BLAKE3 (спецификация, раздел 2.2): 7 раундов по 8
+-- смесей G над 16 словами, слова сообщения переставляются между раундами.
+-- Слова — обычные числа с маской 32 бита, порядок байтов — младший вперёд.
+--
+-- Compression {} — compress(chain, block, counter, length, flags) -> 16 слов
+--     chain — 8 слов, block — 16 слов, counter — номер (до 2^64), length —
+--     байт в блоке, flags — флаги; первые 8 слов ответа — новое звено цепочки
+--     words(buffer, at, end) -> 16 слов из байтов [at, end), дальше — нули
+--     plus(a, b) / rotr(x, n) / mix(state, a, b, c, d, x, y) — внутри
+-- IV — начальные слова (как у SHA-256); ORDER — перестановка слов; MASK — 32 бита
+
+use core.num
+use core.bytes
+use core.group
+
+MASK = 4294967295
+IV = [1779033703, 3144134277, 1013904242, 2773480762, 1359893119, 2600822924, 528734635, 1541459225]
+ORDER = [2, 6, 3, 10, 7, 0, 4, 13, 1, 11, 12, 5, 9, 14, 15, 8]
+
+Compression = Box {
+    skill plus(a, b) {
+        out num.and(a + b, MASK)
+    }
+
+    skill rotr(x, n) {
+        out num.or(num.shift_right(x, n), num.and(num.shift_left(x, 32 - n), MASK))
+    }
+
+    skill mix(state, a, b, c, d, x, y) {
+        @first = group.get(state, a)
+        @second = group.get(state, b)
+        @third = group.get(state, c)
+        @fourth = group.get(state, d)
+        first = plus(plus(first, second), x)
+        fourth = rotr(num.xor(fourth, first), 16)
+        third = plus(third, fourth)
+        second = rotr(num.xor(second, third), 12)
+        first = plus(plus(first, second), y)
+        fourth = rotr(num.xor(fourth, first), 8)
+        third = plus(third, fourth)
+        second = rotr(num.xor(second, third), 7)
+        @changed = group.replaced(state, a, first)
+        changed = group.replaced(changed, b, second)
+        changed = group.replaced(changed, c, third)
+        out group.replaced(changed, d, fourth)
+    }
+
+    skill words(buffer, at, end) {
+        @made = []
+        drum (16) {
+            @word = 0
+            @base = at + beat * 4
+            drum (4) {
+                @place = base + 3 - beat
+                word = word * 256
+                (place < end) {
+                    word = word + bytes.get(buffer, place)
+                }
+            }
+            made = group.add(made, word)
+        }
+        out made
+    }
+
+    skill compress(chain, block, counter, length, flags) {
+        @state = group.concat(chain, group.slice(IV, 0, 4))
+        state = group.add(state, num.and(counter, MASK))
+        state = group.add(state, num.shift_right(counter, 32))
+        state = group.add(state, length)
+        state = group.add(state, flags)
+        @m = block
+        drum (7) {
+            state = mix(state, 0, 4, 8, 12, group.get(m, 0), group.get(m, 1))
+            state = mix(state, 1, 5, 9, 13, group.get(m, 2), group.get(m, 3))
+            state = mix(state, 2, 6, 10, 14, group.get(m, 4), group.get(m, 5))
+            state = mix(state, 3, 7, 11, 15, group.get(m, 6), group.get(m, 7))
+            state = mix(state, 0, 5, 10, 15, group.get(m, 8), group.get(m, 9))
+            state = mix(state, 1, 6, 11, 12, group.get(m, 10), group.get(m, 11))
+            state = mix(state, 2, 7, 8, 13, group.get(m, 12), group.get(m, 13))
+            state = mix(state, 3, 4, 9, 14, group.get(m, 14), group.get(m, 15))
+            @moved = []
+            drum (16) {
+                moved = group.add(moved, group.get(m, group.get(ORDER, beat)))
+            }
+            m = moved
+        }
+        @made = []
+        drum (8) {
+            made = group.add(made, num.xor(group.get(state, beat), group.get(state, beat + 8)))
+        }
+        drum (8) {
+            made = group.add(made, num.xor(group.get(state, beat + 8), group.get(chain, beat)))
+        }
+        out made
+    }
+}
