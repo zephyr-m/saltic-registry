@@ -1,0 +1,41 @@
+-- split — проверка деления bignum с остатком против Python (split_cases.saltic,
+-- делает workbench/references/bignum_split.py): частное и остаток каждого
+-- случая совпадают с эталоном. Среди случаев — редкие ветки деления по цифрам
+-- (угаданная цифра ≥ BASE, две поправки, «вернуть назад»), найденные моделью
+-- того же алгоритма, и деление длины RSA-2048 (4096 бит на 2048). Замер — мс
+-- на всё деление (не проверяется).
+--
+-- program() -> none; TestsFailed
+
+use io
+use core.time
+use core.group
+use craft.testing
+use registry.libraries.bignum.bignum
+use registry.libraries.bignum.checks.split_cases
+
+program() {
+    @suite = testing.test_new()
+    @wrong = 0
+    @start = time.now()
+    drum (split_cases.CASES) {
+        @a = bignum.parse(group.get(beat, 1))
+        @b = bignum.parse(group.get(beat, 2))
+        @share = a.quotient(b)
+        @left = a.remainder(b)
+        @name = group.get(beat, 0)
+        ((share.text() == group.get(beat, 3)) == no) {
+            io.show("частное разошлось: {name}")
+            wrong = wrong + 1
+        }
+        ((left.text() == group.get(beat, 4)) == no) {
+            io.show("остаток разошёлся: {name}")
+            wrong = wrong + 1
+        }
+    }
+    @spent = time.now() - start
+    @total = group.count(split_cases.CASES)
+    io.show("  деление, случаев {total}: {spent} мс")
+    suite = testing.test_equal(suite, "частное и остаток как у Python", wrong, 0)
+    out testing.test_finish(suite)
+}

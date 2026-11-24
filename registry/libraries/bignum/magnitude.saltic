@@ -10,7 +10,10 @@
 --     scaled(a, k) -> a · k, 0 ≤ k < BASE; product(a, b) -> a · b
 --     shifted(a, places) -> a · BASE^places
 --     split_small(a, k) -> [частное, остаток] от деления на 0 < k < BASE
---     split(a, b) -> [частное, остаток] от деления на b ≠ 0 (столбиком по битам)
+--     split(a, b) -> [частное, остаток] от деления на b ≠ 0 (столбиком по цифрам:
+--         делитель сдвинут до старшего бита цифры, цифра частного — по трём
+--         старшим цифрам остатка, поправка не больше двух раз)
+--     digit_guess(rest, v) / row_lowered(rest, v, guess) / row_restored(digits, v) — внутри split
 --     two_to(k) -> 2^k; shifted_bits(a, k) -> a · 2^k
 --     cut_bits(a, k) -> [a >> k, младшие k бит a]
 --     bit(a, index) -> бит index (0 — младший); bits(a) -> число значащих бит
@@ -35,6 +38,9 @@ Magnitude = Box {
                 leave
             }
             size = size - 1
+        }
+        (size == group.count(a)) {
+            out a
         }
         out group.slice(a, 0, size)
     }
@@ -159,23 +165,91 @@ Magnitude = Box {
     }
 
     skill split(a, b) {
-        (order(a, b) < 0) {
-            out [[], trimmed(a)]
+        @top = trimmed(a)
+        @divisor = trimmed(b)
+        (order(top, divisor) < 0) {
+            out [[], top]
         }
-        @rest = []
-        @quotient = []
-        @top = bits(a)
-        drum (top) {
-            @index = top - 1 - beat
-            rest = sum(scaled(rest, 2), of(bit(a, index)))
-            @taken = 0
-            ((order(rest, b) < 0) == no) {
-                rest = difference(rest, b)
-                taken = 1
+        (group.count(divisor) == 1) {
+            @halves = split_small(top, group.get(divisor, 0))
+            out [group.get(halves, 0), of(group.get(halves, 1))]
+        }
+        @lift = BITS - bits([group.get(divisor, group.count(divisor) - 1)])
+        @v = shifted_bits(divisor, lift)
+        @u = group.add(shifted_bits(top, lift), 0)
+        @size = group.count(v)
+        @steps = group.count(u) - size
+        @rest = group.slice(u, steps, group.count(u))
+        @high = []
+        drum (steps) {
+            rest = group.concat([group.get(u, steps - 1 - beat)], rest)
+            @row = row_lowered(rest, v, digit_guess(rest, v))
+            rest = group.get(row, 0)
+            high = group.add(high, group.get(row, 1))
+        }
+        @digits = []
+        drum (steps) {
+            digits = group.add(digits, group.get(high, steps - 1 - beat))
+        }
+        @lowered = cut_bits(rest, lift)
+        out [trimmed(digits), group.get(lowered, 0)]
+    }
+
+    skill digit_guess(rest, v) {
+        @size = group.count(v)
+        @head = group.get(rest, size) * BASE + group.get(rest, size - 1)
+        @first = group.get(v, size - 1)
+        @second = group.get(v, size - 2)
+        @third = group.get(rest, size - 2)
+        @guess = head / first
+        (guess >= BASE) {
+            guess = BASE - 1
+        }
+        @left = head - guess * first
+        always {
+            (left >= BASE) {
+                leave
             }
-            quotient = group.concat([taken], quotient)
+            ((guess * second > left * BASE + third) == no) {
+                leave
+            }
+            guess = guess - 1
+            left = left + first
         }
-        out [packed(quotient), trimmed(rest)]
+        out guess
+    }
+
+    skill row_lowered(rest, v, guess) {
+        @size = group.count(v)
+        @digits = []
+        @carry = 0
+        @borrow = 0
+        drum (size) {
+            @made = guess * group.get(v, beat) + carry
+            carry = made / BASE
+            @value = group.get(rest, beat) - made % BASE - borrow
+            borrow = 0
+            (value < 0) {
+                value = value + BASE
+                borrow = 1
+            }
+            digits = group.add(digits, value)
+        }
+        ((group.get(rest, size) - carry - borrow) < 0) {
+            out [row_restored(digits, v), guess - 1]
+        }
+        out [digits, guess]
+    }
+
+    skill row_restored(digits, v) {
+        @back = []
+        @carry = 0
+        drum (group.count(v)) {
+            @value = group.get(digits, beat) + group.get(v, beat) + carry
+            back = group.add(back, value % BASE)
+            carry = value / BASE
+        }
+        out back
     }
 
     skill packed(bits_low_first) {
