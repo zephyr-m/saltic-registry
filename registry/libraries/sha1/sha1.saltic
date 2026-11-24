@@ -1,0 +1,145 @@
+-- sha1 — хеш SHA-1 (FIPS 180-4) и HMAC-SHA1 (RFC 2104). SHA-1 сломан для
+-- подписей и доверия (коллизии найдены), годится только для совместимости:
+-- git, WebSocket, старые протоколы. Для нового — sha256. Слова — обычные числа
+-- с маской 32 бита, как в sha256; лицо — как у sha256, хеши подменяются.
+--
+-- Sha1 {} — digest(message) -> 20 байт хеша
+--     hmac(key, message) -> 20 байт HMAC-SHA1
+--     hex(buffer) -> «a9993e36…» — шестнадцатеричная запись строчными (из sha256)
+--     of_text(text) -> байты текста UTF-8 как есть (из sha256)
+--     padded(message) / words(block, at) / compress(state, block, at) /
+--     rotl(x, n) / plus(a, b) / mix(round, b, c, d) — внутри
+-- K — константы четырёх двадцаток раундов; START — начальное состояние;
+-- MASK — 32 бита; BLOCK — байт в блоке; SIZE — байт в хеше
+
+use core.num
+use core.bytes
+use core.group
+use registry.libraries.sha256.sha256
+
+MASK = 4294967295
+BLOCK = 64
+SIZE = 20
+START = [1732584193, 4023233417, 2562383102, 271733878, 3285377520]
+K = [1518500249, 1859775393, 2400959708, 3395469782]
+
+Sha1 = Box {
+    text = sha256.Sha256 {}
+
+    skill plus(a, b) {
+        out num.and(a + b, MASK)
+    }
+
+    skill rotl(x, n) {
+        out num.or(num.shift_left(num.and(x, num.power2(32 - n) - 1), n), num.shift_right(x, 32 - n))
+    }
+
+    skill mix(round, b, c, d) {
+        (round < 20) {
+            out num.xor(num.and(b, c), num.and(num.xor(b, MASK), d))
+        }
+        ((round >= 40) ○ (round < 60)) {
+            out num.xor(num.xor(num.and(b, c), num.and(b, d)), num.and(c, d))
+        }
+        out num.xor(num.xor(b, c), d)
+    }
+
+    skill of_text(line) {
+        out text.of_text(line)
+    }
+
+    skill hex(buffer) {
+        out text.hex(buffer)
+    }
+
+    skill padded(message) {
+        @size = bytes.count(message)
+        @total = (size + 9 + BLOCK - 1) / BLOCK * BLOCK
+        @made = bytes.new(total)
+        drum (size) {
+            bytes.set(made, beat, bytes.get(message, beat))
+        }
+        bytes.set(made, size, 128)
+        @bits = size * 8
+        drum (8) {
+            bytes.set(made, total - 1 - beat, bits % 256)
+            bits = bits / 256
+        }
+        out made
+    }
+
+    skill words(block, at) {
+        @w = []
+        drum (16) {
+            @base = at + beat * 4
+            w = group.add(w, ((bytes.get(block, base) * 256 + bytes.get(block, base + 1)) * 256 + bytes.get(block, base + 2)) * 256 + bytes.get(block, base + 3))
+        }
+        drum (64) {
+            @t = beat + 16
+            @x = num.xor(num.xor(group.get(w, t - 3), group.get(w, t - 8)), num.xor(group.get(w, t - 14), group.get(w, t - 16)))
+            w = group.add(w, rotl(x, 1))
+        }
+        out w
+    }
+
+    skill compress(state, block, at) {
+        @w = words(block, at)
+        @a = group.get(state, 0)
+        @b = group.get(state, 1)
+        @c = group.get(state, 2)
+        @d = group.get(state, 3)
+        @e = group.get(state, 4)
+        drum (80) {
+            @step = plus(plus(rotl(a, 5), mix(beat, b, c, d)), plus(plus(e, group.get(K, beat / 20)), group.get(w, beat)))
+            e = d
+            d = c
+            c = rotl(b, 30)
+            b = a
+            a = step
+        }
+        out [plus(group.get(state, 0), a), plus(group.get(state, 1), b), plus(group.get(state, 2), c), plus(group.get(state, 3), d), plus(group.get(state, 4), e)]
+    }
+
+    skill digest(message) {
+        @data = padded(message)
+        @state = START
+        drum (bytes.count(data) / BLOCK) {
+            state = compress(state, data, beat * BLOCK)
+        }
+        @made = bytes.new(SIZE)
+        drum (5) {
+            @word = group.get(state, beat)
+            @place = beat * 4
+            bytes.set(made, place, num.shift_right(word, 24))
+            bytes.set(made, place + 1, num.and(num.shift_right(word, 16), 255))
+            bytes.set(made, place + 2, num.and(num.shift_right(word, 8), 255))
+            bytes.set(made, place + 3, num.and(word, 255))
+        }
+        out made
+    }
+
+    skill hmac(key, message) {
+        @secret = key
+        (bytes.count(key) > BLOCK) {
+            secret = digest(key)
+        }
+        @inner = bytes.new(BLOCK + bytes.count(message))
+        @outer = bytes.new(BLOCK + SIZE)
+        drum (BLOCK) {
+            @value = 0
+            (beat < bytes.count(secret)) {
+                value = bytes.get(secret, beat)
+            }
+            bytes.set(inner, beat, num.xor(value, 54))
+            bytes.set(outer, beat, num.xor(value, 92))
+        }
+        drum (bytes.count(message)) {
+            bytes.set(inner, BLOCK + beat, bytes.get(message, beat))
+        }
+        @middle = digest(inner)
+        drum (SIZE) {
+            bytes.set(outer, BLOCK + beat, bytes.get(middle, beat))
+        }
+        out digest(outer)
+    }
+}
