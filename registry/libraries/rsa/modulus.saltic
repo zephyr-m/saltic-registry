@@ -6,7 +6,7 @@
 -- Modulus { n, size, mu } — модуль; size — цифр в n:
 --     made_for(digits) -> Modulus с готовым mu; ModulusTooSmall, если n < 3
 --     reduced(x) -> x mod n: Барретт, если в x не больше 2 · size цифр,
---         иначе делением bignum (медленно, по битам)
+--         иначе делением bignum
 --     multiplied_mod(a, b) -> a · b mod n (a, b < n)
 --     raised_mod(base, exponent) -> base^exponent mod n; оба — цифры
 --     product(a, b) -> a · b цифрами (Карацуба)
