@@ -1,0 +1,121 @@
+-- speed — замер: с какого размера Карацуба быстрее школьного умножения bignum.
+-- Числа — случайные цифры bignum (14 бит), оба множителя одной длины. Время —
+-- core.time.now, миллисекунды на весь повтор; цифры честные, с шумом машины,
+-- поэтому по времени ничего не проверяется — проверяется только, что ответы
+-- Карацубы и школьного совпали. Три таблицы: один разрез пополам против
+-- школьного (где разрез начинает выигрывать); порог (какой threshold быстрее
+-- на 512 цифрах); Карацуба с порогом по умолчанию против школьного.
+-- Замер 24.11.2026 (x86-64): разрез догоняет школьное на 16 цифрах (≈67
+-- десятичных) и выигрывает с 20; отсюда karatsuba.THRESHOLD = 20.
+--
+-- Bench { math, state } — замерщик:
+--     number(size) -> случайные size цифр, старшая не ноль
+--     school(a, b, rounds) -> мс на rounds школьных умножений
+--     fast(a, b, rounds, threshold) -> мс на rounds умножений Карацубой
+--     same(a, b, threshold) -> yes, если Карацуба и школьное дали одно
+--     passed(start) -> мс от start (полночь UTC учтена)
+-- program() -> none; TestsFailed
+-- SPLIT_SIZES, THRESHOLDS, FULL_SIZES — размеры таблиц; WORK — сколько
+--     умножений цифр тратить на строку (повторов — WORK / размер² + 1);
+--     DECIMAL_PER_1000 — десятичных знаков в 1000 цифр по 14 бит
+
+use io
+use core.time
+use core.group
+use craft.testing
+use karatsuba
+use tarantul.bignum.magnitude
+
+SPLIT_SIZES = [4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32, 40, 48, 64]
+THRESHOLDS = [4, 6, 8, 12, 16, 20, 24, 32, 48, 64, 128]
+THRESHOLD_SIZE = 512
+FULL_SIZES = [8, 16, 32, 64, 128, 256, 512, 1024]
+WORK = 400000
+DECIMAL_PER_1000 = 4214
+
+Bench = Box {
+    math = magnitude.Magnitude {},
+    state = 20261124
+
+    skill number(size) {
+        @digits = []
+        drum (size - 1) {
+            state = (state * 1103 + 12345) % 1000003
+            digits = group.add(digits, state % magnitude.BASE)
+        }
+        state = (state * 1103 + 12345) % 1000003
+        out group.add(digits, 1 + (state % (magnitude.BASE - 1)))
+    }
+
+    skill passed(start) {
+        @spent = time.now() - start
+        (spent < 0) {
+            spent = spent + time.DAY_MILLISECONDS
+        }
+        out spent
+    }
+
+    skill school(a, b, rounds) {
+        @start = time.now()
+        drum (rounds) {
+            math.product(a, b)
+        }
+        out passed(start)
+    }
+
+    skill fast(a, b, rounds, threshold) {
+        @multiplier = karatsuba.Karatsuba {
+            threshold = threshold
+        }
+        @start = time.now()
+        drum (rounds) {
+            multiplier.digits_product(a, b)
+        }
+        out passed(start)
+    }
+
+    skill same(a, b, threshold) {
+        @multiplier = karatsuba.Karatsuba {
+            threshold = threshold
+        }
+        out (math.order(multiplier.digits_product(a, b), math.product(a, b)) == 0)
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @bench = Bench {}
+    io.show("один разрез пополам против школьного (мс на все повторы):")
+    drum (SPLIT_SIZES) {
+        @size = beat
+        @a = bench.number(size)
+        @b = bench.number(size)
+        @rounds = WORK / (size * size) + 1
+        @slow = bench.school(a, b, rounds)
+        @quick = bench.fast(a, b, rounds, size)
+        io.show("  {size} цифр × {rounds}: школьное {slow}, разрез {quick}")
+        suite = testing.test_yes(suite, "  {size} цифр: разрез = школьное", bench.same(a, b, size))
+    }
+    io.show("порог: Карацуба на {THRESHOLD_SIZE} цифрах (мс на одно умножение):")
+    @wide_a = bench.number(THRESHOLD_SIZE)
+    @wide_b = bench.number(THRESHOLD_SIZE)
+    drum (THRESHOLDS) {
+        @threshold = beat
+        @spent = bench.fast(wide_a, wide_b, 1, threshold)
+        io.show("  порог {threshold}: {spent}")
+        suite = testing.test_yes(suite, "  порог {threshold}: Карацуба = школьное", bench.same(wide_a, wide_b, threshold))
+    }
+    io.show("Карацуба (порог {karatsuba.THRESHOLD}) против школьного (мс на все повторы):")
+    drum (FULL_SIZES) {
+        @size = beat
+        @decimal = size * DECIMAL_PER_1000 / 1000
+        @a = bench.number(size)
+        @b = bench.number(size)
+        @rounds = WORK / (size * size) + 1
+        @slow = bench.school(a, b, rounds)
+        @quick = bench.fast(a, b, rounds, karatsuba.THRESHOLD)
+        io.show("  {size} цифр (≈{decimal} десятичных) × {rounds}: школьное {slow}, Карацуба {quick}")
+        suite = testing.test_yes(suite, "  {size} цифр: Карацуба = школьное", bench.same(a, b, karatsuba.THRESHOLD))
+    }
+    out testing.test_finish(suite)
+}

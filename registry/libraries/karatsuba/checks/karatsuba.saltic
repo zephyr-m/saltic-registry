@@ -1,0 +1,87 @@
+-- karatsuba — проверка умножения Карацубой. Эталон — Python: 122 случая из
+-- cases.saltic (делает workbench/references/karatsuba.py реестра) — 0, 1 и
+-- знаки, края цифры и порога, нули внутри, девятки, случайные разной длины,
+-- до 3000 × 3000 десятичных знаков. Каждый случай: Карацуба с порогом по
+-- умолчанию, с наименьшим порогом (делит до самого низа), с переставленными
+-- множителями и школьное Big.times — все равны произведению от Python;
+-- короткие ещё и печатью. Ошибки: порог меньше SMALLEST — ThresholdTooSmall;
+-- не число на входе — NotNumber от bignum.
+--
+-- Judge { fast, deep } — сверщик: fast — порог по умолчанию, deep — SMALLEST:
+--     verdict(row) -> AGREED или текст, кто разошёлся с Python
+-- program() -> none; TestsFailed
+-- AGREED — вердикт «всё совпало»; PRINTED — до какой длины сверять и печатью
+
+use core.str
+use core.group
+use craft.testing
+use karatsuba
+use checks.cases
+use tarantul.bignum.bignum
+
+AGREED = "Карацуба = порог 4 = школьное = Python"
+PRINTED = 200
+
+Judge = Box {
+    fast = karatsuba.Karatsuba {},
+    deep = karatsuba.Karatsuba {
+        threshold = karatsuba.SMALLEST
+    }
+
+    skill verdict(row) {
+        @a = bignum.parse(group.get(row, 1))
+        @b = bignum.parse(group.get(row, 2))
+        @written = group.get(row, 3)
+        @expected = bignum.parse(written)
+        @quick = fast.multiplied(a, b)
+        ((quick.compared(expected) == 0) == no) {
+            out "Карацуба разошлась с Python"
+        }
+        @turned = fast.multiplied(b, a)
+        ((turned.compared(expected) == 0) == no) {
+            out "Карацуба b · a разошлась с Python"
+        }
+        @split = deep.multiplied(a, b)
+        ((split.compared(expected) == 0) == no) {
+            out "порог 4 разошёлся с Python"
+        }
+        @school = a.times(b)
+        ((school.compared(expected) == 0) == no) {
+            out "школьное разошлось с Python"
+        }
+        (str.bytes(written) <= PRINTED) {
+            ((quick.text() == written) == no) {
+                out "печать Карацубы разошлась с Python"
+            }
+        }
+        out AGREED
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @judge = Judge {}
+    drum (cases.CASES) {
+        @name = group.get(beat, 0)
+        suite = testing.test_equal(suite, name, judge.verdict(beat), AGREED)
+    }
+    @left = bignum.parse("-123456789012345678901234567890")
+    @right = bignum.parse("98765432109876543210")
+    @small = karatsuba.Karatsuba {
+        threshold = karatsuba.SMALLEST - 1
+    }
+    @refused = "нет"
+    small.multiplied(left, right) rescue |err| {
+        refused = "{err}"
+    }
+    suite = testing.test_equal(suite, "порог меньше наименьшего — ошибка", refused, "ThresholdTooSmall")
+    @fast = karatsuba.Karatsuba {}
+    @spoiled = "нет"
+    fast.multiplied(left, bignum.parse("12x45")) rescue |err| {
+        spoiled = "{err}"
+    }
+    suite = testing.test_equal(suite, "не число на входе — ошибка bignum", spoiled, "NotNumber")
+    @product = fast.multiplied(left, right)
+    suite = testing.test_equal(suite, "лицо: a · b печатью", product.text(), "-12193263113702179522496570642237463801111263526900")
+    out testing.test_finish(suite)
+}

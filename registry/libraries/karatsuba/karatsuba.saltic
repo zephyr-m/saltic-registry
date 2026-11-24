@@ -1,0 +1,64 @@
+-- karatsuba — быстрое умножение больших целых алгоритмом Карацубы: три
+-- умножения половинок вместо четырёх, поэтому на длинных числах быстрее
+-- школьного. Числа — bignum.Big (пакет bignum), своего представления нет;
+-- короткие множители (меньше threshold цифр по 14 бит) умножает школьный
+-- magnitude.product из bignum. Ответ всегда тот же, что у Big.times.
+--
+-- Karatsuba { threshold, math } — множитель; threshold — с какой длины
+--     короткого множителя (в цифрах bignum) делить пополам; math — magnitude.Magnitude
+--     multiplied(a, b) -> Big, a · b; ThresholdTooSmall, если threshold < SMALLEST
+-- Внутри: digits_product(a, b) -> цифры a · b (a и b — цифры без старших нулей)
+-- THRESHOLD — порог по умолчанию, из замера checks/speed.saltic; SMALLEST —
+--     наименьший порог, при котором половинки всегда короче целого
+--
+-- Пример: @fast = karatsuba.Karatsuba {}
+--         @product = fast.multiplied(bignum.parse("123…"), bignum.parse("-456…"))
+
+use core.group
+use tarantul.bignum.bignum
+use tarantul.bignum.magnitude
+
+THRESHOLD = 20
+SMALLEST = 4
+
+Karatsuba = Box {
+    threshold = THRESHOLD,
+    math = magnitude.Magnitude {}
+
+    skill multiplied(a, b) {
+        (threshold < SMALLEST) {
+            out error.ThresholdTooSmall
+        }
+        @shell = bignum.Big {}
+        out shell.made(digits_product(a.digits, b.digits), (a.negative == b.negative) == no)
+    }
+
+    skill digits_product(a, b) {
+        @long = a
+        @short = b
+        (group.count(a) < group.count(b)) {
+            long = b
+            short = a
+        }
+        (group.count(short) < threshold) {
+            out math.product(long, short)
+        }
+        @size = group.count(long)
+        @half = size / 2
+        @long_low = math.trimmed(group.slice(long, 0, half))
+        @long_high = group.slice(long, half, size)
+        ((group.count(short) > half) == no) {
+            @bottom = digits_product(long_low, short)
+            @top = digits_product(long_high, short)
+            out math.sum(bottom, math.shifted(top, half))
+        }
+        @short_low = math.trimmed(group.slice(short, 0, half))
+        @short_high = group.slice(short, half, group.count(short))
+        @low = digits_product(long_low, short_low)
+        @high = digits_product(long_high, short_high)
+        @cross = digits_product(math.sum(long_low, long_high), math.sum(short_low, short_high))
+        @middle = math.difference(math.difference(cross, low), high)
+        @joined = math.sum(low, math.shifted(middle, half))
+        out math.sum(joined, math.shifted(high, half * 2))
+    }
+}

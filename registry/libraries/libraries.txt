@@ -32,3 +32,4 @@ wire       registry/libraries/wire/wire
 lcg        registry/libraries/lcg/lcg
 xorshift   registry/libraries/xorshift/xorshift
 pcg        registry/libraries/pcg/pcg
+karatsuba  registry/libraries/karatsuba/karatsuba
