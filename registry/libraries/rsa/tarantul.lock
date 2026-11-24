@@ -1,8 +1,8 @@
 {
-  "catalog": {"from": "git@github.com:zephyr-m/saltic-registry.git", "commit": "a434809f8f7d1031bc6e3b858fee25bcc8ac58c1"},
+  "catalog": {"from": "git@github.com:zephyr-m/saltic-registry.git", "commit": "08b87f854a271a89e25e8948298144e80e72c991"},
   "packages": {
-    "bignum": {"version": "2", "source": "registry/libraries/bignum", "fingerprint": "crc32 17d84831", "required_by": "project"},
-    "karatsuba": {"version": "1", "source": "registry/libraries/karatsuba", "fingerprint": "crc32 54fa26d6", "required_by": "project"},
+    "bignum": {"version": "3", "source": "registry/libraries/bignum", "fingerprint": "crc32 9aa9182d", "required_by": "project"},
+    "karatsuba": {"version": "2", "source": "registry/libraries/karatsuba", "fingerprint": "crc32 34ad4b3a", "required_by": "project"},
     "sha256": {"version": "2", "source": "registry/libraries/sha256", "fingerprint": "crc32 8312490a", "required_by": "project"},
     "hex": {"version": "1", "source": "registry/libraries/hex", "fingerprint": "crc32 f60254d8", "required_by": "project"},
     "wire": {"version": "1", "source": "registry/libraries/wire", "fingerprint": "crc32 f5ff06ac", "required_by": "project"}
