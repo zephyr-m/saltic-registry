@@ -1,11 +1,11 @@
 {
   "title": "sha512 — хеш SHA-512",
   "saltic_version": "в составе Saltic (ветка 22.11.2026)",
-  "own_version": "2",
+  "own_version": "3",
   "author": "Зэф",
   "role": "library",
   "purpose": "хеш SHA-512 (FIPS 180-4) — основа подписи Ed25519 и SSH",
-  "depends_on": "нет",
+  "depends_on": "нет; проверке — hex",
   "architectures": "64-битные цели: слово 64 бита — пара 32-битных половинок (наши числа — 61 бит)",
   "state": "рабочий: 36 сообщений против Python hashlib (векторы FIPS 180-4, границы блока, случайные); константы раундов сверены с определением (корни простых) (checks/sha512.saltic, эталоны — workbench/references/sha512.py реестра)",
   "log": "нет",

@@ -2,37 +2,24 @@
 -- workbench/references/sha512.py): векторы FIPS 180-4, границы блока,
 -- случайные сообщения.
 --
--- Probe { hash } — from_hex(text) -> core.bytes
 -- program() -> none; TestsFailed
 
 use io
 use core.str
-use core.num
 use core.bytes
 use core.group
 use craft.testing
 use registry.libraries.sha512.sha512
+use registry.libraries.hex.hex
 use registry.libraries.sha512.checks.cases
-
-Probe = Box {
-    hash = sha512.Sha512 {}
-
-    skill from_hex(text) {
-        @made = bytes.new(str.bytes(text) / 2)
-        drum (bytes.count(made)) {
-            bytes.set(made, beat, num.hex_value(str.get(text, beat * 2)) * 16 + num.hex_value(str.get(text, beat * 2 + 1)))
-        }
-        out made
-    }
-}
 
 program() {
     @suite = testing.test_new()
-    @probe = Probe {}
     @hash = sha512.Sha512 {}
+    @code = hex.Hex {}
     @wrong = 0
     drum (cases.CASES) {
-        @got = hash.hex(hash.digest(probe.from_hex(group.get(beat, 0))))
+        @got = code.encode(hash.digest(code.decode(group.get(beat, 0))))
         ((got == group.get(beat, 1)) == no) {
             wrong = wrong + 1
             @size = str.bytes(group.get(beat, 0)) / 2

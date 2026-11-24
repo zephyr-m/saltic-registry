@@ -5,8 +5,6 @@
 --
 -- Sha1 {} — digest(message) -> 20 байт хеша
 --     hmac(key, message) -> 20 байт HMAC-SHA1
---     hex(buffer) -> «a9993e36…» — шестнадцатеричная запись строчными (из sha256)
---     of_text(text) -> байты текста UTF-8 как есть (из sha256)
 --     padded(message) / words(block, at) / compress(state, block, at) /
 --     rotl(x, n) / sum32(a, b) / mix(round, b, c, d) — внутри
 -- K — константы четырёх двадцаток раундов; START — начальное состояние;
@@ -15,7 +13,6 @@
 use core.num
 use core.bytes
 use core.group
-use registry.libraries.sha256.sha256
 
 MASK = 4294967295
 BLOCK = 64
@@ -24,8 +21,6 @@ START = [1732584193, 4023233417, 2562383102, 271733878, 3285377520]
 K = [1518500249, 1859775393, 2400959708, 3395469782]
 
 Sha1 = Box {
-    text = sha256.Sha256 {}
-
     skill sum32(a, b) {
         out num.and(a + b, MASK)
     }
@@ -42,14 +37,6 @@ Sha1 = Box {
             out num.xor(num.xor(num.and(b, c), num.and(b, d)), num.and(c, d))
         }
         out num.xor(num.xor(b, c), d)
-    }
-
-    skill of_text(line) {
-        out text.of_text(line)
-    }
-
-    skill hex(buffer) {
-        out text.hex(buffer)
     }
 
     skill padded(message) {

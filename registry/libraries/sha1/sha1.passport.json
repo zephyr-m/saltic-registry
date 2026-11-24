@@ -1,11 +1,11 @@
 {
   "title": "sha1 — хеш SHA-1 и HMAC-SHA1",
   "saltic_version": "в составе Saltic (ветка 22.11.2026)",
-  "own_version": "2",
+  "own_version": "3",
   "author": "Зэф",
   "role": "library",
   "purpose": "хеш SHA-1 (FIPS 180-4) и HMAC-SHA1 (RFC 2104) — только для совместимости (git, WebSocket, старые протоколы); для подписей и доверия сломан коллизиями, для нового — sha256",
-  "depends_on": "sha256 (hex и of_text — общее лицо хешей)",
+  "depends_on": "нет; проверке — hex",
   "architectures": "64-битные цели: слова — обычные числа с маской 32 бита, как в sha256; 29-битные (ESP32, wasm) — потом на bits32",
   "state": "рабочий: 76 случаев против Python hashlib и hmac (векторы FIPS 180-4 и RFC 2202, границы блока 55/56/63/64/65, случайные) и миллион букв «a» (checks/sha1.saltic, эталоны — workbench/references/sha1.py реестра)",
   "log": "нет",

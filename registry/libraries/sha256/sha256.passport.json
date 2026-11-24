@@ -1,11 +1,11 @@
 {
   "title": "sha256 — хеш SHA-256 и HMAC-SHA256",
   "saltic_version": "в составе Saltic (ветка 22.11.2026)",
-  "own_version": "2",
+  "own_version": "3",
   "author": "Зэф",
   "role": "library",
   "purpose": "хеш SHA-256 (FIPS 180-4) и HMAC-SHA256 (RFC 2104) — целостность данных, адрес по содержимому, ключи и подписи, первый кирпич к SSH",
-  "depends_on": "нет",
+  "depends_on": "нет; проверке — hex",
   "architectures": "64-битные цели: слова — обычные числа с маской 32 бита; 29-битные (ESP32, wasm) — потом на bits32",
   "state": "рабочий: 68 случаев против Python hashlib и hmac (векторы FIPS 180-4 и RFC 4231, границы блока, случайные) и миллион букв «a» (checks/sha256.saltic, эталоны — workbench/references/sha256.py реестра)",
   "log": "нет",

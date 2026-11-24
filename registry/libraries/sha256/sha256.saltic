@@ -4,21 +4,17 @@
 --
 -- Sha256 {} — digest(message) -> 32 байта хеша
 --     hmac(key, message) -> 32 байта HMAC-SHA256
---     hex(buffer) -> «ba7816bf…» — шестнадцатеричная запись строчными
---     of_text(text) -> байты текста UTF-8 как есть
 --     padded(message) / words(block, at) / compress(state, block, at) /
 --     rotr(x, n) / sum32(a, b) — внутри
 -- K — константы раундов; START — начальное состояние; MASK — 32 бита;
--- BLOCK — байт в блоке; HEX — цифры
+-- BLOCK — байт в блоке
 
 use core.num
-use core.str
 use core.bytes
 use core.group
 
 MASK = 4294967295
 BLOCK = 64
-HEX = "0123456789abcdef"
 START = [1779033703, 3144134277, 1013904242, 2773480762, 1359893119, 2600822924, 528734635, 1541459225]
 K = [
     1116352408, 1899447441, 3049323471, 3921009573, 961987163, 1508970993, 2453635748, 2870763221,
@@ -38,14 +34,6 @@ Sha256 = Box {
 
     skill rotr(x, n) {
         out num.or(num.shift_right(x, n), num.shift_left(num.and(x, num.power2(n) - 1), 32 - n))
-    }
-
-    skill of_text(text) {
-        @made = bytes.new(str.bytes(text))
-        drum (str.bytes(text)) {
-            bytes.set(made, beat, str.byte(text, beat))
-        }
-        out made
     }
 
     skill padded(message) {
@@ -151,15 +139,5 @@ Sha256 = Box {
             bytes.set(outer, BLOCK + beat, bytes.get(middle, beat))
         }
         out digest(outer)
-    }
-
-    skill hex(buffer) {
-        @parts = []
-        drum (bytes.count(buffer)) {
-            @value = bytes.get(buffer, beat)
-            parts = group.add(parts, str.slice(HEX, value / 16, value / 16 + 1))
-            parts = group.add(parts, str.slice(HEX, value % 16, value % 16 + 1))
-        }
-        out str.join(parts, "")
     }
 }

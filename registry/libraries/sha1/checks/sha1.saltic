@@ -2,34 +2,26 @@
 -- границ блока и случайные — против Python hashlib и hmac (cases.saltic,
 -- делает workbench/references/sha1.py), и миллион букв «a» (вектор стандарта).
 --
--- Probe { hash } — from_hex(text) -> core.bytes; check(row) -> yes, если сошлось
+-- Probe { hash } — code.decode(text) -> core.bytes; check(row) -> yes, если сошлось
 -- program() -> none; TestsFailed
 
 use io
-use core.str
-use core.num
 use core.bytes
 use core.group
 use craft.testing
 use registry.libraries.sha1.sha1
+use registry.libraries.hex.hex
 use registry.libraries.sha1.checks.cases
 
 Probe = Box {
-    hash = sha1.Sha1 {}
-
-    skill from_hex(text) {
-        @made = bytes.new(str.bytes(text) / 2)
-        drum (bytes.count(made)) {
-            bytes.set(made, beat, num.hex_value(str.get(text, beat * 2)) * 16 + num.hex_value(str.get(text, beat * 2 + 1)))
-        }
-        out made
-    }
+    hash = sha1.Sha1 {},
+    code = hex.Hex {}
 
     skill check(row) {
         (group.get(row, 0) == "digest") {
-            out (hash.hex(hash.digest(from_hex(group.get(row, 1)))) == group.get(row, 2))
+            out (code.encode(hash.digest(code.decode(group.get(row, 1)))) == group.get(row, 2))
         }
-        out (hash.hex(hash.hmac(from_hex(group.get(row, 1)), from_hex(group.get(row, 2)))) == group.get(row, 3))
+        out (code.encode(hash.hmac(code.decode(group.get(row, 1)), code.decode(group.get(row, 2)))) == group.get(row, 3))
     }
 }
 
@@ -37,6 +29,7 @@ program() {
     @suite = testing.test_new()
     @probe = Probe {}
     @hash = sha1.Sha1 {}
+    @code = hex.Hex {}
     @wrong = 0
     drum (cases.CASES) {
         (probe.check(beat) == no) {
@@ -49,13 +42,13 @@ program() {
     @count = group.count(cases.CASES)
     io.show("sha1: случаев {count}, расхождений {wrong}")
     suite = testing.test_equal(suite, "как у Python hashlib и hmac", wrong, 0)
-    suite = testing.test_equal(suite, "abc (FIPS 180-4)", hash.hex(hash.digest(hash.of_text("abc"))), "a9993e364706816aba3e25717850c26c9cd0d89d")
-    suite = testing.test_equal(suite, "пустая (FIPS 180-4)", hash.hex(hash.digest(hash.of_text(""))), "da39a3ee5e6b4b0d3255bfef95601890afd80709")
-    suite = testing.test_equal(suite, "448 бит (FIPS 180-4)", hash.hex(hash.digest(hash.of_text("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"))), "84983e441c3bd26ebaae4aa1f95129e5e54670f1")
+    suite = testing.test_equal(suite, "abc (FIPS 180-4)", code.encode(hash.digest(code.decode("616263"))), "a9993e364706816aba3e25717850c26c9cd0d89d")
+    suite = testing.test_equal(suite, "пустая (FIPS 180-4)", code.encode(hash.digest(code.decode(""))), "da39a3ee5e6b4b0d3255bfef95601890afd80709")
+    suite = testing.test_equal(suite, "448 бит (FIPS 180-4)", code.encode(hash.digest(code.decode("6162636462636465636465666465666765666768666768696768696a68696a6b696a6b6c6a6b6c6d6b6c6d6e6c6d6e6f6d6e6f706e6f7071"))), "84983e441c3bd26ebaae4aa1f95129e5e54670f1")
     @million = bytes.new(1000000)
     drum (1000000) {
         bytes.set(million, beat, 97)
     }
-    suite = testing.test_equal(suite, "миллион букв «a» (FIPS 180-4)", hash.hex(hash.digest(million)), cases.MILLION_A)
+    suite = testing.test_equal(suite, "миллион букв «a» (FIPS 180-4)", code.encode(hash.digest(million)), cases.MILLION_A)
     out testing.test_finish(suite)
 }

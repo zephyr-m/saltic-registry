@@ -3,21 +3,18 @@
 -- сдвиги и вращения через половинки. 64-битные цели.
 --
 -- Sha512 {} — digest(message) -> 64 байта хеша
---     hex(buffer) -> шестнадцатеричная запись строчными
 --     sum64(a, b) / xor3(a, b, c) / rotr(x, n) / shr(x, n) / choose(e, f, g) / half /
 --     major(a, b, c) / padded(message) / words(block, at) /
 --     compress(state, block, at) — внутри
 -- K — константы раундов; START — начальное состояние; MASK — 32 бита;
--- BLOCK — байт в блоке; HEX — цифры
+-- BLOCK — байт в блоке
 
 use core.num
-use core.str
 use core.bytes
 use core.group
 
 MASK = 4294967295
 BLOCK = 128
-HEX = "0123456789abcdef"
 START = [[1779033703, 4089235720], [3144134277, 2227873595], [1013904242, 4271175723], [2773480762, 1595750129], [1359893119, 2917565137], [2600822924, 725511199], [528734635, 4215389547], [1541459225, 327033209]]
 K = [
     [1116352408, 3609767458], [1899447441, 602891725], [3049323471, 3964484399], [3921009573, 2173295548],
@@ -173,15 +170,5 @@ Sha512 = Box {
             }
         }
         out made
-    }
-
-    skill hex(buffer) {
-        @parts = []
-        drum (bytes.count(buffer)) {
-            @value = bytes.get(buffer, beat)
-            parts = group.add(parts, str.slice(HEX, value / 16, value / 16 + 1))
-            parts = group.add(parts, str.slice(HEX, value % 16, value % 16 + 1))
-        }
-        out str.join(parts, "")
     }
 }
