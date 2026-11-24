@@ -1,0 +1,83 @@
+-- dh — обмен ключами Диффи–Хеллмана в конечном поле на именованных группах
+-- RFC 7919 (ffdhe2048, ffdhe3072, ffdhe4096; g = 2). Числа — bignum.Big
+-- (пакет bignum). Закрытый ключ x — 1 < x < p − 1 (RFC 7919 §5.2; короткий
+-- от 225 бит для ffdhe2048 — быстрее), открытый — 2^x mod p, общий секрет —
+-- чужой открытый в степени своего закрытого. Чужой открытый проверяется по
+-- RFC 7919 §5.1: 1 < y < p − 1. НЕ за постоянное время: от атак по времени
+-- не защищён. Первый вызов считает множитель Барретта (0,3 с у 2048, 1,5 с у
+-- 4096), дальше он лежит в ring.
+--
+-- Exchange { width, ring } — группа ffdhe<width>; ring — modular.Modulus
+--     public_of(private) -> открытый ключ; PrivateKeyOutOfRange
+--     shared(private, peer) -> общий секрет; PrivateKeyOutOfRange,
+--         PublicKeyOutOfRange
+--     checked(peer) -> peer, если 1 < peer < p − 1; PublicKeyOutOfRange
+--     modulus() -> p группы как Big
+--     prepared() -> ring с p группы; у всех — UnknownGroup, если width не
+--         2048, 3072 или 4096
+--     fits(key) -> yes, если 1 < key < p − 1
+--
+-- Пример: @alice = dh.Exchange {}
+--         @mine = alice.public_of(x)            (x — bignum.Big)
+--         @secret = alice.shared(x, theirs)
+
+use core.group
+use tarantul.bignum.bignum
+use tarantul.bignum.magnitude
+use modular
+use groups
+
+Exchange = Box {
+    width = 2048,
+    ring = modular.Modulus {}
+
+    skill prepared() {
+        (group.count(ring.prime) == 0) {
+            @named = groups.Named {}
+            ring = ring.around(named.prime_digits(width))
+        }
+        out ring
+    }
+
+    skill modulus() {
+        @field = prepared()
+        @shell = bignum.Big {}
+        out shell.made(field.prime, no)
+    }
+
+    skill fits(key) {
+        @field = prepared()
+        @math = magnitude.Magnitude {}
+        (key.negative == yes) {
+            out no
+        }
+        (math.order(key.digits, [1]) <= 0) {
+            out no
+        }
+        out (math.order(key.digits, math.difference(field.prime, [1])) < 0)
+    }
+
+    skill checked(peer) {
+        (fits(peer) == no) {
+            out error.PublicKeyOutOfRange
+        }
+        out peer
+    }
+
+    skill public_of(private) {
+        (fits(private) == no) {
+            out error.PrivateKeyOutOfRange
+        }
+        @shell = bignum.Big {}
+        out shell.made(ring.two_raised(private.digits), no)
+    }
+
+    skill shared(private, peer) {
+        (fits(private) == no) {
+            out error.PrivateKeyOutOfRange
+        }
+        checked(peer)
+        @shell = bignum.Big {}
+        out shell.made(ring.raised(peer.digits, private.digits), no)
+    }
+}

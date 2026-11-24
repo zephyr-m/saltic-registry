@@ -1,0 +1,117 @@
+-- modular — арифметика по модулю большого простого p на цифрах bignum
+-- (magnitude, основание 2^14, младшая цифра первой). Приведение — по Барретту:
+-- деления в работе нет, только умножения Карацубы (пакет karatsuba) и
+-- вычитания; ratio = ⌊BASE^(2k) / p⌋ считается один раз в around (k — цифр в p).
+-- Не за постоянное время: ветвится по битам показателя.
+--
+-- Modulus { prime, ratio, math, fast } — prime — цифры p, ratio — множитель
+--     Барретта; пустой prime — ещё не задан
+--     around(digits) -> Modulus для p = digits (≈ 4·k·14 удвоений на ratio)
+--     reduced(x) -> x mod p для 0 ≤ x < BASE^(2k) (в том числе x < p²)
+--     product_of(a, b) / square_of(a) / double_of(a) -> a·b / a² / 2a mod p
+--         (a, b < p)
+--     raised(base, exponent) -> base^exponent mod p окнами по WINDOW бит
+--     two_raised(exponent) -> 2^exponent mod p: квадрат и удвоение на бит
+-- WINDOW — бит в окне степени; WINDOW_SIZE — 2^WINDOW, строк в таблице окна
+
+use core.group
+use tarantul.bignum.magnitude
+use tarantul.karatsuba.karatsuba
+
+WINDOW = 4
+WINDOW_SIZE = 16
+
+Modulus = Box {
+    prime = [],
+    ratio = [],
+    math = magnitude.Magnitude {},
+    fast = karatsuba.Karatsuba {}
+
+    skill around(digits) {
+        @clean = math.trimmed(digits)
+        @top = math.bits(clean) - 1
+        @rest = math.two_to(top)
+        @quotient = []
+        drum (2 * group.count(clean) * magnitude.BITS - top) {
+            rest = math.sum(rest, rest)
+            quotient = math.sum(quotient, quotient)
+            ((math.order(rest, clean) < 0) == no) {
+                rest = math.difference(rest, clean)
+                quotient = math.sum(quotient, [1])
+            }
+        }
+        out Modulus {
+            prime = clean,
+            ratio = quotient
+        }
+    }
+
+    skill reduced(x) {
+        @size = group.count(prime)
+        @count = group.count(x)
+        (count < size) {
+            out x
+        }
+        @high = fast.digits_product(group.slice(x, size - 1, count), ratio)
+        @estimate = []
+        (group.count(high) > size + 1) {
+            estimate = group.slice(high, size + 1, group.count(high))
+        }
+        @rest = math.difference(x, fast.digits_product(estimate, prime))
+        drum (2) {
+            ((math.order(rest, prime) < 0) == no) {
+                rest = math.difference(rest, prime)
+            }
+        }
+        out rest
+    }
+
+    skill product_of(a, b) {
+        out reduced(fast.digits_product(a, b))
+    }
+
+    skill square_of(a) {
+        out reduced(fast.digits_product(a, a))
+    }
+
+    skill double_of(a) {
+        @twice = math.sum(a, a)
+        ((math.order(twice, prime) < 0) == no) {
+            out math.difference(twice, prime)
+        }
+        out twice
+    }
+
+    skill two_raised(exponent) {
+        @result = [1]
+        @top = math.bits(exponent)
+        drum (top) {
+            result = square_of(result)
+            (math.bit(exponent, top - 1 - beat) == 1) {
+                result = double_of(result)
+            }
+        }
+        out result
+    }
+
+    skill raised(base, exponent) {
+        @table = [[1]]
+        drum (WINDOW_SIZE - 1) {
+            table = group.add(table, product_of(group.get(table, beat), base))
+        }
+        @windows = (math.bits(exponent) + WINDOW - 1) / WINDOW
+        @result = [1]
+        drum (windows) {
+            @low = (windows - 1 - beat) * WINDOW
+            @index = 0
+            drum (WINDOW) {
+                result = square_of(result)
+                index = index * 2 + math.bit(exponent, low + WINDOW - 1 - beat)
+            }
+            (index > 0) {
+                result = product_of(result, group.get(table, index))
+            }
+        }
+        out result
+    }
+}

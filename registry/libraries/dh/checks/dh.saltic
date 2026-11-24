@@ -1,0 +1,150 @@
+-- dh — проверка обмена ключами против Python (cases.saltic, делает
+-- workbench/references/dh.py реестра). p каждой группы из hex RFC 7919
+-- совпадает с p по формуле RFC, посчитанным Python; для каждой пары —
+-- открытые ключи обеих сторон = pow(2, x, p) и общий секрет с обеих сторон
+-- (сходится). Неверные чужие открытые (0, 1, p − 1, p, больше p, меньше
+-- нуля) — PublicKeyOutOfRange, и в checked, и в shared; закрытые вне
+-- 1 < x < p − 1 — PrivateKeyOutOfRange; ширина 1024 — UnknownGroup.
+-- Время: печатает мс на каждую пару (оба открытых и оба секрета, то есть
+-- обмен целиком за обе стороны) — по времени ничего не проверяется.
+--
+-- Probe { groups, suite } — groups — Exchange на 2048, 3072, 4096
+--     exchange(width) -> Exchange нужной ширины
+--     same(value, text) -> yes, если Big равен десятичной записи
+--     pair(row) — пара из PAIRS: 4 проверки и время
+--     peer(row) / private(row) — неверный ключ из BAD_PEERS / BAD_PRIVATE
+--     passed(start) -> мс от start (полночь UTC учтена)
+-- program() -> none; TestsFailed
+
+use io
+use core.time
+use core.group
+use craft.testing
+use dh
+use checks.cases
+use tarantul.bignum.bignum
+
+Probe = Box {
+    groups = [],
+    suite = testing.test_new()
+
+    skill exchange(width) {
+        drum (groups) {
+            (beat.width == width) {
+                out beat
+            }
+        }
+        out error.UnknownGroup
+    }
+
+    skill same(value, text) {
+        out (value.compared(bignum.parse(text)) == 0)
+    }
+
+    skill passed(start) {
+        @spent = time.now() - start
+        (spent < 0) {
+            spent = spent + time.DAY_MILLISECONDS
+        }
+        out spent
+    }
+
+    skill pair(row) {
+        @side = exchange(group.get(row, 0))
+        @name = group.get(row, 1)
+        @a = bignum.parse(group.get(row, 2))
+        @b = bignum.parse(group.get(row, 3))
+        @start = time.now()
+        @mine = side.public_of(a)
+        @theirs = side.public_of(b)
+        @first = side.shared(a, theirs)
+        @second = side.shared(b, mine)
+        @spent = passed(start)
+        io.show("  {name}: обмен за обе стороны {spent} мс")
+        suite = testing.test_yes(suite, "  {name}: открытый A = pow(2, a, p)", same(mine, group.get(row, 4)))
+        suite = testing.test_yes(suite, "  {name}: открытый B = pow(2, b, p)", same(theirs, group.get(row, 5)))
+        suite = testing.test_yes(suite, "  {name}: секрет у a = Python", same(first, group.get(row, 6)))
+        suite = testing.test_yes(suite, "  {name}: секрет у b = Python", same(second, group.get(row, 6)))
+    }
+
+    skill peer(row) {
+        @width = group.get(row, 0)
+        @name = group.get(row, 1)
+        @side = exchange(width)
+        @key = bignum.parse(group.get(row, 2))
+        @checked = "нет ошибки"
+        side.checked(key) rescue |err| {
+            checked = "{err}"
+        }
+        @shared = "нет ошибки"
+        side.shared(bignum.of(5), key) rescue |err| {
+            shared = "{err}"
+        }
+        suite = testing.test_equal(suite, "  ffdhe{width}, чужой открытый {name}: checked", checked, "PublicKeyOutOfRange")
+        suite = testing.test_equal(suite, "  ffdhe{width}, чужой открытый {name}: shared", shared, "PublicKeyOutOfRange")
+    }
+
+    skill private(row) {
+        @width = group.get(row, 0)
+        @name = group.get(row, 1)
+        @side = exchange(width)
+        @key = bignum.parse(group.get(row, 2))
+        @public = "нет ошибки"
+        side.public_of(key) rescue |err| {
+            public = "{err}"
+        }
+        @shared = "нет ошибки"
+        side.shared(key, bignum.of(5)) rescue |err| {
+            shared = "{err}"
+        }
+        suite = testing.test_equal(suite, "  ffdhe{width}, закрытый {name}: public_of", public, "PrivateKeyOutOfRange")
+        suite = testing.test_equal(suite, "  ffdhe{width}, закрытый {name}: shared", shared, "PrivateKeyOutOfRange")
+    }
+}
+
+program() {
+    @probe = Probe {
+        groups = [
+            dh.Exchange {
+                width = 2048
+            },
+            dh.Exchange {
+                width = 3072
+            },
+            dh.Exchange {
+                width = 4096
+            }
+        ]
+    }
+    io.show("группы: p из hex RFC 7919 = p по формуле RFC (Python)")
+    drum (cases.PRIMES) {
+        @width = group.get(beat, 0)
+        @side = probe.exchange(width)
+        @start = time.now()
+        @prime = side.modulus()
+        @spent = probe.passed(start)
+        io.show("  ffdhe{width}: разбор p и множитель Барретта {spent} мс")
+        probe.suite = testing.test_yes(probe.suite, "  ffdhe{width}: p", probe.same(prime, group.get(beat, 1)))
+    }
+    io.show("пары: открытые ключи и общий секрет против Python")
+    drum (cases.PAIRS) {
+        probe.pair(beat)
+    }
+    io.show("чужие открытые вне 1 < y < p − 1 (RFC 7919 §5.1):")
+    drum (cases.BAD_PEERS) {
+        probe.peer(beat)
+    }
+    io.show("закрытые вне 1 < x < p − 1:")
+    drum (cases.BAD_PRIVATE) {
+        probe.private(beat)
+    }
+    @odd = dh.Exchange {
+        width = 1024
+    }
+    @unknown = "нет ошибки"
+    odd.public_of(bignum.of(5)) rescue |err| {
+        unknown = "{err}"
+    }
+    @suite = testing.test_equal(probe.suite, "ширина 1024 — UnknownGroup", unknown, "UnknownGroup")
+    out testing.test_finish(suite)
+}
