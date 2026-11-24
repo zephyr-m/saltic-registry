@@ -8,7 +8,7 @@
 --     hex(buffer) -> «a9993e36…» — шестнадцатеричная запись строчными (из sha256)
 --     of_text(text) -> байты текста UTF-8 как есть (из sha256)
 --     padded(message) / words(block, at) / compress(state, block, at) /
---     rotl(x, n) / plus(a, b) / mix(round, b, c, d) — внутри
+--     rotl(x, n) / sum32(a, b) / mix(round, b, c, d) — внутри
 -- K — константы четырёх двадцаток раундов; START — начальное состояние;
 -- MASK — 32 бита; BLOCK — байт в блоке; SIZE — байт в хеше
 
@@ -26,7 +26,7 @@ K = [1518500249, 1859775393, 2400959708, 3395469782]
 Sha1 = Box {
     text = sha256.Sha256 {}
 
-    skill plus(a, b) {
+    skill sum32(a, b) {
         out num.and(a + b, MASK)
     }
 
@@ -90,14 +90,14 @@ Sha1 = Box {
         @d = group.get(state, 3)
         @e = group.get(state, 4)
         drum (80) {
-            @step = plus(plus(rotl(a, 5), mix(beat, b, c, d)), plus(plus(e, group.get(K, beat / 20)), group.get(w, beat)))
+            @step = sum32(sum32(rotl(a, 5), mix(beat, b, c, d)), sum32(sum32(e, group.get(K, beat / 20)), group.get(w, beat)))
             e = d
             d = c
             c = rotl(b, 30)
             b = a
             a = step
         }
-        out [plus(group.get(state, 0), a), plus(group.get(state, 1), b), plus(group.get(state, 2), c), plus(group.get(state, 3), d), plus(group.get(state, 4), e)]
+        out [sum32(group.get(state, 0), a), sum32(group.get(state, 1), b), sum32(group.get(state, 2), c), sum32(group.get(state, 3), d), sum32(group.get(state, 4), e)]
     }
 
     skill digest(message) {

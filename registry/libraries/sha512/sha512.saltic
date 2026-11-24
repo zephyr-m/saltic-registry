@@ -4,7 +4,7 @@
 --
 -- Sha512 {} — digest(message) -> 64 байта хеша
 --     hex(buffer) -> шестнадцатеричная запись строчными
---     plus(a, b) / xor3(a, b, c) / rotr(x, n) / shr(x, n) / choose(e, f, g) / half /
+--     sum64(a, b) / xor3(a, b, c) / rotr(x, n) / shr(x, n) / choose(e, f, g) / half /
 --     major(a, b, c) / padded(message) / words(block, at) /
 --     compress(state, block, at) — внутри
 -- K — константы раундов; START — начальное состояние; MASK — 32 бита;
@@ -43,7 +43,7 @@ K = [
 ]
 
 Sha512 = Box {
-    skill plus(a, b) {
+    skill sum64(a, b) {
         @low = group.get(a, 1) + group.get(b, 1)
         @high = group.get(a, 0) + group.get(b, 0) + num.shift_right(low, 32)
         out [num.and(high, MASK), num.and(low, MASK)]
@@ -122,7 +122,7 @@ Sha512 = Box {
             @y = group.get(w, t - 2)
             @low = xor3(rotr(x, 1), rotr(x, 8), shr(x, 7))
             @high = xor3(rotr(y, 19), rotr(y, 61), shr(y, 6))
-            w = group.add(w, plus(plus(group.get(w, t - 16), low), plus(group.get(w, t - 7), high)))
+            w = group.add(w, sum64(sum64(group.get(w, t - 16), low), sum64(group.get(w, t - 7), high)))
         }
         out w
     }
@@ -139,18 +139,18 @@ Sha512 = Box {
         @h = group.get(state, 7)
         drum (80) {
             @big_e = xor3(rotr(e, 14), rotr(e, 18), rotr(e, 41))
-            @first = plus(plus(plus(h, big_e), plus(choose(e, f, g), group.get(K, beat))), group.get(w, beat))
-            @second = plus(xor3(rotr(a, 28), rotr(a, 34), rotr(a, 39)), major(a, b, c))
+            @first = sum64(sum64(sum64(h, big_e), sum64(choose(e, f, g), group.get(K, beat))), group.get(w, beat))
+            @second = sum64(xor3(rotr(a, 28), rotr(a, 34), rotr(a, 39)), major(a, b, c))
             h = g
             g = f
             f = e
-            e = plus(d, first)
+            e = sum64(d, first)
             d = c
             c = b
             b = a
-            a = plus(first, second)
+            a = sum64(first, second)
         }
-        out [plus(group.get(state, 0), a), plus(group.get(state, 1), b), plus(group.get(state, 2), c), plus(group.get(state, 3), d), plus(group.get(state, 4), e), plus(group.get(state, 5), f), plus(group.get(state, 6), g), plus(group.get(state, 7), h)]
+        out [sum64(group.get(state, 0), a), sum64(group.get(state, 1), b), sum64(group.get(state, 2), c), sum64(group.get(state, 3), d), sum64(group.get(state, 4), e), sum64(group.get(state, 5), f), sum64(group.get(state, 6), g), sum64(group.get(state, 7), h)]
     }
 
     skill digest(message) {

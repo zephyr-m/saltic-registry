@@ -7,7 +7,7 @@
 --     hex(buffer) -> «ba7816bf…» — шестнадцатеричная запись строчными
 --     of_text(text) -> байты текста UTF-8 как есть
 --     padded(message) / words(block, at) / compress(state, block, at) /
---     rotr(x, n) / plus(a, b) — внутри
+--     rotr(x, n) / sum32(a, b) — внутри
 -- K — константы раундов; START — начальное состояние; MASK — 32 бита;
 -- BLOCK — байт в блоке; HEX — цифры
 
@@ -32,7 +32,7 @@ K = [
 ]
 
 Sha256 = Box {
-    skill plus(a, b) {
+    skill sum32(a, b) {
         out num.and(a + b, MASK)
     }
 
@@ -76,7 +76,7 @@ Sha256 = Box {
             @y = group.get(w, t - 2)
             @low = num.xor(num.xor(rotr(x, 7), rotr(x, 18)), num.shift_right(x, 3))
             @high = num.xor(num.xor(rotr(y, 17), rotr(y, 19)), num.shift_right(y, 10))
-            w = group.add(w, plus(plus(group.get(w, t - 16), low), plus(group.get(w, t - 7), high)))
+            w = group.add(w, sum32(sum32(group.get(w, t - 16), low), sum32(group.get(w, t - 7), high)))
         }
         out w
     }
@@ -94,20 +94,20 @@ Sha256 = Box {
         drum (64) {
             @big_e = num.xor(num.xor(rotr(e, 6), rotr(e, 11)), rotr(e, 25))
             @choose = num.xor(num.and(e, f), num.and(num.xor(e, MASK), g))
-            @first = plus(plus(plus(h, big_e), plus(choose, group.get(K, beat))), group.get(w, beat))
+            @first = sum32(sum32(sum32(h, big_e), sum32(choose, group.get(K, beat))), group.get(w, beat))
             @big_a = num.xor(num.xor(rotr(a, 2), rotr(a, 13)), rotr(a, 22))
             @major = num.xor(num.xor(num.and(a, b), num.and(a, c)), num.and(b, c))
-            @second = plus(big_a, major)
+            @second = sum32(big_a, major)
             h = g
             g = f
             f = e
-            e = plus(d, first)
+            e = sum32(d, first)
             d = c
             c = b
             b = a
-            a = plus(first, second)
+            a = sum32(first, second)
         }
-        out [plus(group.get(state, 0), a), plus(group.get(state, 1), b), plus(group.get(state, 2), c), plus(group.get(state, 3), d), plus(group.get(state, 4), e), plus(group.get(state, 5), f), plus(group.get(state, 6), g), plus(group.get(state, 7), h)]
+        out [sum32(group.get(state, 0), a), sum32(group.get(state, 1), b), sum32(group.get(state, 2), c), sum32(group.get(state, 3), d), sum32(group.get(state, 4), e), sum32(group.get(state, 5), f), sum32(group.get(state, 6), g), sum32(group.get(state, 7), h)]
     }
 
     skill digest(message) {
