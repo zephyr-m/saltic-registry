@@ -1,0 +1,58 @@
+-- octets — байты ↔ большое число (RFC 8017, 4.1 I2OSP и 4.2 OS2IP): байты —
+-- старший первым, число — цифры bignum (magnitude, основание 2^14, младшая первой).
+--
+-- Octets {} — number(buffer) -> цифры числа из байтов (OS2IP)
+--     written(digits, size) -> ровно size байт (I2OSP); NumberTooLarge, если
+--     число не влезает в size байт
+--     same(left, right) -> yes, если байты те же и той же длины
+
+use core.bytes
+use core.group
+use tarantul.bignum.magnitude
+
+Octets = Box {
+    math = magnitude.Magnitude {}
+
+    skill number(buffer) {
+        @bits = []
+        @count = bytes.count(buffer)
+        drum (count) {
+            @value = bytes.get(buffer, count - 1 - beat)
+            drum (8) {
+                bits = group.add(bits, value % 2)
+                value = value / 2
+            }
+        }
+        out math.packed(bits)
+    }
+
+    skill written(digits, size) {
+        (math.bits(digits) > size * 8) {
+            out error.NumberTooLarge
+        }
+        @made = bytes.new(size)
+        drum (size) {
+            @place = beat
+            @value = 0
+            @weight = 1
+            drum (8) {
+                value = value + math.bit(digits, place * 8 + beat) * weight
+                weight = weight * 2
+            }
+            bytes.set(made, size - 1 - place, value)
+        }
+        out made
+    }
+
+    skill same(left, right) {
+        ((bytes.count(left) == bytes.count(right)) == no) {
+            out no
+        }
+        drum (bytes.count(left)) {
+            ((bytes.get(left, beat) == bytes.get(right, beat)) == no) {
+                out no
+            }
+        }
+        out yes
+    }
+}

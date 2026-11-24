@@ -1,0 +1,110 @@
+-- private — закрытый ключ RSA и подпись с SHA-256 (RFC 8017, 8.1.1 и 8.2.1).
+-- Две формы ключа (RFC 8017, 3.2): (n, e, d) — степень по всему n; (n, e, p,
+-- q, dP, dQ, qInv) — китайская теорема об остатках, две степени вдвое короче,
+-- примерно втрое быстрее. Байты — старший первым. Не за постоянное время.
+--
+-- PrivateKey { n, e, d, size, bits, split, … } — закрытый ключ; split = yes у
+--     формы с p и q:
+--     private_from(n_bytes, e_bytes, d_bytes) -> PrivateKey; ModulusTooSmall
+--     private_crt(n_bytes, e_bytes, p_bytes, q_bytes, dp_bytes, dq_bytes,
+--         qinv_bytes) -> PrivateKey; KeyMismatch, если p · q ≠ n
+--     signed(message) -> size байт подписи RSASSA-PKCS1-v1_5; ModulusTooShort
+--     signed_pss(message, salt) -> size байт подписи RSASSA-PSS с этой солью;
+--         SaltTooLong
+--     public_key() -> rsa.PublicKey того же n и e
+--     raised(m) -> цифры m^d mod n (RSASP1); MessageOutOfRange, если m ≥ n
+
+use tarantul.bignum.magnitude
+use tarantul.sha256.sha256
+use rsa
+use modulus
+use octets
+use pkcs1
+use pss
+
+PrivateKey = Box {
+    n = [],
+    e = [],
+    d = [],
+    size = 0,
+    bits = 0,
+    split = no,
+    whole = modulus.Modulus {},
+    p_side = modulus.Modulus {},
+    q_side = modulus.Modulus {},
+    q = [],
+    dp = [],
+    dq = [],
+    qinv = [],
+    math = magnitude.Magnitude {},
+    hash = sha256.Sha256 {},
+    convert = octets.Octets {}
+
+    skill private_from(n_bytes, e_bytes, d_bytes) {
+        @digits = convert.number(n_bytes)
+        @top = math.bits(digits)
+        out PrivateKey {
+            n = digits,
+            e = convert.number(e_bytes),
+            d = convert.number(d_bytes),
+            size = (top + 7) / 8,
+            bits = top,
+            whole = whole.made_for(digits)
+        }
+    }
+
+    skill private_crt(n_bytes, e_bytes, p_bytes, q_bytes, dp_bytes, dq_bytes, qinv_bytes) {
+        @digits = convert.number(n_bytes)
+        @left = p_side.made_for(convert.number(p_bytes))
+        @right = q_side.made_for(convert.number(q_bytes))
+        ((math.order(left.product(left.n, right.n), digits) == 0) == no) {
+            out error.KeyMismatch
+        }
+        @top = math.bits(digits)
+        out PrivateKey {
+            n = digits,
+            e = convert.number(e_bytes),
+            size = (top + 7) / 8,
+            bits = top,
+            split = yes,
+            p_side = left,
+            q_side = right,
+            q = right.n,
+            dp = convert.number(dp_bytes),
+            dq = convert.number(dq_bytes),
+            qinv = left.reduced(convert.number(qinv_bytes))
+        }
+    }
+
+    skill raised(m) {
+        ((math.order(m, n) < 0) == no) {
+            out error.MessageOutOfRange
+        }
+        (split == no) {
+            out whole.raised_mod(m, d)
+        }
+        @first = p_side.raised_mod(m, dp)
+        @second = q_side.raised_mod(m, dq)
+        @lowered = p_side.reduced(second)
+        @gap = math.difference(math.sum(first, p_side.n), lowered)
+        @h = p_side.multiplied_mod(qinv, p_side.reduced(gap))
+        out math.sum(second, p_side.product(q, h))
+    }
+
+    skill signed(message) {
+        @coder = pkcs1.Pkcs1 {}
+        @encoded = coder.framed(hash.digest(message), size)
+        out convert.written(raised(convert.number(encoded)), size)
+    }
+
+    skill signed_pss(message, salt) {
+        @coder = pss.Pss {}
+        @encoded = coder.encoded(hash.digest(message), salt, bits - 1)
+        out convert.written(raised(convert.number(encoded)), size)
+    }
+
+    skill public_key() {
+        @shell = rsa.PublicKey {}
+        out shell.public_from(convert.written(n, size), convert.written(e, (math.bits(e) + 7) / 8))
+    }
+}

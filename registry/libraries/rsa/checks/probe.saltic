@@ -1,0 +1,86 @@
+-- probe — общий разбор строк эталона для проверок rsa (rsa.saltic и
+-- wycheproof.saltic): ключи из hex, ответ проверки и подписи строкой.
+-- Строка проверки — [ключ, «pkcs1»|«pss», сообщение, подпись, длина соли, …].
+--
+-- Probe { text } — text — hex.Hex (пакет hex):
+--     public(n_text, e_text) -> rsa.PublicKey из hex n и e
+--     crt(row) / plain(row) -> private.PrivateKey из строки KEYS эталона
+--     verdict(key, row) -> «yes» или имя ошибки проверки
+--     signature(key, row) -> подпись hex или имя ошибки подписи;
+--         row — [_, «pkcs1»|«pss», сообщение, соль, …]
+--     passed(start) -> мс от start (полночь UTC учтена)
+
+use core.time
+use core.group
+use rsa
+use private
+use tarantul.hex.hex
+
+Probe = Box {
+    text = hex.Hex {}
+
+    skill public(n_text, e_text) {
+        @shell = rsa.PublicKey {}
+        out shell.public_from(text.decode(n_text), text.decode(e_text))
+    }
+
+    skill crt(row) {
+        @shell = private.PrivateKey {}
+        @n = text.decode(group.get(row, 1))
+        @e = text.decode(group.get(row, 2))
+        @p = text.decode(group.get(row, 4))
+        @q = text.decode(group.get(row, 5))
+        @dp = text.decode(group.get(row, 6))
+        @dq = text.decode(group.get(row, 7))
+        out shell.private_crt(n, e, p, q, dp, dq, text.decode(group.get(row, 8)))
+    }
+
+    skill plain(row) {
+        @shell = private.PrivateKey {}
+        out shell.private_from(text.decode(group.get(row, 1)), text.decode(group.get(row, 2)), text.decode(group.get(row, 3)))
+    }
+
+    skill verdict(key, row) {
+        @message = text.decode(group.get(row, 2))
+        @signed = text.decode(group.get(row, 3))
+        @answer = "yes"
+        (group.get(row, 1) == "pkcs1") {
+            key.verified(message, signed) rescue |err| {
+                answer = "{err}"
+                no
+            }
+            out answer
+        }
+        key.verified_pss(message, signed, group.get(row, 4)) rescue |err| {
+            answer = "{err}"
+            no
+        }
+        out answer
+    }
+
+    skill signature(key, row) {
+        @message = text.decode(group.get(row, 2))
+        @salt = text.decode(group.get(row, 3))
+        @answer = "нет подписи"
+        (group.get(row, 1) == "pkcs1") {
+            @made = key.signed(message) rescue |err| {
+                answer = "{err}"
+                out answer
+            }
+            out text.encode(made)
+        }
+        @made = key.signed_pss(message, salt) rescue |err| {
+            answer = "{err}"
+            out answer
+        }
+        out text.encode(made)
+    }
+
+    skill passed(start) {
+        @spent = time.now() - start
+        (spent < 0) {
+            spent = spent + time.DAY_MILLISECONDS
+        }
+        out spent
+    }
+}

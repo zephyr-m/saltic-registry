@@ -1,0 +1,45 @@
+-- wycheproof — проверка RSA на тест-векторах Wycheproof (C2SP):
+-- rsa_signature_2048_sha256 (PKCS1-v1_5, 259 случаев, три ключа: e = 65537 и
+-- два с e = 3) и rsa_pss_2048_sha256_mgf1_32 (PSS, соль 32 байта, 108
+-- случаев). vectors.saltic делает workbench/references/rsa.py; эталон
+-- согласен с Wycheproof во всех случаях. valid — yes; invalid — та же ошибка,
+-- что у эталона (WrongSignatureLength, SignatureOutOfRange, SignatureMismatch);
+-- acceptable (DigestInfo без NULL) не принимаем: EM сравнивается байт в байт.
+--
+-- program() -> none; TestsFailed
+
+use io
+use core.group
+use craft.testing
+use checks.probe
+use checks.vectors
+
+program() {
+    @suite = testing.test_new()
+    @reader = probe.Probe {}
+    @keys = []
+    drum (vectors.KEYS) {
+        keys = group.add(keys, reader.public(group.get(beat, 0), group.get(beat, 1)))
+    }
+    @wrong = 0
+    @accepted = 0
+    drum (vectors.ROWS) {
+        @row = beat
+        @got = reader.verdict(group.get(keys, group.get(row, 0)), row)
+        @want = group.get(row, 5)
+        (got == "yes") {
+            accepted = accepted + 1
+        }
+        ((got == want) == no) {
+            wrong = wrong + 1
+            @kind = group.get(row, 1)
+            @number = group.get(row, 6)
+            io.show("  расхождение {kind} tcId {number}: {got}, эталон {want}")
+        }
+    }
+    @count = group.count(vectors.ROWS)
+    io.show("wycheproof: случаев {count}, принято {accepted}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "Wycheproof как у эталона ({count})", wrong, 0)
+    suite = testing.test_equal(suite, "принято valid (9 PKCS1 + 63 PSS)", accepted, 72)
+    out testing.test_finish(suite)
+}

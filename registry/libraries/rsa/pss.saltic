@@ -1,0 +1,124 @@
+-- pss — кодирование EMSA-PSS с SHA-256 и MGF1-SHA-256 (RFC 8017, 9.1 и B.2.1).
+-- bits — emBits, на бит короче модуля (RFC 8017, 8.1.1); EM — ⌈bits / 8⌉ байт,
+-- лишние старшие биты первого байта — нули. Соль даёт тот, кто подписывает.
+--
+-- Pss { hash } — hash — sha256.Sha256 (пакет sha256):
+--     encoded(digest, salt, bits) -> EM; SaltTooLong, если EM короче
+--         хеш + соль + 2 байта
+--     checked(digest, encoded, bits, salt_size) -> yes; SignatureMismatch —
+--         любое расхождение (RFC 8017, 9.1.2: «inconsistent»)
+--     mask(seed, size) -> size байт MGF1(seed)
+--     salted(digest, salt) -> H = SHA-256(8 нулей ‖ digest ‖ salt)
+-- HASH_SIZE — байт хеша; TRAILER — последний байт EM (0xbc); ZEROS — нулей перед хешем в M'
+
+use core.num
+use core.bytes
+use tarantul.sha256.sha256
+use tarantul.wire.wire
+
+HASH_SIZE = 32
+TRAILER = 188
+ZEROS = 8
+
+Pss = Box {
+    hash = sha256.Sha256 {},
+    order = wire.Wire {}
+
+    skill mask(seed, size) {
+        @made = bytes.new(size)
+        @block = bytes.new(bytes.count(seed) + 4)
+        drum (bytes.count(seed)) {
+            bytes.set(block, beat, bytes.get(seed, beat))
+        }
+        drum ((size + HASH_SIZE - 1) / HASH_SIZE) {
+            @round = beat
+            order.put_long(block, bytes.count(seed), round)
+            @piece = hash.digest(block)
+            drum (HASH_SIZE) {
+                @at = round * HASH_SIZE + beat
+                (at < size) {
+                    bytes.set(made, at, bytes.get(piece, beat))
+                }
+            }
+        }
+        out made
+    }
+
+    skill salted(digest, salt) {
+        @joined = bytes.new(ZEROS + bytes.count(digest) + bytes.count(salt))
+        drum (bytes.count(digest)) {
+            bytes.set(joined, ZEROS + beat, bytes.get(digest, beat))
+        }
+        @at = ZEROS + bytes.count(digest)
+        drum (bytes.count(salt)) {
+            bytes.set(joined, at + beat, bytes.get(salt, beat))
+        }
+        out hash.digest(joined)
+    }
+
+    skill encoded(digest, salt, bits) {
+        @size = (bits + 7) / 8
+        @salt_size = bytes.count(salt)
+        (size < HASH_SIZE + salt_size + 2) {
+            out error.SaltTooLong
+        }
+        @inner = size - HASH_SIZE - 1
+        @made = bytes.new(size)
+        bytes.set(made, inner - salt_size - 1, 1)
+        drum (salt_size) {
+            bytes.set(made, inner - salt_size + beat, bytes.get(salt, beat))
+        }
+        @sealed = salted(digest, salt)
+        @veil = mask(sealed, inner)
+        drum (inner) {
+            bytes.set(made, beat, num.xor(bytes.get(made, beat), bytes.get(veil, beat)))
+        }
+        bytes.set(made, 0, num.and(bytes.get(made, 0), num.shift_right(255, size * 8 - bits)))
+        drum (HASH_SIZE) {
+            bytes.set(made, inner + beat, bytes.get(sealed, beat))
+        }
+        bytes.set(made, size - 1, TRAILER)
+        out made
+    }
+
+    skill checked(digest, encoded, bits, salt_size) {
+        @size = (bits + 7) / 8
+        @inner = size - HASH_SIZE - 1
+        @kept = num.shift_right(255, size * 8 - bits)
+        ((bytes.count(encoded) == size) == no) {
+            out error.SignatureMismatch
+        }
+        (size < HASH_SIZE + salt_size + 2) {
+            out error.SignatureMismatch
+        }
+        ((bytes.get(encoded, size - 1) == TRAILER) == no) {
+            out error.SignatureMismatch
+        }
+        ((num.and(bytes.get(encoded, 0), 255 - kept) == 0) == no) {
+            out error.SignatureMismatch
+        }
+        @sealed = bytes.slice(encoded, inner, size - 1)
+        @veil = mask(sealed, inner)
+        @block = bytes.new(inner)
+        drum (inner) {
+            bytes.set(block, beat, num.xor(bytes.get(encoded, beat), bytes.get(veil, beat)))
+        }
+        bytes.set(block, 0, num.and(bytes.get(block, 0), kept))
+        @border = inner - salt_size - 1
+        drum (border) {
+            ((bytes.get(block, beat) == 0) == no) {
+                out error.SignatureMismatch
+            }
+        }
+        ((bytes.get(block, border) == 1) == no) {
+            out error.SignatureMismatch
+        }
+        @again = salted(digest, bytes.slice(block, inner - salt_size, inner))
+        drum (HASH_SIZE) {
+            ((bytes.get(again, beat) == bytes.get(sealed, beat)) == no) {
+                out error.SignatureMismatch
+            }
+        }
+        out yes
+    }
+}

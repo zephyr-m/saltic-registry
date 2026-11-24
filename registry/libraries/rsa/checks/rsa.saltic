@@ -1,0 +1,97 @@
+-- rsa — проверка подписи и проверки RSA против эталона Python (cases.saltic,
+-- делает workbench/references/rsa.py; его подписи принимает и openssl): ключи
+-- 2048, 1025 (EM на байт короче n), 1024 и 256 бит. Подписи PKCS1-v1_5 и PSS
+-- (соль 0, 20, 32, 62 байта) совпадают байт в байт — и формой CRT, и формой
+-- (n, e, d); проверки отдают то же, что эталон: yes или имя ошибки
+-- (испорченный бит, чужое сообщение, длина, s ≥ n, не та длина соли, чужая
+-- схема). Ошибки подписи: ModulusTooShort, SaltTooLong; ключа: KeyMismatch,
+-- ModulusTooSmall. Замер — подпись и проверка 2048 бит, мс (не проверяется).
+-- Строки эталона разбирает checks/probe.
+--
+-- program() -> none; TestsFailed
+
+use io
+use core.time
+use core.group
+use craft.testing
+use checks.probe
+use checks.cases
+
+program() {
+    @suite = testing.test_new()
+    @reader = probe.Probe {}
+    @publics = []
+    @privates = []
+    drum (cases.KEYS) {
+        @name = group.get(beat, 0)
+        io.show("ключ {name} бит: открытый и закрытый (CRT)")
+        publics = group.add(publics, reader.public(group.get(beat, 1), group.get(beat, 2)))
+        privates = group.add(privates, reader.crt(beat))
+    }
+    @wrong = 0
+    drum (cases.SIGNS) {
+        @row = beat
+        @key = group.get(privates, group.get(row, 0))
+        @start = time.now()
+        @got = reader.signature(key, row)
+        @spent = reader.passed(start)
+        @kind = group.get(row, 1)
+        @owner = group.get(group.get(cases.KEYS, group.get(row, 0)), 0)
+        io.show("  подпись {kind}, ключ {owner}: {spent} мс")
+        ((got == group.get(row, 4)) == no) {
+            wrong = wrong + 1
+            io.show("  расхождение подписи {kind}, ключ {owner}: {got}")
+        }
+    }
+    @signs = group.count(cases.SIGNS)
+    suite = testing.test_equal(suite, "подписи CRT как у Python ({signs})", wrong, 0)
+    @slow = reader.plain(group.get(cases.KEYS, 2))
+    @plain_row = group.get(cases.SIGNS, 7)
+    suite = testing.test_equal(suite, "подпись формой (n, e, d), 1024 бит", reader.signature(slow, plain_row), group.get(plain_row, 4))
+    wrong = 0
+    drum (cases.VERIFIES) {
+        @row = beat
+        @got = reader.verdict(group.get(publics, group.get(row, 0)), row)
+        ((got == group.get(row, 5)) == no) {
+            wrong = wrong + 1
+            @want = group.get(row, 5)
+            io.show("  расхождение проверки: {got}, эталон {want}")
+        }
+    }
+    @verifies = group.count(cases.VERIFIES)
+    suite = testing.test_equal(suite, "проверки как у Python ({verifies})", wrong, 0)
+    wrong = 0
+    drum (cases.SIGN_ERRORS) {
+        @row = beat
+        @key = group.get(privates, group.get(row, 0))
+        @got = reader.signature(key, ["", group.get(row, 1), "78", group.get(row, 2)])
+        ((got == group.get(row, 3)) == no) {
+            wrong = wrong + 1
+            io.show("  ошибка подписи не та: {got}")
+        }
+    }
+    suite = testing.test_equal(suite, "ошибки подписи как у Python", wrong, 0)
+    @mixed = group.get(cases.KEYS, 3)
+    @broken = group.replaced(group.get(cases.KEYS, 2), 5, group.get(mixed, 5))
+    @mismatch = "нет ошибки"
+    reader.crt(broken) rescue |err| {
+        mismatch = "{err}"
+        no
+    }
+    suite = testing.test_equal(suite, "p · q ≠ n", mismatch, "KeyMismatch")
+    @tiny = "нет ошибки"
+    reader.public("02", "03") rescue |err| {
+        tiny = "{err}"
+        no
+    }
+    suite = testing.test_equal(suite, "модуль 2", tiny, "ModulusTooSmall")
+    @own = group.get(privates, 0)
+    @opened = own.public_key()
+    @first = group.get(cases.SIGNS, 0)
+    @start = time.now()
+    @check = reader.verdict(opened, ["", "pkcs1", group.get(first, 2), group.get(first, 4)])
+    @spent = reader.passed(start)
+    io.show("  проверка PKCS1-v1_5, 2048 бит: {spent} мс")
+    suite = testing.test_equal(suite, "public_key() проверяет свою подпись", check, "yes")
+    out testing.test_finish(suite)
+}

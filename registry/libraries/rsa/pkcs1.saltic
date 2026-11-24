@@ -1,0 +1,38 @@
+-- pkcs1 — кодирование EMSA-PKCS1-v1_5 для SHA-256 (RFC 8017, 9.2):
+-- EM = 00 01 FF…FF 00 ‖ DigestInfo(SHA-256) ‖ хеш, ровно size байт. Проверка
+-- подписи строит EM заново и сравнивает байт в байт (RFC 8017, 8.2.2), поэтому
+-- другие записи DigestInfo (без NULL, BER, лишние байты) не принимаются.
+--
+-- Pkcs1 {} — framed(digest, size) -> size байт EM; ModulusTooShort, если
+--     size < 11 + DigestInfo с хешем (51 байт), то есть модуль короче 62 байт
+-- PREFIX — DigestInfo SHA-256 до самого хеша (RFC 8017, 9.2, примечание 1);
+-- PADDING_LEAST — наименьшая длина EM сверх DigestInfo (00 01, 8 × FF, 00)
+
+use core.bytes
+use core.group
+
+PREFIX = [48, 49, 48, 13, 6, 9, 96, 134, 72, 1, 101, 3, 4, 2, 1, 5, 0, 4, 32]
+PADDING_LEAST = 11
+
+Pkcs1 = Box {
+    skill framed(digest, size) {
+        @info = group.count(PREFIX) + bytes.count(digest)
+        (size < info + PADDING_LEAST) {
+            out error.ModulusTooShort
+        }
+        @made = bytes.new(size)
+        bytes.set(made, 1, 1)
+        drum (size - info - 3) {
+            bytes.set(made, 2 + beat, 255)
+        }
+        @at = size - info
+        drum (group.count(PREFIX)) {
+            bytes.set(made, at + beat, group.get(PREFIX, beat))
+        }
+        @tail = size - bytes.count(digest)
+        drum (bytes.count(digest)) {
+            bytes.set(made, tail + beat, bytes.get(digest, beat))
+        }
+        out made
+    }
+}

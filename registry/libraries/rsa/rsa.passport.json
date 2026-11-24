@@ -1,0 +1,13 @@
+{
+  "title": "rsa — подпись RSA с SHA-256 (RFC 8017): PKCS1-v1_5 и PSS",
+  "saltic_version": "в составе Saltic (ветка 24.11.2026)",
+  "own_version": "1",
+  "author": "Зэф",
+  "role": "library",
+  "purpose": "проверить подпись RSA открытым ключом (n, e) и подписать закрытым — (n, e, d) или по CRT (p, q, dP, dQ, qInv): RSASSA-PKCS1-v1_5 и RSASSA-PSS с SHA-256 и MGF1-SHA-256; ключи и подписи — байты; причина отказа — в имени ошибки",
+  "depends_on": "bignum (цифры magnitude), karatsuba (умножение), sha256 (хеш), wire (счётчик MGF1); проверке — hex; свой tarantul.json",
+  "architectures": "64-битные цели (sha256 — 64-битные; bignum и karatsuba — все)",
+  "state": "рабочий: checks/rsa.saltic — 7 проверок: 10 подписей CRT и одна формой (n, e, d) байт в байт как у эталона Python (ключи 2048, 1025, 1024 бит; его подписи принимает openssl), 72 проверки с ответом эталона (испорченный бит, чужое сообщение, длина, s ≥ n, не та соль, чужая схема), ошибки ModulusTooShort, SaltTooLong, KeyMismatch, ModulusTooSmall; checks/wycheproof.saltic — 367 векторов Wycheproof rsa_signature_2048_sha256 и rsa_pss_2048_sha256_mgf1_32, все как у эталона (эталон — workbench/references/rsa.py реестра). Замер x86-64, 24.11.2026: подпись 2048 бит (CRT) ≈ 8,2 с, проверка ≈ 0,2 с, открытый ключ 2048 бит готовится ≈ 3 с (mu Барретта делением bignum по битам)",
+  "log": "не за постоянное время; ключи не создаёт (нет поиска простых); соль PSS даёт зовущий (своего стойкого случайного нет); DigestInfo без NULL (acceptable у Wycheproof) не принимается; проверки идут ≈ 1 и ≈ 1,3 мин",
+  "filled_by": "агентом по коду, 24.11.2026; автор проверяет"
+}

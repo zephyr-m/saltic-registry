@@ -1,0 +1,124 @@
+-- modulus — умножение и степень по модулю n над цифрами bignum (magnitude,
+-- основание 2^14, младшая первой). Остаток — редукцией Барретта (mu = ⌊b^2k / n⌋
+-- считается один раз в made_for), умножение — Карацубой (пакет karatsuba).
+-- Не за постоянное время: ход зависит от битов показателя.
+--
+-- Modulus { n, size, mu } — модуль; size — цифр в n:
+--     made_for(digits) -> Modulus с готовым mu; ModulusTooSmall, если n < 3
+--     reduced(x) -> x mod n: Барретт, если в x не больше 2 · size цифр,
+--         иначе делением bignum (медленно, по битам)
+--     multiplied_mod(a, b) -> a · b mod n (a, b < n)
+--     raised_mod(base, exponent) -> base^exponent mod n; оба — цифры
+--     product(a, b) -> a · b цифрами (Карацуба)
+-- WINDOW — бит в окне степени; TABLE = 2^WINDOW — степеней в таблице окна;
+-- WINDOW_FROM — с какой длины показателя (бит) степень идёт окнами, короче —
+--     квадрат и умножение по каждому биту
+
+use core.group
+use tarantul.bignum.bignum
+use tarantul.bignum.magnitude
+use tarantul.karatsuba.karatsuba
+
+WINDOW = 4
+TABLE = 16
+WINDOW_FROM = 64
+
+Modulus = Box {
+    n = [],
+    size = 0,
+    mu = [],
+    math = magnitude.Magnitude {},
+    fast = karatsuba.Karatsuba {},
+    shell = bignum.Big {}
+
+    skill made_for(digits) {
+        @clean = math.trimmed(digits)
+        (math.order(clean, [3]) < 0) {
+            out error.ModulusTooSmall
+        }
+        @k = group.count(clean)
+        @parts = math.split(math.shifted([1], 2 * k), clean)
+        out Modulus {
+            n = clean,
+            size = k,
+            mu = group.get(parts, 0)
+        }
+    }
+
+    skill product(a, b) {
+        @made = fast.multiplied(shell.made(a, no), shell.made(b, no))
+        out made.digits
+    }
+
+    skill low(x, places) {
+        (group.count(x) > places) {
+            out math.trimmed(group.slice(x, 0, places))
+        }
+        out x
+    }
+
+    skill reduced(x) {
+        (math.order(x, n) < 0) {
+            out x
+        }
+        (group.count(x) > size * 2) {
+            out group.get(math.split(x, n), 1)
+        }
+        @q1 = group.slice(x, size - 1, group.count(x))
+        @q2 = product(q1, mu)
+        @q3 = []
+        (group.count(q2) > size + 1) {
+            q3 = group.slice(q2, size + 1, group.count(q2))
+        }
+        @r1 = low(x, size + 1)
+        @r2 = low(product(q3, n), size + 1)
+        (math.order(r1, r2) < 0) {
+            r1 = math.sum(r1, math.shifted([1], size + 1))
+        }
+        @r = math.difference(r1, r2)
+        drum (3) {
+            (math.order(r, n) < 0) {
+                leave
+            }
+            r = math.difference(r, n)
+        }
+        out r
+    }
+
+    skill multiplied_mod(a, b) {
+        out reduced(product(a, b))
+    }
+
+    skill raised_mod(base, exponent) {
+        @start = reduced(base)
+        @top = math.bits(exponent)
+        (top < WINDOW_FROM) {
+            @result = [1]
+            drum (top) {
+                result = multiplied_mod(result, result)
+                (math.bit(exponent, top - 1 - beat) == 1) {
+                    result = multiplied_mod(result, start)
+                }
+            }
+            out reduced(result)
+        }
+        @table = [[1]]
+        drum (TABLE - 1) {
+            table = group.add(table, multiplied_mod(group.get(table, beat), start))
+        }
+        @steps = (top + WINDOW - 1) / WINDOW
+        @result = [1]
+        drum (steps) {
+            @place = (steps - 1 - beat) * WINDOW
+            @window = 0
+            drum (WINDOW) {
+                result = multiplied_mod(result, result)
+                window = window * 2 + math.bit(exponent, place + WINDOW - 1 - beat)
+            }
+            (window > 0) {
+                result = multiplied_mod(result, group.get(table, window))
+            }
+        }
+        out result
+    }
+}

@@ -1,0 +1,86 @@
+-- rsa — подпись RSA по RFC 8017 с SHA-256: проверка RSASSA-PKCS1-v1_5 и
+-- RSASSA-PSS открытым ключом (n, e); подпись — закрытым ключом (ребёнок
+-- private). Ключи и подписи — байты core.bytes, старший первым (как в DER и
+-- JWK). Не за постоянное время: ход и время зависят от ключа и подписи —
+-- для подписи на общей с чужими машине не годится. Ключи не создаёт: их
+-- дают снаружи.
+--
+-- PublicKey { n, e, size, bits, reducer } — открытый ключ; n и e — цифры
+--     bignum; size — байт в n, bits — бит в n, reducer — modulus.Modulus:
+--     public_from(n_bytes, e_bytes) -> PublicKey из байтов n и e;
+--         ModulusTooSmall
+--     verified(message, signature) -> yes — RSASSA-PKCS1-v1_5;
+--         WrongSignatureLength, SignatureOutOfRange, SignatureMismatch
+--     verified_pss(message, signature, salt_size) -> yes — RSASSA-PSS, соль
+--         salt_size байт; те же ошибки
+--     opened(signature) -> цифры s^e mod n (RSAVP1) после проверок длины и s < n
+-- Дети: private — PrivateKey (подпись), modulus — степень по модулю
+--     (Барретт + Карацуба), pkcs1 и pss — кодирование EM, octets — байты ↔ число.
+--
+-- Пример: @key = rsa.PublicKey {}
+--         key = key.public_from(n_bytes, e_bytes)
+--         key.verified(message, signature) rescue |err| { … }
+
+use core.bytes
+use tarantul.bignum.magnitude
+use tarantul.sha256.sha256
+use modulus
+use octets
+use pkcs1
+use pss
+
+PublicKey = Box {
+    n = [],
+    e = [],
+    size = 0,
+    bits = 0,
+    reducer = modulus.Modulus {},
+    math = magnitude.Magnitude {},
+    hash = sha256.Sha256 {},
+    convert = octets.Octets {}
+
+    skill public_from(n_bytes, e_bytes) {
+        @digits = convert.number(n_bytes)
+        @made = reducer.made_for(digits)
+        @top = math.bits(digits)
+        out PublicKey {
+            n = made.n,
+            e = convert.number(e_bytes),
+            size = (top + 7) / 8,
+            bits = top,
+            reducer = made
+        }
+    }
+
+    skill opened(signature) {
+        ((bytes.count(signature) == size) == no) {
+            out error.WrongSignatureLength
+        }
+        @s = convert.number(signature)
+        ((math.order(s, n) < 0) == no) {
+            out error.SignatureOutOfRange
+        }
+        out reducer.raised_mod(s, e)
+    }
+
+    skill verified(message, signature) {
+        @m = opened(signature)
+        @expected = pkcs1.Pkcs1 {}
+        @wanted = expected.framed(hash.digest(message), size)
+        @got = convert.written(m, size)
+        (convert.same(got, wanted) == no) {
+            out error.SignatureMismatch
+        }
+        out yes
+    }
+
+    skill verified_pss(message, signature, salt_size) {
+        @m = opened(signature)
+        @coder = pss.Pss {}
+        (math.bits(m) > bits - 1) {
+            out error.SignatureMismatch
+        }
+        @got = convert.written(m, (bits + 6) / 8)
+        out coder.checked(hash.digest(message), got, bits - 1, salt_size)
+    }
+}
