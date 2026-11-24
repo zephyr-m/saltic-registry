@@ -1,0 +1,188 @@
+-- aes — блочный шифр AES (FIPS 197): блок 16 байт, ключ 16 байт (AES-128,
+-- 10 раундов) или 32 байта (AES-256, 14 раундов). Сначала schedule(key) —
+-- раундовые ключи, потом ими encrypt / decrypt блоков. Байты — core.bytes,
+-- состояние — по столбцам, как в стандарте (байт r + 4·c). Реализация
+-- таблицами (S-блок по индексу байта): не за постоянное время, от атак по
+-- времени (кэш) не защищена. Жильцы пакета: aes (блок), ctr (режим
+-- счётчика), ghash (подпись GCM), gcm (шифр с подписью, лицо как у chacha.Aead).
+--
+-- Aes {} — schedule(key) -> раундовые ключи, 16 · (раунды + 1) байт; BadKeySize
+--     encrypt(keys, block) / decrypt(keys, block) -> 16 байт; BadBlockSize
+--     Внутри: substituted(state, table, step) — S-блок и сдвиг строк на step
+--     (1 — вперёд, 3 — назад); mixed_columns / unmixed_columns(state);
+--     keyed(state, keys, round) — xor с раундовым ключом; doubled(a) — a · 2
+--     в GF(2^8)
+-- SBOX / INVERSE — S-блок и обратный (FIPS 197, 5.1.1 и 5.3.2); ROUND — Rcon
+
+use core.num
+use core.bytes
+use core.group
+
+ROUND = [1, 2, 4, 8, 16, 32, 64, 128, 27, 54]
+SBOX = [
+    99, 124, 119, 123, 242, 107, 111, 197, 48, 1, 103, 43, 254, 215, 171, 118,
+    202, 130, 201, 125, 250, 89, 71, 240, 173, 212, 162, 175, 156, 164, 114, 192,
+    183, 253, 147, 38, 54, 63, 247, 204, 52, 165, 229, 241, 113, 216, 49, 21,
+    4, 199, 35, 195, 24, 150, 5, 154, 7, 18, 128, 226, 235, 39, 178, 117,
+    9, 131, 44, 26, 27, 110, 90, 160, 82, 59, 214, 179, 41, 227, 47, 132,
+    83, 209, 0, 237, 32, 252, 177, 91, 106, 203, 190, 57, 74, 76, 88, 207,
+    208, 239, 170, 251, 67, 77, 51, 133, 69, 249, 2, 127, 80, 60, 159, 168,
+    81, 163, 64, 143, 146, 157, 56, 245, 188, 182, 218, 33, 16, 255, 243, 210,
+    205, 12, 19, 236, 95, 151, 68, 23, 196, 167, 126, 61, 100, 93, 25, 115,
+    96, 129, 79, 220, 34, 42, 144, 136, 70, 238, 184, 20, 222, 94, 11, 219,
+    224, 50, 58, 10, 73, 6, 36, 92, 194, 211, 172, 98, 145, 149, 228, 121,
+    231, 200, 55, 109, 141, 213, 78, 169, 108, 86, 244, 234, 101, 122, 174, 8,
+    186, 120, 37, 46, 28, 166, 180, 198, 232, 221, 116, 31, 75, 189, 139, 138,
+    112, 62, 181, 102, 72, 3, 246, 14, 97, 53, 87, 185, 134, 193, 29, 158,
+    225, 248, 152, 17, 105, 217, 142, 148, 155, 30, 135, 233, 206, 85, 40, 223,
+    140, 161, 137, 13, 191, 230, 66, 104, 65, 153, 45, 15, 176, 84, 187, 22
+]
+INVERSE = [
+    82, 9, 106, 213, 48, 54, 165, 56, 191, 64, 163, 158, 129, 243, 215, 251,
+    124, 227, 57, 130, 155, 47, 255, 135, 52, 142, 67, 68, 196, 222, 233, 203,
+    84, 123, 148, 50, 166, 194, 35, 61, 238, 76, 149, 11, 66, 250, 195, 78,
+    8, 46, 161, 102, 40, 217, 36, 178, 118, 91, 162, 73, 109, 139, 209, 37,
+    114, 248, 246, 100, 134, 104, 152, 22, 212, 164, 92, 204, 93, 101, 182, 146,
+    108, 112, 72, 80, 253, 237, 185, 218, 94, 21, 70, 87, 167, 141, 157, 132,
+    144, 216, 171, 0, 140, 188, 211, 10, 247, 228, 88, 5, 184, 179, 69, 6,
+    208, 44, 30, 143, 202, 63, 15, 2, 193, 175, 189, 3, 1, 19, 138, 107,
+    58, 145, 17, 65, 79, 103, 220, 234, 151, 242, 207, 206, 240, 180, 230, 115,
+    150, 172, 116, 34, 231, 173, 53, 133, 226, 249, 55, 232, 28, 117, 223, 110,
+    71, 241, 26, 113, 29, 41, 197, 137, 111, 183, 98, 14, 170, 24, 190, 27,
+    252, 86, 62, 75, 198, 210, 121, 32, 154, 219, 192, 254, 120, 205, 90, 244,
+    31, 221, 168, 51, 136, 7, 199, 49, 177, 18, 16, 89, 39, 128, 236, 95,
+    96, 81, 127, 169, 25, 181, 74, 13, 45, 229, 122, 159, 147, 201, 156, 239,
+    160, 224, 59, 77, 174, 42, 245, 176, 200, 235, 187, 60, 131, 83, 153, 97,
+    23, 43, 4, 126, 186, 119, 214, 38, 225, 105, 20, 99, 85, 33, 12, 125
+]
+
+Aes = Box {
+    skill doubled(a) {
+        @made = a * 2
+        (made > 255) {
+            made = num.xor(made, 283)
+        }
+        out made
+    }
+
+    skill schedule(key) {
+        @length = bytes.count(key)
+        (((length == 16) ○○ (length == 32)) == no) {
+            out error.BadKeySize
+        }
+        @words = length / 4
+        @total = 4 * (words + 7)
+        @keys = bytes.new(4 * total)
+        drum (length) {
+            bytes.set(keys, beat, bytes.get(key, beat))
+        }
+        drum (total - words) {
+            @index = words + beat
+            @at = 4 * index
+            @t0 = bytes.get(keys, at - 4)
+            @t1 = bytes.get(keys, at - 3)
+            @t2 = bytes.get(keys, at - 2)
+            @t3 = bytes.get(keys, at - 1)
+            ((index % words) == 0) {
+                @first = t0
+                t0 = num.xor(group.get(SBOX, t1), group.get(ROUND, index / words - 1))
+                t1 = group.get(SBOX, t2)
+                t2 = group.get(SBOX, t3)
+                t3 = group.get(SBOX, first)
+            }
+            ((words > 6) ○ ((index % words) == 4)) {
+                t0 = group.get(SBOX, t0)
+                t1 = group.get(SBOX, t1)
+                t2 = group.get(SBOX, t2)
+                t3 = group.get(SBOX, t3)
+            }
+            @back = at - length
+            bytes.set(keys, at, num.xor(bytes.get(keys, back), t0))
+            bytes.set(keys, at + 1, num.xor(bytes.get(keys, back + 1), t1))
+            bytes.set(keys, at + 2, num.xor(bytes.get(keys, back + 2), t2))
+            bytes.set(keys, at + 3, num.xor(bytes.get(keys, back + 3), t3))
+        }
+        out keys
+    }
+
+    skill keyed(state, keys, round) {
+        @base = 16 * round
+        drum (16) {
+            bytes.set(state, beat, num.xor(bytes.get(state, beat), bytes.get(keys, base + beat)))
+        }
+        out state
+    }
+
+    skill substituted(state, table, step) {
+        @made = bytes.new(16)
+        drum (16) {
+            @row = beat % 4
+            @column = (beat / 4 + step * row) % 4
+            bytes.set(made, beat, group.get(table, bytes.get(state, row + 4 * column)))
+        }
+        out made
+    }
+
+    skill mixed_columns(state) {
+        drum (4) {
+            @at = 4 * beat
+            @a0 = bytes.get(state, at)
+            @a1 = bytes.get(state, at + 1)
+            @a2 = bytes.get(state, at + 2)
+            @a3 = bytes.get(state, at + 3)
+            @all = num.xor(num.xor(a0, a1), num.xor(a2, a3))
+            bytes.set(state, at, num.xor(num.xor(a0, all), doubled(num.xor(a0, a1))))
+            bytes.set(state, at + 1, num.xor(num.xor(a1, all), doubled(num.xor(a1, a2))))
+            bytes.set(state, at + 2, num.xor(num.xor(a2, all), doubled(num.xor(a2, a3))))
+            bytes.set(state, at + 3, num.xor(num.xor(a3, all), doubled(num.xor(a3, a0))))
+        }
+        out state
+    }
+
+    skill unmixed_columns(state) {
+        drum (4) {
+            @at = 4 * beat
+            @even = doubled(doubled(num.xor(bytes.get(state, at), bytes.get(state, at + 2))))
+            @odd = doubled(doubled(num.xor(bytes.get(state, at + 1), bytes.get(state, at + 3))))
+            bytes.set(state, at, num.xor(bytes.get(state, at), even))
+            bytes.set(state, at + 1, num.xor(bytes.get(state, at + 1), odd))
+            bytes.set(state, at + 2, num.xor(bytes.get(state, at + 2), even))
+            bytes.set(state, at + 3, num.xor(bytes.get(state, at + 3), odd))
+        }
+        out mixed_columns(state)
+    }
+
+    skill encrypt(keys, block) {
+        ((bytes.count(block) == 16) == no) {
+            out error.BadBlockSize
+        }
+        @rounds = bytes.count(keys) / 16 - 1
+        @state = bytes.new(16)
+        drum (16) {
+            bytes.set(state, beat, bytes.get(block, beat))
+        }
+        state = keyed(state, keys, 0)
+        drum (rounds - 1) {
+            state = mixed_columns(substituted(state, SBOX, 1))
+            state = keyed(state, keys, beat + 1)
+        }
+        out keyed(substituted(state, SBOX, 1), keys, rounds)
+    }
+
+    skill decrypt(keys, block) {
+        ((bytes.count(block) == 16) == no) {
+            out error.BadBlockSize
+        }
+        @rounds = bytes.count(keys) / 16 - 1
+        @state = bytes.new(16)
+        drum (16) {
+            bytes.set(state, beat, bytes.get(block, beat))
+        }
+        state = keyed(state, keys, rounds)
+        drum (rounds - 1) {
+            state = keyed(substituted(state, INVERSE, 3), keys, rounds - 1 - beat)
+            state = unmixed_columns(state)
+        }
+        out keyed(substituted(state, INVERSE, 3), keys, 0)
+    }
+}

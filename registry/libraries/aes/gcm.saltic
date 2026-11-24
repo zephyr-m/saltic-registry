@@ -1,0 +1,91 @@
+-- gcm — шифр с подписью AES-GCM (NIST SP 800-38D): лицо — как у
+-- chacha.Aead (seal / open с теми же параметрами), шифры подменяются.
+-- Ключ 16 или 32 байта; номер (IV) — 12 байт по стандарту (J0 = IV ‖ 0001),
+-- другой длины — через GHASH (раздел 7.1); текст — CTR с J0 + 1, растут
+-- младшие 4 байта; тег 16 байт = E(K, J0) xor GHASH(H, aad, шифр).
+-- open проверяет тег раньше, чем расшифровывать; сравнение — без раннего
+-- выхода. Блок AES — таблицами, не за постоянное время.
+--
+-- Gcm { engine, flow, mac } — aes.Aes, ctr.Ctr, ghash.Ghash
+--     seal(key, nonce, aad, text) -> шифротекст и 16 байт тега в конце;
+--     BadKeySize, BadNonce (пустой номер)
+--     open(key, nonce, aad, sealed) -> текст; Forged — тег не сошёлся
+--     (подделка, чужой ключ, номер или aad), BadKeySize, BadNonce
+--     prepared(key, nonce) -> [раундовые ключи, H, J0]
+--     tag_of(ready, aad, cipher) -> 16 байт тега
+-- Forged — подделка или чужой ключ
+
+use core.num
+use core.bytes
+use core.group
+use aes
+use ctr
+use ghash
+
+Gcm = Box {
+    engine = aes.Aes {},
+    flow = ctr.Ctr {},
+    mac = ghash.Ghash {}
+
+    skill prepared(key, nonce) {
+        (bytes.count(nonce) == 0) {
+            out error.BadNonce
+        }
+        @keys = engine.schedule(key)
+        @h = engine.encrypt(keys, bytes.new(16))
+        (bytes.count(nonce) == 12) {
+            @start = bytes.new(16)
+            drum (12) {
+                bytes.set(start, beat, bytes.get(nonce, beat))
+            }
+            bytes.set(start, 15, 1)
+            out [keys, h, start]
+        }
+        out [keys, h, mac.ghashed(h, bytes.new(0), nonce)]
+    }
+
+    skill tag_of(ready, aad, cipher) {
+        @mask = engine.encrypt(group.get(ready, 0), group.get(ready, 2))
+        @hash = mac.ghashed(group.get(ready, 1), aad, cipher)
+        @made = bytes.new(16)
+        drum (16) {
+            bytes.set(made, beat, num.xor(bytes.get(mask, beat), bytes.get(hash, beat)))
+        }
+        out made
+    }
+
+    skill seal(key, nonce, aad, text) {
+        @ready = prepared(key, nonce)
+        @first = flow.stepped(group.get(ready, 2), 4)
+        @cipher = flow.flowed(group.get(ready, 0), first, text, 4)
+        @tag = tag_of(ready, aad, cipher)
+        @size = bytes.count(cipher)
+        @made = bytes.new(size + 16)
+        drum (size) {
+            bytes.set(made, beat, bytes.get(cipher, beat))
+        }
+        drum (16) {
+            bytes.set(made, size + beat, bytes.get(tag, beat))
+        }
+        out made
+    }
+
+    skill open(key, nonce, aad, sealed) {
+        @ready = prepared(key, nonce)
+        @size = bytes.count(sealed) - 16
+        (size < 0) {
+            out error.Forged
+        }
+        @cipher = bytes.slice(sealed, 0, size)
+        @tag = tag_of(ready, aad, cipher)
+        @difference = 0
+        drum (16) {
+            difference = num.or(difference, num.xor(bytes.get(tag, beat), bytes.get(sealed, size + beat)))
+        }
+        ((difference == 0) == no) {
+            out error.Forged
+        }
+        @first = flow.stepped(group.get(ready, 2), 4)
+        out flow.flowed(group.get(ready, 0), first, cipher, 4)
+    }
+}

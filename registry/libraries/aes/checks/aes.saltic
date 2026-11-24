@@ -1,0 +1,141 @@
+-- aes — проверка блока, CTR и GCM (cases.saltic, делает
+-- workbench/references/aes.py — свой AES на Python, сверенный с FIPS 197,
+-- SP 800-38A и векторами GCM McGrew–Viega): блок — шифр и обратно, CTR —
+-- поток, GCM — seal и open своего же ответа. Плюс ошибки: испорченный тег,
+-- шифротекст, чужой aad, номер или ключ, обрезок короче тега — Forged; ключ
+-- 24 байта — BadKeySize; блок 15 байт — BadBlockSize; счётчик 8 байт —
+-- BadCounter; пустой номер — BadNonce.
+--
+-- Probe { engine, flow, box, text } — text — hex.Hex (tarantul.hex)
+--     check(row) -> yes, если случай сошёлся; caught(kind) -> имя ошибки
+--     испорченного вызова kind или «нет»
+-- program() -> none; TestsFailed
+
+use io
+use core.num
+use core.bytes
+use core.group
+use craft.testing
+use aes
+use ctr
+use gcm
+use checks.cases
+use tarantul.hex.hex
+
+KEY = "000102030405060708090a0b0c0d0e0f"
+NONCE = "cafebabefacedbaddecaf888"
+AAD = "feedfacedeadbeef"
+TEXT = "48656c6c6f2c2053616c74696321"
+
+Probe = Box {
+    engine = aes.Aes {},
+    flow = ctr.Ctr {},
+    box = gcm.Gcm {},
+    text = hex.Hex {}
+
+    skill check(row) {
+        @kind = group.get(row, 0)
+        @key = text.decode(group.get(row, 1))
+        (kind == "block") {
+            @keys = engine.schedule(key)
+            @there = text.encode(engine.encrypt(keys, text.decode(group.get(row, 2))))
+            @back = text.encode(engine.decrypt(keys, text.decode(group.get(row, 3))))
+            out (there == group.get(row, 3)) ○ (back == group.get(row, 2))
+        }
+        (kind == "ctr") {
+            @made = flow.crypt(key, text.decode(group.get(row, 2)), text.decode(group.get(row, 3)))
+            out (text.encode(made) == group.get(row, 4))
+        }
+        @nonce = text.decode(group.get(row, 2))
+        @aad = text.decode(group.get(row, 3))
+        @sealed = box.seal(key, nonce, aad, text.decode(group.get(row, 4)))
+        @opened = box.open(key, nonce, aad, text.decode(group.get(row, 5))) rescue |err| {
+            io.show("  open: {err}")
+            bytes.new(0)
+        }
+        out (text.encode(sealed) == group.get(row, 5)) ○ (text.encode(opened) == group.get(row, 4))
+    }
+
+    skill caught(kind) {
+        @key = text.decode(KEY)
+        @nonce = text.decode(NONCE)
+        @aad = text.decode(AAD)
+        @sealed = box.seal(key, nonce, aad, text.decode(TEXT))
+        @name = "нет"
+        (kind == "tag") {
+            bytes.set(sealed, 15, num.xor(bytes.get(sealed, 15), 128))
+        }
+        (kind == "cipher") {
+            bytes.set(sealed, 0, num.xor(bytes.get(sealed, 0), 1))
+        }
+        (kind == "aad") {
+            aad = text.decode("feedfacedeadbeee")
+        }
+        (kind == "nonce") {
+            nonce = text.decode("cafebabefacedbaddecaf889")
+        }
+        (kind == "key") {
+            key = text.decode("000102030405060708090a0b0c0d0e0e")
+        }
+        (kind == "short") {
+            sealed = text.decode("00112233445566778899aabbccddee")
+        }
+        (kind == "empty_nonce") {
+            nonce = bytes.new(0)
+        }
+        (kind == "key_size") {
+            engine.schedule(bytes.new(24)) rescue |err| {
+                name = "{err}"
+            }
+            out name
+        }
+        (kind == "block_size") {
+            engine.encrypt(engine.schedule(key), bytes.new(15)) rescue |err| {
+                name = "{err}"
+            }
+            out name
+        }
+        (kind == "counter") {
+            flow.crypt(key, bytes.new(8), sealed) rescue |err| {
+                name = "{err}"
+            }
+            out name
+        }
+        @opened = box.open(key, nonce, aad, sealed) rescue |err| {
+            name = "{err}"
+            bytes.new(0)
+        }
+        ((name == "нет") ○ ((text.encode(opened) == TEXT) == no)) {
+            name = "другой текст"
+        }
+        out name
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @wrong = 0
+    drum (cases.CASES) {
+        (probe.check(beat) == no) {
+            wrong = wrong + 1
+            @kind = group.get(beat, 0)
+            io.show("  расхождение {kind}")
+        }
+    }
+    @count = group.count(cases.CASES)
+    io.show("aes: случаев {count}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "как у эталона", wrong, 0)
+    suite = testing.test_equal(suite, "свой seal открывается", probe.caught("none"), "нет")
+    suite = testing.test_equal(suite, "испорченный тег — Forged", probe.caught("tag"), "Forged")
+    suite = testing.test_equal(suite, "испорченный шифротекст — Forged", probe.caught("cipher"), "Forged")
+    suite = testing.test_equal(suite, "чужой aad — Forged", probe.caught("aad"), "Forged")
+    suite = testing.test_equal(suite, "чужой номер — Forged", probe.caught("nonce"), "Forged")
+    suite = testing.test_equal(suite, "чужой ключ — Forged", probe.caught("key"), "Forged")
+    suite = testing.test_equal(suite, "короче тега — Forged", probe.caught("short"), "Forged")
+    suite = testing.test_equal(suite, "пустой номер — BadNonce", probe.caught("empty_nonce"), "BadNonce")
+    suite = testing.test_equal(suite, "ключ 24 байта — BadKeySize", probe.caught("key_size"), "BadKeySize")
+    suite = testing.test_equal(suite, "блок 15 байт — BadBlockSize", probe.caught("block_size"), "BadBlockSize")
+    suite = testing.test_equal(suite, "счётчик 8 байт — BadCounter", probe.caught("counter"), "BadCounter")
+    out testing.test_finish(suite)
+}

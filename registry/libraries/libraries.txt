@@ -36,3 +36,4 @@ karatsuba  registry/libraries/karatsuba/karatsuba
 cordic     registry/libraries/cordic/cordic
 sha1       registry/libraries/sha1/sha1
 blake3     registry/libraries/blake3/blake3
+aes        registry/libraries/aes/aes

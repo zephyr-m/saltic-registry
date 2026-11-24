@@ -1,0 +1,96 @@
+-- ghash — подпись GHASH для GCM (NIST SP 800-38D, 6.3–6.4): умножение в
+-- GF(2^128) по многочлену x^128 + x^7 + x^2 + x + 1, биты блока — старший
+-- бит байта 0 первым (порядок GCM). Множитель держится четырьмя словами по
+-- 32 бита — обычные числа: 64-битные цели. Не за постоянное время.
+--
+-- Ghash {} — ghashed(h, aad, cipher) -> 16 байт: GHASH над aad и cipher
+--     (каждый дополнен нулями до 16 байт) и их длинами в битах (по 8 байт)
+--     absorbed(y, h, data) -> y после всех блоков data; field_product(x, h)
+--     -> x · h; word(buffer, at) -> 4 байта старшим вперёд как число;
+--     placed(buffer, at, value) -> buffer со словом value старшим вперёд с at
+-- REDUCE — 0xe1000000: старшее слово R из стандарта
+
+use core.num
+use core.bytes
+
+REDUCE = 3774873600
+
+Ghash = Box {
+    skill word(buffer, at) {
+        out ((bytes.get(buffer, at) * 256 + bytes.get(buffer, at + 1)) * 256 + bytes.get(buffer, at + 2)) * 256 + bytes.get(buffer, at + 3)
+    }
+
+    skill placed(buffer, at, value) {
+        @rest = value
+        drum (4) {
+            bytes.set(buffer, at + 3 - beat, rest % 256)
+            rest = rest / 256
+        }
+        out buffer
+    }
+
+    skill field_product(x, h) {
+        @v0 = word(h, 0)
+        @v1 = word(h, 4)
+        @v2 = word(h, 8)
+        @v3 = word(h, 12)
+        @z0 = 0
+        @z1 = 0
+        @z2 = 0
+        @z3 = 0
+        drum (128) {
+            @value = bytes.get(x, beat / 8)
+            (num.bit(value, 7 - beat % 8) == yes) {
+                z0 = num.xor(z0, v0)
+                z1 = num.xor(z1, v1)
+                z2 = num.xor(z2, v2)
+                z3 = num.xor(z3, v3)
+            }
+            @low = num.and(v3, 1)
+            v3 = num.shift_right(v3, 1) + num.and(v2, 1) * 2147483648
+            v2 = num.shift_right(v2, 1) + num.and(v1, 1) * 2147483648
+            v1 = num.shift_right(v1, 1) + num.and(v0, 1) * 2147483648
+            v0 = num.shift_right(v0, 1)
+            (low == 1) {
+                v0 = num.xor(v0, REDUCE)
+            }
+        }
+        @made = placed(bytes.new(16), 0, z0)
+        made = placed(made, 4, z1)
+        made = placed(made, 8, z2)
+        out placed(made, 12, z3)
+    }
+
+    skill absorbed(y, h, data) {
+        @size = bytes.count(data)
+        @current = y
+        drum ((size + 15) / 16) {
+            @base = beat * 16
+            @block = bytes.new(16)
+            drum (16) {
+                @at = base + beat
+                bytes.set(block, beat, bytes.get(current, beat))
+                (at < size) {
+                    bytes.set(block, beat, num.xor(bytes.get(current, beat), bytes.get(data, at)))
+                }
+            }
+            current = field_product(block, h)
+        }
+        out current
+    }
+
+    skill ghashed(h, aad, cipher) {
+        @lengths = bytes.new(16)
+        @aad_bits = bytes.count(aad) * 8
+        @text_bits = bytes.count(cipher) * 8
+        drum (8) {
+            bytes.set(lengths, 7 - beat, aad_bits % 256)
+            bytes.set(lengths, 15 - beat, text_bits % 256)
+            aad_bits = aad_bits / 256
+            text_bits = text_bits / 256
+        }
+        @y = absorbed(bytes.new(16), h, aad)
+        y = absorbed(y, h, cipher)
+        out absorbed(y, h, lengths)
+    }
+}

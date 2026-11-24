@@ -1,0 +1,58 @@
+-- ctr — режим счётчика AES (NIST SP 800-38A, 6.5): поток — шифры блоков
+-- счётчика, текст xor поток; шифрование и расшифровка — одно и то же.
+-- Счётчик — 16 байт, старшим вперёд; crypt прибавляет единицу ко всему блоку
+-- (по кругу 2^128), GCM — только к младшим 4 байтам (width = 4).
+--
+-- Ctr { engine } — engine — aes.Aes
+--     crypt(key, counter, data) -> data xor поток; BadKeySize, BadCounter
+--     flowed(keys, counter, data, width) -> то же по готовым раундовым ключам,
+--     счётчик растёт в младших width байтах
+--     stepped(counter, width) -> счётчик + 1 в младших width байтах (новый буфер)
+
+use core.num
+use core.bytes
+use aes
+
+Ctr = Box {
+    engine = aes.Aes {}
+
+    skill stepped(counter, width) {
+        @made = bytes.new(16)
+        drum (16) {
+            bytes.set(made, beat, bytes.get(counter, beat))
+        }
+        @carry = 1
+        drum (width) {
+            @at = 15 - beat
+            @value = bytes.get(made, at) + carry
+            bytes.set(made, at, value % 256)
+            carry = value / 256
+        }
+        out made
+    }
+
+    skill flowed(keys, counter, data, width) {
+        @size = bytes.count(data)
+        @made = bytes.new(size)
+        @current = counter
+        drum ((size + 15) / 16) {
+            @pad = engine.encrypt(keys, current)
+            @base = beat * 16
+            drum (16) {
+                @at = base + beat
+                (at < size) {
+                    bytes.set(made, at, num.xor(bytes.get(data, at), bytes.get(pad, beat)))
+                }
+            }
+            current = stepped(current, width)
+        }
+        out made
+    }
+
+    skill crypt(key, counter, data) {
+        ((bytes.count(counter) == 16) == no) {
+            out error.BadCounter
+        }
+        out flowed(engine.schedule(key), counter, data, 16)
+    }
+}
