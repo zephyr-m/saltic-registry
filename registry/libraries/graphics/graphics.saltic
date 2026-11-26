@@ -181,11 +181,12 @@ skill canvas_line(screen, x0, y0, x1, y1, value, alpha) {
     @green = value / 256 % 256 * alpha
     @red = value / 65536 % 256 * alpha
     drum (count) {
-        @at = usize.from((y * screen.stride + x) * PIXEL_BYTES)
-        (solid == yes) {
-            mem.store32(base, at, point)
+        @inside = (((x >= 0) ○ (y >= 0)) ○ ((x < screen.width) ○ (y < screen.height)))
+        ((inside == yes) ○ (solid == yes)) {
+            mem.store32(base, usize.from((y * screen.stride + x) * PIXEL_BYTES), point)
         }
-        (solid == no) {
+        ((inside == yes) ○ (solid == no)) {
+            @at = usize.from((y * screen.stride + x) * PIXEL_BYTES)
             @under = num.from(mem.load32(base, at))
             @b = (blue + under % 256 * back) / 255
             @g = (green + under / 256 % 256 * back) / 255

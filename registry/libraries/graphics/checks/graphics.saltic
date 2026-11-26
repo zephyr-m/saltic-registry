@@ -3,7 +3,7 @@
 -- диагональ — 16 точек, отрезок (2, 3)–(12, 7) — 11 точек и оба конца,
 -- квадрат 8 × 8 — 64 точки, прямоугольный треугольник с катетами 16 — 120
 -- (центр точки внутри: x + y < 15), полупрозрачность — mix 50/50,
--- отрезок целиком за краем — ни одной точки.
+-- отрезок целиком за краем — ни одной точки, через край — 16 + 4 точки холста.
 --
 -- Canvas { screen } — холст: clear() — залить нулём; lit() -> сколько точек не ноль;
 --     at(x, y) -> точка
@@ -85,5 +85,9 @@ program() {
     graphics.canvas_line(screen, -40, -5, -2, -30, 255, 255)
     graphics.canvas_line(screen, 20, 3, 90, 9, 255, 255)
     suite = testing.test_equal(suite, "отрезок за краем — ни одной точки", canvas.lit(), 0)
+    canvas.clear()
+    graphics.canvas_line(screen, -5, 8, 20, 8, 255, 255)
+    graphics.canvas_line(screen, 3, -6, 3, 3, 255, 128)
+    suite = testing.test_equal(suite, "отрезки через край — только точки холста", canvas.lit(), 20)
     out testing.test_finish(suite)
 }
