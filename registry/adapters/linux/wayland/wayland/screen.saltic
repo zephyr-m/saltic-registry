@@ -17,6 +17,7 @@
 -- времени у них нет — 0). Время —
 -- из событий Wayland, мс. Жесты из них собирает программа (gestures.Reader).
 -- way_inside — указатель в окне (enter — yes, leave — no): свет-фонарик.
+-- Стрелку указателя показывает композитор: картинка и запрос — cursor.
 -- Внутри: typed(scan, shift) -> знак или ""; named(scan) -> имя клавиши из
 --     KEYS или ""; wheel_step(value) -> ±1
 
@@ -27,6 +28,7 @@ use core.process
 use core.socket
 use io
 use registry.adapters.linux.wayland.wayland.wire
+use registry.adapters.linux.wayland.wayland.cursor
 use registry.libraries.graphics.graphics
 use registry.libraries.input.events
 use registry.libraries.input.gestures
@@ -232,6 +234,7 @@ skill take(link, packet, count) {
             (opcode == 1) { link.way_inside = no }
             (opcode == 0) {
                 link.way_inside = yes
+                cursor.shown(link.way_fd, wire.get32(packet, at + 8))
                 (size >= 24) {
                     link.way_pointer_x = wire.get32(packet, at + 16) / 256
                     link.way_pointer_y = wire.get32(packet, at + 20) / 256
@@ -463,6 +466,10 @@ skill sized(name, width, height) {
     @address = socket.map(memfd, pixels)
     (address < 0) {
         io.show("память {address}")
+        out []
+    }
+    (cursor.made(fd) < 0) {
+        io.show("стрелка")
         out []
     }
     @face = graphics.Screen {

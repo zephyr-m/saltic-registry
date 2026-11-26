@@ -1,0 +1,105 @@
+-- cursor — стрелка указателя в окне Wayland: своя поверхность композитора с
+-- картинкой ARROW (белая с чёрной каймой, ARGB), которую композитор двигает
+-- сам, без кадра программы. Без неё композитор волен не показать указатель
+-- вовсе. Номера объектов — следующие после буфера окна (screen.BUFFER = 14):
+-- Wayland ждёт новые номера по порядку, поэтому made — после буфера окна.
+--
+-- made(fd) -> 0 или отрицательное: поверхность, пул, буфер и картинка стрелки
+-- shown(fd, serial) — показать стрелку (на каждом входе указателя в окно, serial
+--     — из события enter)
+-- sent(fd, buffer) -> 0 или отрицательное — запрос в сокет
+-- ARROW — строки картинки: «X» — кайма, «.» — заливка, пробел — прозрачно;
+-- WIDTH, HEIGHT — размер; SURFACE, POOL, BUFFER — номера объектов; COMPOSITOR,
+-- SHM, POINTER — номера из screen; ARGB — формат wl_shm
+
+use core.mem
+use core.str
+use core.u32
+use core.bytes
+use core.group
+use core.usize
+use core.socket
+use core.address
+use registry.adapters.linux.wayland.wayland.wire
+
+COMPOSITOR = 4
+SHM = 5
+POINTER = 11
+SURFACE = 15
+POOL = 16
+BUFFER = 17
+ARGB = 0
+WIDTH = 12
+HEIGHT = 19
+EDGE = 4278190080
+INSIDE = 4294967295
+ARROW = ["X", "XX", "X.X", "X..X", "X...X", "X....X", "X.....X", "X......X", "X.......X", "X........X", "X.........X", "X......XXXXX", "X...X..X", "X..XX..X", "X.X  X..X", "XX   X..X", "X     X..X", "      X..X", "       XX"]
+
+skill made(fd) {
+    @size = WIDTH * HEIGHT * 4
+    @memfd = socket.memory("saltic-cursor")
+    (memfd < 0) {
+        out memfd
+    }
+    (socket.resize(memfd, size) < 0) {
+        out -1
+    }
+    @memory = socket.map(memfd, size)
+    (memory < 0) {
+        out memory
+    }
+    @base = address.from(memory)
+    drum (HEIGHT) {
+        @row = group.get(ARROW, beat)
+        @y = beat
+        drum (WIDTH) {
+            @pixel = 0
+            (beat < str.bytes(row)) {
+                @mark = str.byte(row, beat)
+                (mark == 88) {
+                    pixel = EDGE
+                }
+                (mark == 46) {
+                    pixel = INSIDE
+                }
+            }
+            mem.store32(base, usize.from((y * WIDTH + beat) * 4), u32.from(pixel))
+        }
+    }
+    @surface = wire.request(COMPOSITOR, 0, 12)
+    wire.put32(surface, 8, SURFACE)
+    sent(fd, surface)
+    @pool = wire.request(SHM, 0, 16)
+    wire.put32(pool, 8, POOL)
+    wire.put32(pool, 12, size)
+    (socket.send(fd, pool, 16, memfd) < 0) {
+        out -1
+    }
+    @buffer = wire.request(POOL, 0, 32)
+    wire.put32(buffer, 8, BUFFER)
+    wire.put32(buffer, 16, WIDTH)
+    wire.put32(buffer, 20, HEIGHT)
+    wire.put32(buffer, 24, WIDTH * 4)
+    wire.put32(buffer, 28, ARGB)
+    sent(fd, buffer)
+    @attach = wire.request(SURFACE, 1, 20)
+    wire.put32(attach, 8, BUFFER)
+    sent(fd, attach)
+    @commit = wire.request(SURFACE, 6, 8)
+    out sent(fd, commit)
+}
+
+skill shown(fd, serial) {
+    @set = wire.request(POINTER, 0, 24)
+    wire.put32(set, 8, serial)
+    wire.put32(set, 12, SURFACE)
+    out sent(fd, set)
+}
+
+skill sent(fd, buffer) {
+    @written = socket.write(fd, buffer, bytes.count(buffer))
+    (written < 0) {
+        out written
+    }
+    out 0
+}
