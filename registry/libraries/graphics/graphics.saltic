@@ -50,15 +50,11 @@ skill color(screen, red, green, blue) {
 }
 
 skill mix(under, over, alpha) {
-    @result = 0
-    @scale = 1
-    drum (3) {
-        @low = under / scale % 256
-        @high = over / scale % 256
-        result = result + (high * alpha + low * (255 - alpha)) / 255 * scale
-        scale = scale * 256
-    }
-    out result
+    @back = 255 - alpha
+    @blue = (over % 256 * alpha + under % 256 * back) / 255
+    @green = (over / 256 % 256 * alpha + under / 256 % 256 * back) / 255
+    @red = (over / 65536 % 256 * alpha + under / 65536 % 256 * back) / 255
+    out red * 65536 + green * 256 + blue
 }
 
 skill blend(screen, x0, y0, width0, height0, value, alpha) {
@@ -80,12 +76,20 @@ skill blend(screen, x0, y0, width0, height0, value, alpha) {
     (y + height > screen.height) { height = screen.height - y }
     (width <= 0) { out none }
     (height <= 0) { out none }
+    @base = address.from(screen.memory)
+    @back = 255 - alpha
+    @blue = value % 256 * alpha
+    @green = value / 256 % 256 * alpha
+    @red = value / 65536 % 256 * alpha
     drum (height) {
         @row = ((y + beat) * screen.stride + x) * PIXEL_BYTES
         drum (width) {
             @at = usize.from(row + beat * PIXEL_BYTES)
-            @under = num.from(mem.load32(address.from(screen.memory), at))
-            mem.store32(address.from(screen.memory), at, u32.from(mix(under, value, alpha)))
+            @under = num.from(mem.load32(base, at))
+            @b = (blue + under % 256 * back) / 255
+            @g = (green + under / 256 % 256 * back) / 255
+            @r = (red + under / 65536 % 256 * back) / 255
+            mem.store32(base, at, u32.from(r * 65536 + g * 256 + b))
         }
     }
     out none
@@ -108,9 +112,11 @@ skill fill(screen, x0, y0, width0, height0, value) {
     (y + height > screen.height) { height = screen.height - y }
     (width <= 0) { out none }
     (height <= 0) { out none }
+    @base = address.from(screen.memory)
+    @point = u32.from(value)
     drum (height) {
         @row = ((y + beat) * screen.stride + x) * PIXEL_BYTES
-        drum (width) { mem.store32(address.from(screen.memory), usize.from(row + beat * PIXEL_BYTES), u32.from(value)) }
+        drum (width) { mem.store32(base, usize.from(row + beat * PIXEL_BYTES), point) }
     }
     out none
 }
@@ -167,8 +173,25 @@ skill canvas_line(screen, x0, y0, x1, y1, value, alpha) {
     @x = x0
     @y = y0
     @error = dx - dy
+    @base = address.from(screen.memory)
+    @solid = (alpha >= 255)
+    @point = u32.from(value)
+    @back = 255 - alpha
+    @blue = value % 256 * alpha
+    @green = value / 256 % 256 * alpha
+    @red = value / 65536 % 256 * alpha
     drum (count) {
-        canvas_dot(screen, x, y, value, alpha)
+        @at = usize.from((y * screen.stride + x) * PIXEL_BYTES)
+        (solid == yes) {
+            mem.store32(base, at, point)
+        }
+        (solid == no) {
+            @under = num.from(mem.load32(base, at))
+            @b = (blue + under % 256 * back) / 255
+            @g = (green + under / 256 % 256 * back) / 255
+            @r = (red + under / 65536 % 256 * back) / 255
+            mem.store32(base, at, u32.from(r * 65536 + g * 256 + b))
+        }
         @twice = error * 2
         (twice > 0 - dy) {
             error = error - dy
