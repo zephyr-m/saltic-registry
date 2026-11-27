@@ -1,4 +1,4 @@
--- exam — проверка экзамена (Mantis) им же самим: учебный экзамен trial с двумя
+-- mantis — проверка богомола им же самим: учебный экзамен trial с двумя
 -- сданными и двумя проваленными проверками — счётчики, провалы с именем,
 -- фактом и ожиданием, done() поднимает TestsFailed; пустой экзамен done()
 -- проходит; scratch без SALTIC_SCRATCH кладёт файл в .cache/build/tests.
@@ -7,11 +7,11 @@
 -- program() -> none; TestsFailed
 
 use core.group
-use registry.libraries.exam.exam
+use registry.libraries.mantis.mantis
 
 program() {
-    @sheet = exam.Exam {}
-    @trial = exam.Exam {}
+    @sheet = mantis.Exam {}
+    @trial = mantis.Exam {}
     trial.equal("учебная: два и два", 2 + 2, 4)
     trial.confirms("учебная: yes", yes)
     trial.equal("учебная: нарочно мимо", 3, 4)
@@ -26,7 +26,7 @@ program() {
     sheet.equal("провал: ожидание", miss.expected, 4)
     @verdict = trial.done() rescue |err| { err }
     sheet.confirms("с провалами done — TestsFailed", (verdict == error.TestsFailed))
-    @calm = exam.Exam {}
+    @calm = mantis.Exam {}
     sheet.equal("пустой экзамен проходит", calm.done(), none)
     sheet.equal("scratch без SALTIC_SCRATCH", sheet.scratch("a.txt"), ".cache/build/tests/a.txt")
     out sheet.done()
