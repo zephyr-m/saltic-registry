@@ -24,6 +24,7 @@ use tarantul.bignum.magnitude
 use tarantul.sha256.sha256
 use curve
 use nonce
+use modulus
 
 Ecdsa = Box {
     points = curve.Curve {},
@@ -104,7 +105,9 @@ Ecdsa = Box {
         @e = digest_number(message)
         @g = points.base()
         generator = nonce.Nonce {
-            scalars = scalars
+            scalars = modulus.Modulus {
+                value = scalars.value
+            }
         }
         generator.started(scalars.written(d), hash.digest(message))
         always {

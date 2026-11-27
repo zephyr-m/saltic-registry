@@ -21,6 +21,7 @@ use core.group
 use craft.testing
 use ecdsa
 use nonce
+use modulus
 use checks.cases
 use tarantul.hex.hex
 
@@ -40,7 +41,9 @@ Probe = Box {
         @scalars = points.scalars
         @hash = sign.hash
         nonces = nonce.Nonce {
-            scalars = scalars
+            scalars = modulus.Modulus {
+                value = scalars.value
+            }
         }
         nonces.started(secret, hash.digest(message))
         @k = nonces.drawn()
