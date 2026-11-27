@@ -1,0 +1,91 @@
+-- mantis — богомол: экзамен программы, на нём стоят проверки языка, реестра и
+-- soft. Каждая проверка печатает «имя -> значение  [ok]» или «имя -> значение
+-- [FAIL] (ожидалось …)»; итог — «итог: пройдено N, провалено M» и список
+-- провалов. Формат строк читают раннер тестов языка и global-check — не менять.
+-- Наследник craft.testing (23.08.2026): Exam — хозяин своих навыков (СОП),
+-- результат не нужно присваивать обратно.
+--
+-- Exam { passed, failed, failures } — сдано, провалено, провалы [Failure…]
+--     equal(name, actual, expected) — проверка равенства
+--     confirms(name, actual) / denies(name, actual) — значение yes / no
+--     done() — итог и список провалов; TestsFailed, если есть провалы
+--     scratch(name) -> путь временного файла: папка SALTIC_SCRATCH (своя у
+--         прогона, чтобы параллельные цели не затирали друг друга) или
+--         .cache/build/tests
+-- Failure { name, actual, expected } — провал
+-- Внутри: passed_one(name, actual), failed_one(name, actual, expected)
+
+use core.str
+use core.group
+use core.process
+use io
+
+SCRATCH = "SALTIC_SCRATCH="
+
+Failure = Box {
+    name = "",
+    actual = none,
+    expected = none
+}
+
+Exam = Box {
+    passed = 0,
+    failed = 0,
+    failures = []
+
+    skill passed_one(name, actual) {
+        passed = passed + 1
+        io.show("{name} -> {actual}  [ok]")
+        out none
+    }
+
+    skill failed_one(name, actual, expected) {
+        failed = failed + 1
+        failures = group.add(failures, Failure { name = name, actual = actual, expected = expected })
+        io.show("{name} -> {actual}  [FAIL] (ожидалось {expected})")
+        out none
+    }
+
+    skill equal(name, actual, expected) {
+        (actual == expected) {
+            out passed_one(name, actual)
+        }
+        out failed_one(name, actual, expected)
+    }
+
+    skill confirms(name, actual) {
+        (actual == yes) {
+            out passed_one(name, actual)
+        }
+        out failed_one(name, actual, yes)
+    }
+
+    skill denies(name, actual) {
+        (actual == no) {
+            out passed_one(name, actual)
+        }
+        out failed_one(name, actual, no)
+    }
+
+    skill done() {
+        io.show("итог: пройдено {passed}, провалено {failed}")
+        (failed == 0) {
+            out none
+        }
+        io.show("проваленные проверки:")
+        drum (failures) {
+            io.show("- {beat.name} -> {beat.actual}  [FAIL] (ожидалось {beat.expected})")
+        }
+        out error.TestsFailed
+    }
+
+    skill scratch(name) {
+        drum (process.environment()) {
+            (str.starts_with(beat, SCRATCH) == yes) {
+                @folder = str.slice(beat, str.bytes(SCRATCH), str.bytes(beat))
+                out "{folder}/{name}"
+            }
+        }
+        out ".cache/build/tests/{name}"
+    }
+}
