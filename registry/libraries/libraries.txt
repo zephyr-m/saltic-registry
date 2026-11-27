@@ -41,3 +41,4 @@ rsa        registry/libraries/rsa/rsa
 dh         registry/libraries/dh/dh
 ecdsa      registry/libraries/ecdsa/ecdsa
 mantis     registry/libraries/mantis/mantis
+luciola    registry/libraries/luciola/luciola
