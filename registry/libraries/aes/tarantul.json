@@ -2,6 +2,6 @@
   "project": "aes",
   "catalog": {"from": "git@github.com:zephyr-m/saltic-registry.git"},
   "packages": {
-    "hex": "1"
+    "hex": "2"
   }
 }

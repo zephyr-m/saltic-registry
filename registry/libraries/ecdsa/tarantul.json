@@ -4,6 +4,6 @@
   "packages": {
     "bignum": "4",
     "sha256": "3",
-    "hex": "1"
+    "hex": "2"
   }
 }
