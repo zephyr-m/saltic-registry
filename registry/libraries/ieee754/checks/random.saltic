@@ -43,7 +43,7 @@ Sweep = Box {
     skill run(suite, path, layout, name) {
         @wrong = 0
         @total = 0
-        drum (str.lines(file.read(path))) {
+        drum (group.without(str.lines(file.read(path)), "")) {
             @parts = str.split(beat, " ")
             @op = group.get(parts, 0)
             @expected = group.get(parts, 3)

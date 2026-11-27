@@ -94,10 +94,7 @@ Named = Box {
             drum (str.bytes(line)) {
                 @at = beat
                 ((str.byte(line, at) == SPACE) == no) {
-                    @value = num.hex_value(str.get(line, at))
-                    (value < 0) {
-                        out error.BadHex
-                    }
+                    @value = num.hex_value(str.get(line, at)) rescue |err| { out error.BadHex }
                     digits = math.sum(math.scaled(digits, 16), math.of(value))
                 }
             }

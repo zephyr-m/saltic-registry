@@ -9,8 +9,7 @@
 -- read_jtml(source) -> Value корня
 -- read_value / read_object / read_array / read_words / read_amount(source, at) -> Step; InvalidJtml
 -- skip_space(source, at) -> позиция первого непробела
--- replaced(text, needle, with) -> text, где каждый needle заменён на with (str.split
---     выбрасывает пустые куски и для замены не годится)
+-- replaced(text, needle, with) -> text, где каждый needle заменён на with
 
 use core.str
 use core.num

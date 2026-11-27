@@ -60,7 +60,6 @@ SIGN = 2147483648
 LETTERS = [[2, "1", "!"], [3, "2", "@"], [4, "3", "#"], [5, "4", "$"], [6, "5", "%"], [7, "6", "^"], [8, "7", "&"], [9, "8", "*"], [10, "9", "("], [11, "0", ")"], [12, "-", "_"], [13, "=", "+"], [14, "⌫", "⌫"], [15, "\t", "\t"], [16, "q", "Q"], [17, "w", "W"], [18, "e", "E"], [19, "r", "R"], [20, "t", "T"], [21, "y", "Y"], [22, "u", "U"], [23, "i", "I"], [24, "o", "O"], [25, "p", "P"], [26, "[", "\{"], [27, "]", "\}"], [28, "\n", "\n"], [30, "a", "A"], [31, "s", "S"], [32, "d", "D"], [33, "f", "F"], [34, "g", "G"], [35, "h", "H"], [36, "j", "J"], [37, "k", "K"], [38, "l", "L"], [39, ";", ":"], [40, "'", "\""], [41, "`", "~"], [43, "\\", "|"], [44, "z", "Z"], [45, "x", "X"], [46, "c", "C"], [47, "v", "V"], [48, "b", "B"], [49, "n", "N"], [50, "m", "M"], [51, ",", "<"], [52, ".", ">"], [53, "/", "?"], [57, " ", " "]]
 KEYS = [[103, "up"], [105, "left"], [106, "right"], [108, "down"], [102, "home"], [107, "end"], [111, "delete"], [104, "page_up"], [109, "page_down"], [1, "escape"], [59, "f1"], [60, "f2"], [61, "f3"], [62, "f4"], [63, "f5"], [64, "f6"], [65, "f7"], [66, "f8"], [67, "f9"], [68, "f10"], [87, "f11"], [88, "f12"]]
 MINIMIZE = 13
-NO_DATA = -11
 STREAM = 2049
 
 Link = Box {
@@ -155,7 +154,7 @@ skill unix_address(path) {
 }
 
 skill send_buffer(fd, buffer) {
-    out socket.write(fd, buffer, bytes.count(buffer))
+    out socket.write(fd, buffer, bytes.count(buffer)) rescue |err| { -1 }
 }
 
 skill bind(fd, name, interface, version, id) {
@@ -197,7 +196,7 @@ skill reply_ping(link) {
     (link.way_pinged == no) { out none }
     @pong = wire.request(SHELL, 3, 12)
     wire.put32(pong, 8, link.way_ping)
-    socket.write(link.way_fd, pong, 12)
+    send_buffer(link.way_fd, pong)
     link.way_pinged = no
     out none
 }
@@ -309,9 +308,11 @@ skill take(link, packet, count) {
 }
 
 skill pump(link, packet, hold, joined) {
-    @got = socket.read(link.way_fd, packet)
-    (got == NO_DATA) { out 0 }
-    (got <= 0) { link.way_failed = yes out got }
+    @got = socket.read(link.way_fd, packet) rescue |err| {
+        link.way_failed = yes
+        out 0
+    }
+    (got == 0) { out 0 }
     @total = wire.join(hold, link.way_hold, packet, got, joined)
     @used = take(link, joined, total)
     link.way_hold = wire.keep(joined, used, total, hold)
@@ -356,12 +357,11 @@ skill sized(name, width, height) {
         io.show("нет сокета")
         out []
     }
-    @fd = socket.open(1, STREAM, 0)
-    (fd < 0) {
+    @fd = socket.open(1, STREAM, 0) rescue |err| {
         io.show("сокет")
         out []
     }
-    (socket.connect(fd, unix_address(path)) < 0) {
+    @linked = socket.connect(fd, unix_address(path)) rescue |err| {
         io.show("соединение")
         out []
     }
@@ -439,20 +439,19 @@ skill sized(name, width, height) {
     @ack = wire.request(XDG_SURFACE, 4, 12)
     wire.put32(ack, 8, link.way_serial)
     send_buffer(fd, ack)
-    @memfd = socket.memory("saltic-screen")
-    (memfd < 0) {
+    @memfd = socket.memory("saltic-screen") rescue |err| {
         io.show("memfd")
         out []
     }
     link.way_memfd = memfd
-    (socket.resize(memfd, pixels) < 0) {
+    @sized = socket.resize(memfd, pixels) rescue |err| {
         io.show("размер")
         out []
     }
     @pool = wire.request(SHM, 0, 16)
     wire.put32(pool, 8, POOL)
     wire.put32(pool, 12, pixels)
-    (socket.send(fd, pool, 16, memfd) < 0) {
+    @pooled = socket.send(fd, pool, 16, memfd) rescue |err| {
         io.show("пул")
         out []
     }
@@ -463,9 +462,8 @@ skill sized(name, width, height) {
     wire.put32(made, 24, width * PIXEL)
     wire.put32(made, 28, FORMAT_BGR)
     send_buffer(fd, made)
-    @address = socket.map(memfd, pixels)
-    (address < 0) {
-        io.show("память {address}")
+    @address = socket.map(memfd, pixels) rescue |err| {
+        io.show("память: {err}")
         out []
     }
     (cursor.made(fd) < 0) {

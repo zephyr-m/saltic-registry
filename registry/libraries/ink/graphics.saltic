@@ -120,7 +120,7 @@ skill graphics_line(screen, x0, y0, x1, y1, ink) {
     @dy = -graphics_abs(y1 - y0)
     @step_y = 1
     (y0 > y1) { step_y = -1 }
-    @error = dx + dy
+    @drift = dx + dy
     @active = yes
     @limit = dx + graphics_abs(dy) + 2
     drum (limit) {
@@ -130,13 +130,13 @@ skill graphics_line(screen, x0, y0, x1, y1, ink) {
             (done == yes) { done = y0 == y1 }
             (done == yes) { active = no }
             (done == no) {
-                @twice = error * 2
+                @twice = drift * 2
                 (twice >= dy) {
-                    error = error + dy
+                    drift = drift + dy
                     x0 = x0 + step_x
                 }
                 (twice <= dx) {
-                    error = error + dx
+                    drift = drift + dx
                     y0 = y0 + step_y
                 }
             }

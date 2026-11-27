@@ -37,17 +37,9 @@ ARROW = ["X", "XX", "X.X", "X..X", "X...X", "X....X", "X.....X", "X......X", "X.
 
 skill made(fd) {
     @size = WIDTH * HEIGHT * 4
-    @memfd = socket.memory("saltic-cursor")
-    (memfd < 0) {
-        out memfd
-    }
-    (socket.resize(memfd, size) < 0) {
-        out -1
-    }
-    @memory = socket.map(memfd, size)
-    (memory < 0) {
-        out memory
-    }
+    @memfd = socket.memory("saltic-cursor") rescue |err| { out -1 }
+    @sized = socket.resize(memfd, size) rescue |err| { out -1 }
+    @memory = socket.map(memfd, size) rescue |err| { out -1 }
     @base = address.from(memory)
     drum (HEIGHT) {
         @row = group.get(ARROW, beat)
@@ -72,9 +64,7 @@ skill made(fd) {
     @pool = wire.request(SHM, 0, 16)
     wire.put32(pool, 8, POOL)
     wire.put32(pool, 12, size)
-    (socket.send(fd, pool, 16, memfd) < 0) {
-        out -1
-    }
+    @pooled = socket.send(fd, pool, 16, memfd) rescue |err| { out -1 }
     @buffer = wire.request(POOL, 0, 32)
     wire.put32(buffer, 8, BUFFER)
     wire.put32(buffer, 16, WIDTH)
@@ -97,9 +87,6 @@ skill shown(fd, serial) {
 }
 
 skill sent(fd, buffer) {
-    @written = socket.write(fd, buffer, bytes.count(buffer))
-    (written < 0) {
-        out written
-    }
+    @written = socket.write(fd, buffer, bytes.count(buffer)) rescue |err| { out -1 }
     out 0
 }

@@ -17,11 +17,8 @@ Hex = Box {
         }
         @made = bytes.new(length / 2)
         drum (length / 2) {
-            @high = num.hex_value(str.get(text, beat * 2))
-            @low = num.hex_value(str.get(text, beat * 2 + 1))
-            ((high < 0) ○○ (low < 0)) {
-                out error.BadHex
-            }
+            @high = num.hex_value(str.get(text, beat * 2)) rescue |err| { out error.BadHex }
+            @low = num.hex_value(str.get(text, beat * 2 + 1)) rescue |err| { out error.BadHex }
             bytes.set(made, beat, high * 16 + low)
         }
         out made

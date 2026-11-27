@@ -172,7 +172,7 @@ skill canvas_line(screen, x0, y0, x1, y1, value, alpha) {
     }
     @x = x0
     @y = y0
-    @error = dx - dy
+    @drift = dx - dy
     @base = address.from(screen.memory)
     @solid = (alpha >= 255)
     @point = u32.from(value)
@@ -193,13 +193,13 @@ skill canvas_line(screen, x0, y0, x1, y1, value, alpha) {
             @r = (red + under / 65536 % 256 * back) / 255
             mem.store32(base, at, u32.from(r * 65536 + g * 256 + b))
         }
-        @twice = error * 2
+        @twice = drift * 2
         (twice > 0 - dy) {
-            error = error - dy
+            drift = drift - dy
             x = x + step_x
         }
         (twice < dx) {
-            error = error + dx
+            drift = drift + dx
             y = y + step_y
         }
     }
