@@ -1,0 +1,33 @@
+-- exam — проверка экзамена (Mantis) им же самим: учебный экзамен trial с двумя
+-- сданными и двумя проваленными проверками — счётчики, провалы с именем,
+-- фактом и ожиданием, done() поднимает TestsFailed; пустой экзамен done()
+-- проходит; scratch без SALTIC_SCRATCH кладёт файл в .cache/build/tests.
+-- Строки «[FAIL]» учебного экзамена в выводе — нарочно.
+--
+-- program() -> none; TestsFailed
+
+use core.group
+use registry.libraries.exam.exam
+
+program() {
+    @sheet = exam.Exam {}
+    @trial = exam.Exam {}
+    trial.equal("учебная: два и два", 2 + 2, 4)
+    trial.confirms("учебная: yes", yes)
+    trial.equal("учебная: нарочно мимо", 3, 4)
+    trial.denies("учебная: нарочно yes", yes)
+    sheet.equal("сдано", trial.passed, 2)
+    sheet.equal("провалено", trial.failed, 2)
+    @first = trial.failures
+    sheet.equal("провалов записано", group.count(first), 2)
+    @miss = group.get(first, 0)
+    sheet.equal("провал: имя", miss.name, "учебная: нарочно мимо")
+    sheet.equal("провал: факт", miss.actual, 3)
+    sheet.equal("провал: ожидание", miss.expected, 4)
+    @verdict = trial.done() rescue |err| { err }
+    sheet.confirms("с провалами done — TestsFailed", (verdict == error.TestsFailed))
+    @calm = exam.Exam {}
+    sheet.equal("пустой экзамен проходит", calm.done(), none)
+    sheet.equal("scratch без SALTIC_SCRATCH", sheet.scratch("a.txt"), ".cache/build/tests/a.txt")
+    out sheet.done()
+}
