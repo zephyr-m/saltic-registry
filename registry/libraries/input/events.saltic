@@ -16,7 +16,8 @@
 -- tick(kernel, time) -> Core — такт: число и время — time
 -- current(kernel, id) -> Lookup — последнее значение имени
 -- take(kernel) -> Taken — первое из очереди и ядро без него
--- Внутри: remembered, same
+-- Внутри: remembered, same; copied(item) -> такая же запись: в очередь идёт
+--     копия, у записи в values и в queue по одному хозяину (закон одного хозяина)
 
 use core.group
 
@@ -79,10 +80,20 @@ skill remembered(values, fresh) {
     out result
 }
 
+skill copied(item) {
+    out Change {
+        order = item.order,
+        time = item.time,
+        id = item.id,
+        number = item.number,
+        text = item.text
+    }
+}
+
 skill change(kernel, id, number, text, time) {
     (same(kernel, id, number, text) == yes) { out kernel }
     @fresh = Change { order = kernel.next, time = time, id = id, number = number, text = text }
-    out Core { values = remembered(kernel.values, fresh), queue = group.add(kernel.queue, fresh), next = kernel.next + 1 }
+    out Core { values = remembered(kernel.values, fresh), queue = group.add(kernel.queue, copied(fresh)), next = kernel.next + 1 }
 }
 
 skill pair(kernel, first, first_number, second, second_number, time) {
@@ -92,13 +103,13 @@ skill pair(kernel, first, first_number, second, second_number, time) {
     (same(kernel, first, first_number, "") == no) {
         @fresh = Change { order = kernel.next, time = time, id = first, number = first_number }
         values = remembered(values, fresh)
-        queue = group.add(queue, fresh)
+        queue = group.add(queue, copied(fresh))
         moved = yes
     }
     (same(kernel, second, second_number, "") == no) {
         @fresh = Change { order = kernel.next, time = time, id = second, number = second_number }
         values = remembered(values, fresh)
-        queue = group.add(queue, fresh)
+        queue = group.add(queue, copied(fresh))
         moved = yes
     }
     (moved == no) { out kernel }
