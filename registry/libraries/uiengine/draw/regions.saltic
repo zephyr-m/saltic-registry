@@ -112,8 +112,8 @@ skill changes(before, after, width, height) {
     (new_count < common) { common = new_count }
     @head = common
     @found_head = no
-    drum (group.count(common)) {
-        @entry = group.get(common, beat)
+    drum (common) {
+        @entry = beat
         (found_head == no) {
             (differs(group.get(before, entry), group.get(after, entry)) == yes) {
                 head = entry

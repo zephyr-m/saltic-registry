@@ -81,7 +81,7 @@ skill launch(chip, data) {
     @sent = 0
     drum (group.count(SEGMENTS)) {
         @segment_2 = group.get(SEGMENTS, beat)
-        sent = sent + diag.segment(chip, data, segment_2, segment_2 + 1, sent)
+        sent = sent + diag.segment(chip, data, segment_2, beat + 1, sent)
     }
     card.say(chip, "   firmware: {sent} bytes, done")
     card.say(chip, "K. SET_APP_START 0xa0400: where the firmware begins")
