@@ -1,0 +1,66 @@
+-- selection_sort — проверка против Python sorted (cases.saltic, делает
+-- workbench/references/selection_sort.py): пустая, один элемент, повторы,
+-- отсортированная, обратная, все равные, случайные целые со знаком и
+-- дробные (тысячи) — по возрастанию и по убыванию.
+--
+-- Probe { sorter } — same(got, want) -> yes, если группы равны поэлементно
+--     check(row) -> yes, если сортировка совпала с эталоном
+-- program() -> none; TestsFailed. Плюс ошибка: порядок 5 вместо yes/no.
+
+use io
+use core.group
+use craft.testing
+use registry.libraries.selection_sort.selection_sort
+use registry.libraries.selection_sort.checks.cases
+
+Probe = Box {
+    sorter = selection_sort.SelectionSort {}
+
+    skill same(got, want) {
+        ((group.count(got) == group.count(want)) == no) {
+            out no
+        }
+        drum (got) {
+            @a = group.get(got, beat)
+            @b = group.get(want, beat)
+            ((a < b) ○○ (b < a)) {
+                out no
+            }
+        }
+        out yes
+    }
+
+    skill check(row) {
+        @rising = group.get(row, 0)
+        @n = group.get(row, 1)
+        @data = group.slice(row, 2, 2 + n)
+        @want = group.slice(row, 2 + n, 2 + 2 * n)
+        out same(sorter.sort(data, rising), want)
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @wrong = 0
+    drum (cases.CASES) {
+        @case = group.get(cases.CASES, beat)
+        @n = group.get(case, 1)
+        @rising = group.get(case, 0)
+        @good = probe.check(case)
+        io.show("  {n} чисел, по возрастанию {rising}: совпало {good}")
+        (good == no) {
+            wrong = wrong + 1
+        }
+    }
+    @count = group.count(cases.CASES)
+    io.show("selection_sort: случаев {count}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "как у Python sorted", wrong, 0)
+    @order = "нет"
+    @sorter = probe.sorter
+    sorter.sort([3, 1], 5) rescue |err| {
+        order = "{err}"
+    }
+    suite = testing.test_equal(suite, "порядок не yes/no — OrderUnknown", order, "OrderUnknown")
+    out testing.test_finish(suite)
+}

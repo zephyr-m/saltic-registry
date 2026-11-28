@@ -1,0 +1,98 @@
+-- merge_sort — сортировка слиянием снизу вверх: пары отрезков 1, 2, 4, …
+-- сливаются, пока не станет один. Всегда n·log n сравнений, без рекурсии.
+-- Устойчивая: из равных первым идёт тот, что был раньше во входе (и при
+-- убывании). Сортирует номера, а не значения, — поэтому order отдаёт саму
+-- перестановку: по ней можно упорядочить связанные данные по ключу.
+-- Целые числа; исходная группа не меняется. Дробные пока нет: дробное из
+-- группы внутри навыка теряет метку (ошибка языка) — падает TypeMismatch.
+-- Лицо sort то же, что у selection_sort и quicksort, — подменяются.
+--
+-- MergeSort {} — sort(data, rising) -> новая группа: по возрастанию
+--     при rising = yes, по убыванию при rising = no; иное — OrderUnknown
+--     order(data, rising) -> номера элементов data в отсортированном порядке;
+--     OrderUnknown
+--     ahead(a, b, rising) -> yes, если a должен стоять раньше b
+--     merged(data, left, right, rising) -> слитые группы номеров left и right
+
+use core.group
+
+MergeSort = Box {
+    skill ahead(a, b, rising) {
+        (rising == yes) {
+            out (a < b)
+        }
+        out (a > b)
+    }
+
+    skill merged(data, left, right, rising) {
+        @result = []
+        @i = 0
+        @j = 0
+        @a = group.count(left)
+        @b = group.count(right)
+        drum (a + b) {
+            @take_left = (j == b)
+            ((i < a) ○ (j < b)) {
+                @x = group.get(data, group.get(left, i))
+                @y = group.get(data, group.get(right, j))
+                take_left = (ahead(y, x, rising) == no)
+            }
+            (take_left == yes) {
+                result = group.add(result, group.get(left, i))
+                i = i + 1
+            }
+            (take_left == no) {
+                result = group.add(result, group.get(right, j))
+                j = j + 1
+            }
+        }
+        out result
+    }
+
+    skill order(data, rising) {
+        (((rising == yes) ○○ (rising == no)) == no) {
+            out error.OrderUnknown
+        }
+        @n = group.count(data)
+        @runs = []
+        drum (n) {
+            runs = group.add(runs, beat)
+        }
+        @width = 1
+        drum (n) {
+            ((width < n) == no) {
+                leave
+            }
+            @next = []
+            @start = 0
+            drum (n) {
+                ((start < n) == no) {
+                    leave
+                }
+                @middle = start + width
+                (middle > n) {
+                    middle = n
+                }
+                @end = middle + width
+                (end > n) {
+                    end = n
+                }
+                next = group.concat(next, merged(data, group.slice(runs, start, middle), group.slice(runs, middle, end), rising))
+                start = end
+            }
+            runs = next
+            width = width * 2
+        }
+        out runs
+    }
+
+    skill sort(data, rising) {
+        @result = []
+        @steps = order(data, rising)
+        drum (steps) {
+            @step = group.get(steps, beat)
+            result = group.add(result, group.get(data, step))
+        }
+        out result
+    }
+}

@@ -1,0 +1,69 @@
+-- binary_search — проверка против Python bisect (cases.saltic, делает
+-- workbench/references/binary_search.py): пустая группа, один элемент,
+-- повторы, все равные, случайные целые (тысячи) и дробные; запросы — каждый
+-- элемент, промахи между ними и за краями. Промах index_of — Absent.
+--
+-- Probe { search } — check(row) -> "" или имя разошедшегося навыка
+-- program() -> none; TestsFailed
+
+use io
+use core.group
+use craft.testing
+use registry.libraries.binary_search.binary_search
+use registry.libraries.binary_search.checks.cases
+
+Probe = Box {
+    search = binary_search.BinarySearch {}
+
+    skill check(row) {
+        @n = group.get(row, 0)
+        @items = group.slice(row, 1, 1 + n)
+        @m = group.get(row, 1 + n)
+        @at = 2 + n
+        drum (m) {
+            @value = group.get(row, at + beat)
+            ((search.insertion(items, value) == group.get(row, at + m + beat)) == no) {
+                out "insertion"
+            }
+            ((search.insertion_after(items, value) == group.get(row, at + 2 * m + beat)) == no) {
+                out "insertion_after"
+            }
+            @want = group.get(row, at + 3 * m + beat)
+            @got = search.index_of(items, value) rescue |err| {
+                ((err == error.Absent) == no) {
+                    out "index_of: {err}"
+                }
+                -1
+            }
+            ((got == want) == no) {
+                out "index_of"
+            }
+        }
+        out ""
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @wrong = 0
+    drum (cases.CASES) {
+        @case = group.get(cases.CASES, beat)
+        @n = group.get(case, 0)
+        @broken = probe.check(case)
+        io.show("  группа из {n}: разошлось «{broken}»")
+        ((broken == "") == no) {
+            wrong = wrong + 1
+        }
+    }
+    @count = group.count(cases.CASES)
+    io.show("binary_search: групп {count}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "как у Python bisect", wrong, 0)
+    @missing = "нет"
+    @search = binary_search.BinarySearch {}
+    search.index_of([], 3) rescue |err| {
+        missing = "{err}"
+    }
+    suite = testing.test_equal(suite, "пустая группа — Absent", missing, "Absent")
+    out testing.test_finish(suite)
+}

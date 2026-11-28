@@ -1,0 +1,62 @@
+-- binary_search — двоичный поиск в группе целых, отсортированной по
+-- возрастанию: log₂ n сравнений. Дробные пока нет: дробное из группы внутри
+-- навыка теряет метку (ошибка языка) — падает TypeMismatch. Порядок группы
+-- не проверяется — проверка стоила бы n шагов; на неотсортированной ответ
+-- ничего не значит. Ответы — как у Python bisect: место вставки — номер
+-- 0 … n, куда встать value, чтобы порядок сохранился.
+--
+-- BinarySearch {} — insertion(items, value) -> место перед всеми равными
+--     value (bisect_left)
+--     insertion_after(items, value) -> место после всех равных (bisect_right)
+--     index_of(items, value) -> номер первого равного value; Absent, если
+--     такого нет
+
+use core.group
+
+BinarySearch = Box {
+    skill insertion(items, value) {
+        @low = 0
+        @high = group.count(items)
+        always {
+            ((low < high) == no) {
+                leave
+            }
+            @middle = (low + high) / 2
+            @passed = (group.get(items, middle) < value)
+            (passed == yes) {
+                low = middle + 1
+            }
+            (passed == no) {
+                high = middle
+            }
+        }
+        out low
+    }
+
+    skill insertion_after(items, value) {
+        @low = 0
+        @high = group.count(items)
+        always {
+            ((low < high) == no) {
+                leave
+            }
+            @middle = (low + high) / 2
+            @exceeds = (value < group.get(items, middle))
+            (exceeds == yes) {
+                high = middle
+            }
+            (exceeds == no) {
+                low = middle + 1
+            }
+        }
+        out low
+    }
+
+    skill index_of(items, value) {
+        @at = insertion(items, value)
+        ((at < group.count(items)) ○ ((value < group.get(items, at)) == no)) {
+            out at
+        }
+        out error.Absent
+    }
+}

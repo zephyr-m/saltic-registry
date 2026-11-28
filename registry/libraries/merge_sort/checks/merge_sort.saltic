@@ -1,0 +1,75 @@
+-- merge_sort — проверка против Python sorted (cases.saltic, делает
+-- workbench/references/merge_sort.py): пустая, один элемент, повторы,
+-- отсортированная, обратная, все равные, случайные целые со знаком (тысячи)
+-- и дробные — по возрастанию и по убыванию. Устойчивость — order сверяется
+-- с перестановкой Python sorted(range(n), key=…): на повторах номера равных
+-- должны идти, как во входе.
+--
+-- Probe { sorter } — same(got, want) -> yes, если группы равны поэлементно
+--     check(row) -> "" или что разошлось: "sort" / "order"
+-- program() -> none; TestsFailed. Плюс ошибка: порядок 5 вместо yes/no.
+
+use io
+use core.group
+use craft.testing
+use registry.libraries.merge_sort.merge_sort
+use registry.libraries.merge_sort.checks.cases
+
+Probe = Box {
+    sorter = merge_sort.MergeSort {}
+
+    skill same(got, want) {
+        ((group.count(got) == group.count(want)) == no) {
+            out no
+        }
+        drum (got) {
+            @a = group.get(got, beat)
+            @b = group.get(want, beat)
+            ((a < b) ○○ (b < a)) {
+                out no
+            }
+        }
+        out yes
+    }
+
+    skill check(row) {
+        @rising = group.get(row, 0)
+        @n = group.get(row, 1)
+        @data = group.slice(row, 2, 2 + n)
+        @want = group.slice(row, 2 + n, 2 + 2 * n)
+        @steps = group.slice(row, 2 + 2 * n, 2 + 3 * n)
+        (same(sorter.sort(data, rising), want) == no) {
+            out "sort"
+        }
+        (same(sorter.order(data, rising), steps) == no) {
+            out "order"
+        }
+        out ""
+    }
+}
+
+program() {
+    @suite = testing.test_new()
+    @probe = Probe {}
+    @wrong = 0
+    drum (cases.CASES) {
+        @case = group.get(cases.CASES, beat)
+        @n = group.get(case, 1)
+        @rising = group.get(case, 0)
+        @broken = probe.check(case)
+        io.show("  {n} чисел, по возрастанию {rising}: разошлось «{broken}»")
+        ((broken == "") == no) {
+            wrong = wrong + 1
+        }
+    }
+    @count = group.count(cases.CASES)
+    io.show("merge_sort: случаев {count}, расхождений {wrong}")
+    suite = testing.test_equal(suite, "как у Python sorted, устойчиво", wrong, 0)
+    @order = "нет"
+    @sorter = probe.sorter
+    sorter.sort([3, 1], 5) rescue |err| {
+        order = "{err}"
+    }
+    suite = testing.test_equal(suite, "порядок не yes/no — OrderUnknown", order, "OrderUnknown")
+    out testing.test_finish(suite)
+}

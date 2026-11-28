@@ -1,0 +1,13 @@
+{
+  "title": "merge_sort — сортировка слиянием",
+  "saltic_version": "в составе Saltic (ветка 24.11.2026)",
+  "own_version": "1",
+  "author": "Зэф",
+  "role": "library",
+  "purpose": "устойчивая сортировка группы целых слиянием снизу вверх, всегда n·log n; order отдаёт саму перестановку — упорядочить связанные данные по ключу; лицо sort(data, rising) общее с selection_sort и quicksort",
+  "depends_on": "нет (core.group)",
+  "architectures": "все цели",
+  "state": "рабочий: 18 случаев против Python sorted, устойчивость — order против sorted(range(n), key=…) на повторах (проверка ловит слияние, берущее правый при равенстве: 8 расхождений), OrderUnknown на порядке не yes/no (checks/merge_sort.saltic, эталоны — workbench/references/merge_sort.py реестра); дробные не поддержаны: дробное из группы внутри навыка теряет метку (ошибка языка), сравнение падает TypeMismatch",
+  "log": "нет: ошибки — ошибкой вызывающему",
+  "filled_by": "агентом по коду, 24.11.2026; автор проверяет"
+}

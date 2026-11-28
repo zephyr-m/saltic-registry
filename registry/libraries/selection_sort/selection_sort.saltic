@@ -1,0 +1,46 @@
+-- selection_sort — сортировка выбором: на каждом шаге ищет крайний элемент
+-- оставшейся части и ставит его на место обменом. Сравнений всегда n(n−1)/2,
+-- обменов не больше n − 1 — годится, когда переставлять дорого, а данных мало.
+-- Неустойчивая: равные могут поменяться местами (для чисел не видно).
+-- Целые числа; исходная группа не меняется. Дробные пока нет: дробное из
+-- группы внутри навыка теряет метку (ошибка языка) — падает TypeMismatch.
+-- Лицо то же, что у quicksort и merge_sort, — подменяются друг другом.
+--
+-- SelectionSort {} — sort(data, rising) -> новая группа: по возрастанию
+--     при rising = yes, по убыванию при rising = no; иное — OrderUnknown
+--     ahead(a, b, rising) -> yes, если a должен стоять раньше b
+
+use core.group
+
+SelectionSort = Box {
+    skill ahead(a, b, rising) {
+        (rising == yes) {
+            out (a < b)
+        }
+        out (a > b)
+    }
+
+    skill sort(data, rising) {
+        (((rising == yes) ○○ (rising == no)) == no) {
+            out error.OrderUnknown
+        }
+        @items = data
+        @n = group.count(items)
+        drum (n) {
+            @i = beat
+            @best = i
+            drum (n - i - 1) {
+                @j = i + 1 + beat
+                (ahead(group.get(items, j), group.get(items, best), rising) == yes) {
+                    best = j
+                }
+            }
+            ((best == i) == no) {
+                @kept = group.get(items, i)
+                items = group.replaced(items, i, group.get(items, best))
+                items = group.replaced(items, best, kept)
+            }
+        }
+        out items
+    }
+}

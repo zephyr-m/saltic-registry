@@ -1,0 +1,13 @@
+{
+  "title": "quicksort — быстрая сортировка",
+  "saltic_version": "в составе Saltic (ветка 24.11.2026)",
+  "own_version": "1",
+  "author": "Зэф",
+  "role": "library",
+  "purpose": "сортировка группы целых: опорный — медиана трёх, раздел на три части (повторы не вырождают), без рекурсии — части ждут в группе-очереди; худший случай O(n²) на нарочно подобранной группе; лицо sort(data, rising) общее с selection_sort и merge_sort",
+  "depends_on": "нет (core.group)",
+  "architectures": "все цели",
+  "state": "рабочий: 22 случая против Python sorted (как у selection_sort плюс отсортированная и обратная по 3000), OrderUnknown на порядке не yes/no (checks/quicksort.saltic, эталоны — workbench/references/quicksort.py реестра); дробные не поддержаны: дробное из группы внутри навыка теряет метку (ошибка языка), сравнение падает TypeMismatch",
+  "log": "нет: ошибки — ошибкой вызывающему",
+  "filled_by": "агентом по коду, 24.11.2026; автор проверяет"
+}

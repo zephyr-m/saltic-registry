@@ -1,0 +1,97 @@
+-- quicksort — быстрая сортировка. Опорный — медиана трёх (первый, средний,
+-- последний): уже отсортированная и обратная группы идут за n·log n. Раздел
+-- на три части (раньше опорного / равные / позже), так что повторы не
+-- вырождают сортировку. Худший случай остаётся — O(n²) на нарочно
+-- подобранной группе; против него берите merge_sort.
+-- Без рекурсии: части ждут в своей группе-очереди (память кучи, не стек
+-- вызовов) — по две на уровень раздела: в среднем O(log n), в худшем O(n).
+-- Шагов не больше 3n + 1: каждый раздел ставит на место хотя бы опорный.
+-- Неустойчивая. Целые числа; исходная группа не меняется. Дробные пока
+-- нет: дробное из группы внутри навыка теряет метку (ошибка языка) —
+-- падает TypeMismatch. Лицо то же, что у selection_sort и merge_sort.
+--
+-- Quicksort {} — sort(data, rising) -> новая группа: по возрастанию
+--     при rising = yes, по убыванию при rising = no; иное — OrderUnknown
+--     ahead(a, b, rising) -> yes, если a должен стоять раньше b
+--     pivot(chunk) -> медиана первого, среднего и последнего
+--     partition(chunk, middle, rising) -> [раньше middle, равные, позже]
+
+use core.group
+
+Quicksort = Box {
+    skill ahead(a, b, rising) {
+        (rising == yes) {
+            out (a < b)
+        }
+        out (a > b)
+    }
+
+    skill pivot(chunk) {
+        @n = group.count(chunk)
+        @a = group.get(chunk, 0)
+        @b = group.get(chunk, n / 2)
+        @c = group.get(chunk, n - 1)
+        @low = a
+        @high = b
+        (b < a) {
+            low = b
+            high = a
+        }
+        (c < low) {
+            out low
+        }
+        (c > high) {
+            out high
+        }
+        out c
+    }
+
+    skill partition(chunk, middle, rising) {
+        @front = []
+        @same = []
+        @back = []
+        drum (chunk) {
+            @entry = group.get(chunk, beat)
+            @first = ahead(entry, middle, rising)
+            @last = ahead(middle, entry, rising)
+            (first == yes) {
+                front = group.add(front, entry)
+            }
+            (last == yes) {
+                back = group.add(back, entry)
+            }
+            ((first == no) ○ (last == no)) {
+                same = group.add(same, entry)
+            }
+        }
+        out [front, same, back]
+    }
+
+    skill sort(data, rising) {
+        (((rising == yes) ○○ (rising == no)) == no) {
+            out error.OrderUnknown
+        }
+        @result = []
+        @waiting = [data]
+        @settled = [no]
+        drum (3 * group.count(data) + 1) {
+            @top = group.count(waiting)
+            (top == 0) {
+                leave
+            }
+            @chunk = group.get(waiting, top - 1)
+            @ready = ((group.get(settled, top - 1) == yes) ○○ (group.count(chunk) < 2))
+            waiting = group.slice(waiting, 0, top - 1)
+            settled = group.slice(settled, 0, top - 1)
+            (ready == yes) {
+                result = group.concat(result, chunk)
+            }
+            (ready == no) {
+                @parts = partition(chunk, pivot(chunk), rising)
+                waiting = group.concat(waiting, [group.get(parts, 2), group.get(parts, 1), group.get(parts, 0)])
+                settled = group.concat(settled, [no, yes, no])
+            }
+        }
+        out result
+    }
+}
