@@ -2,7 +2,7 @@
   "project": "tcp",
   "catalog": {"from": "git@github.com:zephyr-m/saltic-registry.git"},
   "packages": {
-    "wire": "2",
-    "hex": "3"
+    "wire": "3",
+    "hex": "4"
   }
 }

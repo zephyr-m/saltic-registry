@@ -2,8 +2,8 @@
   "project": "ecdsa",
   "catalog": {"from": "git@github.com:zephyr-m/saltic-registry.git"},
   "packages": {
-    "bignum": "5",
-    "sha256": "4",
-    "hex": "3"
+    "bignum": "6",
+    "sha256": "5",
+    "hex": "4"
   }
 }

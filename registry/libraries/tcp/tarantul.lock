@@ -1,7 +1,7 @@
 {
-  "catalog": {"from": "git@github.com:zephyr-m/saltic-registry.git", "commit": "2810f7b439149e0fda3dc9b17ea4c81d58046af2"},
+  "catalog": {"from": "git@github.com:zephyr-m/saltic-registry.git", "commit": "ec048ed83cc33fd7adb54efe16faafa1d11e5f68"},
   "packages": {
-    "wire": {"version": "2", "source": "registry/libraries/wire", "fingerprint": "crc32 2e122a54", "required_by": "project"},
-    "hex": {"version": "3", "source": "registry/libraries/hex", "fingerprint": "crc32 e5038527", "required_by": "project"}
+    "wire": {"version": "3", "source": "registry/libraries/wire", "fingerprint": "crc32 e030da50", "required_by": "project"},
+    "hex": {"version": "4", "source": "registry/libraries/hex", "fingerprint": "crc32 d3e587d8", "required_by": "project"}
   }
 }

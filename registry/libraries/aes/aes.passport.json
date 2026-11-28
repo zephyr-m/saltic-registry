@@ -1,7 +1,7 @@
 {
   "title": "aes — блочный шифр AES-128/256 (FIPS 197), режимы CTR и GCM",
   "saltic_version": "в составе Saltic (ветка 24.11.2026)",
-  "own_version": "5",
+  "own_version": "6",
   "author": "Зэф",
   "role": "library",
   "purpose": "блок AES-128 и AES-256 туда и обратно, поток CTR (NIST SP 800-38A) и шифр с подписью AES-GCM (NIST SP 800-38D): seal / open с проверкой тега — подделка Forged; лицо GCM как у chacha.Aead, шифры подменяются — шифр TLS, SSH, дисков",
