@@ -8,13 +8,13 @@
   "effects": "соединения TCP через сокеты ядра Linux",
   "hardware": "любой Linux",
   "identifiers": "нет",
-  "own_version": "1",
+  "own_version": "2",
   "protocols": "TCP/IPv4 ядра Linux",
   "architectures": "x86_64 (Linux)",
   "primitives": "соединиться с адресом и портом, отправить, принять, закрыть; причина сбоя — в имени ошибки",
   "depends_on": "нет (core.socket)",
   "environment": "программы на этом компьютере (Linux), пока своего TCP нет на хосте",
-  "state": "рабочий: 13 случаев против эхо-сервера на сокетах Python (checks/tcp_linux.saltic, эталон — workbench/references/tcp_linux.py реестра); переехал из библиотек 24.11.2026 — это мост, а не свой TCP",
+  "state": "рабочий: 13 случаев против эхо-сервера на сокетах Python (checks/tcp_linux.saltic, эталон — workbench/references/tcp_linux.py реестра); переехал из библиотек 24.11.2026 — это мост, а не свой TCP; 28.11.2026 (2): причина сбоя — от core.socket (ConnectionRefused, ConnectionClosed…), своё сопоставление errno снято; закрытие собеседником — ConnectionClosed, а не пустой буфер",
   "log": "блокеры: 1) нет таймаутов — connect и receive ждут без предела (нужен родной poll или setsockopt в core.socket); 2) send в закрытое собеседником соединение роняет программу сигналом SIGPIPE (нужен send с MSG_NOSIGNAL); 3) только IPv4",
   "filled_by": "агентом по коду, 24.11.2026; автор проверяет"
 }

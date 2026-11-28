@@ -8,15 +8,16 @@
 --
 -- Link { fd, open } — открытое соединение:
 --     send(data) — отправить буфер core.bytes целиком (дописывает, пока не уйдёт всё)
---     receive(limit) -> буфер до limit байтов; пустой — собеседник закрыл соединение
+--     receive(limit) -> буфер до limit байтов; собеседник закрыл — ConnectionClosed
 --     close() — закрыть; дальше send / receive — SocketClosed
+--     Сбои связи — ошибками core.socket с причиной: ConnectionReset,
+--     ConnectionClosed, ConnectionTimedOut, прочее — Socket
 -- connect(address, port) -> Link; address — «a.b.c.d»; BadAddress, BadPort,
 --     ConnectionRefused, NetworkUnreachable, HostUnreachable, ConnectionTimedOut,
---     SocketFailed
+--     Socket; при отказе сокет закрывается
 -- sockaddr(address, port) -> 16 байтов sockaddr_in; BadAddress, BadPort
 -- octets(address) -> группа из 4 чисел 0…255; BadAddress
--- failure(code) -> ошибка по -errno ядра
--- AF_INET — семейство IPv4; SOCK_STREAM — поток; ERRNO_* — коды ядра Linux
+-- AF_INET — семейство IPv4; SOCK_STREAM — поток
 
 use core.str
 use core.num
@@ -29,14 +30,6 @@ SOCK_STREAM = 1
 SOCKADDR_BYTES = 16
 PORT_MOST = 65535
 OCTET_MOST = 255
-
-ERRNO_BAD_FD = 9
-ERRNO_PIPE = 32
-ERRNO_NETWORK_UNREACHABLE = 101
-ERRNO_RESET = 104
-ERRNO_TIMED_OUT = 110
-ERRNO_REFUSED = 111
-ERRNO_HOST_UNREACHABLE = 113
 
 Link = Box {
     fd = -1,
@@ -54,9 +47,6 @@ Link = Box {
             }
             @rest = bytes.slice(data, sent, total)
             @written = socket.write(fd, rest, bytes.count(rest))
-            (written < 0) {
-                out failure(written)
-            }
             sent = sent + written
         }
         out none
@@ -68,9 +58,6 @@ Link = Box {
         }
         @buffer = bytes.new(limit)
         @got = socket.read(fd, buffer)
-        (got < 0) {
-            out failure(got)
-        }
         out bytes.slice(buffer, 0, got)
     }
 
@@ -82,32 +69,6 @@ Link = Box {
         open = no
         out none
     }
-}
-
-skill failure(code) {
-    @errno = 0 - code
-    (errno == ERRNO_REFUSED) {
-        out error.ConnectionRefused
-    }
-    (errno == ERRNO_NETWORK_UNREACHABLE) {
-        out error.NetworkUnreachable
-    }
-    (errno == ERRNO_HOST_UNREACHABLE) {
-        out error.HostUnreachable
-    }
-    (errno == ERRNO_TIMED_OUT) {
-        out error.ConnectionTimedOut
-    }
-    (errno == ERRNO_RESET) {
-        out error.ConnectionReset
-    }
-    (errno == ERRNO_PIPE) {
-        out error.ConnectionClosed
-    }
-    (errno == ERRNO_BAD_FD) {
-        out error.SocketClosed
-    }
-    out error.SocketFailed
 }
 
 skill octets(address) {
@@ -155,13 +116,9 @@ skill sockaddr(address, port) {
 skill connect(address, port) {
     @place = sockaddr(address, port)
     @fd = socket.open(AF_INET, SOCK_STREAM, 0)
-    (fd < 0) {
-        out error.SocketFailed
-    }
-    @answer = socket.connect(fd, place)
-    (answer < 0) {
-        socket.close(fd)
-        out failure(answer)
+    @answer = socket.connect(fd, place) rescue |err| {
+        @closed = socket.close(fd) rescue |again| { none }
+        out err
     }
     out Link {
         fd = fd,

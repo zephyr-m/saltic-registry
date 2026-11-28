@@ -33,7 +33,7 @@ skill whole(text) {
 
 skill text_bytes(text) {
     @made = bytes.new(str.bytes(text))
-    str.put(made, 0, text)
+    @written = str.put(made, 0, text)
     out made
 }
 
@@ -92,7 +92,8 @@ program() {
     suite = testing.test_yes(suite, "второе соединение", same(collect(second, str.bytes("второе")), text_bytes("второе")))
     second.send(text_bytes("BYE"))
     suite = testing.test_yes(suite, "ответ перед закрытием", same(collect(second, str.bytes("пока")), text_bytes("пока")))
-    suite = testing.test_equal(suite, "собеседник закрыл — пустой приём", bytes.count(second.receive(CHUNK)), 0)
+    @closed = second.receive(CHUNK) rescue |err| { err }
+    suite = testing.test_yes(suite, "собеседник закрыл — ConnectionClosed", (closed == error.ConnectionClosed))
     second.close()
 
     @after = second.send(hello) rescue |err| {
