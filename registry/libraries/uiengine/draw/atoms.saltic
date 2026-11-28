@@ -32,7 +32,8 @@
 --     rim, lit, side } — цвета экрана; rim — рамка панели, lit — язык вида
 --     включён, side — боковое меню (на ступень ниже панели: высота светом);
 --     glow_x, glow_y — центр света сетки (фонарик за мышью), -1 — свет на
---     своём месте (shapes.dots)
+--     своём месте (shapes.dots); shift — [x, y, ширина, высота] всего экрана,
+--     пока draw/regions рисует кусок на холсте-окне ([] — весь экран)
 -- glow(palette) -> центр света для shapes.dots: [] или [x, y]
 -- Темы (цвета Palette) — registry/libraries/uiengine/themes: themes.named(имя, screen)
 -- tone_color(palette, tone, fallback) -> пиксель; любой тон с хвостом _soft —
@@ -48,6 +49,7 @@
 -- fitted(node, in_row, palette) -> как measured, но мерка — шрифтами палитры
 -- measured(node, in_row) -> копия дерева, у TEXT — свои ширина (в ряду) и
 --     высота по шрифту Acer: общая раскладка берёт их вместо шрифта qemu
+-- draw_node — узел и его детей; узел целиком за краем холста — пропуск
 -- draw(screen, runtime, palette) — всё дерево runtime.root на screen по фону
 --     ground; paint(screen, runtime, palette) — то же без заливки фона: поверх
 --     того, что программа нарисовала сама (холст Нодуса)
@@ -131,7 +133,8 @@ Palette = Box {
     lit = no,
     side = 0,
     glow_x = -1,
-    glow_y = -1
+    glow_y = -1,
+    shift = []
 }
 
 skill with_fonts(palette, base) {
@@ -392,6 +395,10 @@ skill draw_node(screen, runtime, palette, node, place) {
     @y = group.get(place, 1)
     @width = group.get(place, 2)
     @height = group.get(place, 3)
+    (x + width + node.shadow < 0) { out none }
+    (y + height + node.shadow < 0) { out none }
+    (x - node.shadow > screen.width) { out none }
+    (y - node.shadow > screen.height) { out none }
     (node.kind == atom.Kind.TEXT) {
         @ink = palette.ink
         (str.bytes(node.id) > 0) { ink = palette.accent }
@@ -443,7 +450,10 @@ skill draw_node(screen, runtime, palette, node, place) {
             (node.corners == "all") { shapes.shape(screen, x, y, width, height, node.radius, color) }
             ((node.corners == "all") == no) { shapes.partly(screen, [x, y, width, height], node.radius, color, node.corners) }
             (palette.lit == yes) {
-                (node.fill == "ground") { shapes.dots(screen, [x, y, width, height], palette.rim, glow(palette)) }
+                (node.fill == "ground") {
+                    (group.count(palette.shift) == 4) { shapes.dots_from(screen, [x, y, width, height], palette.rim, glow(palette), palette.shift) }
+                    (group.count(palette.shift) == 0) { shapes.dots(screen, [x, y, width, height], palette.rim, glow(palette)) }
+                }
             }
         }
         (lit == yes) { shapes.sheen(screen, [x, y, width, height], node.radius, palette.ink) }
@@ -477,41 +487,50 @@ skill draw_field(screen, runtime, palette, id) {
     @lookup = jtml.find_field(runtime, id)
     (lookup.found == no) { out none }
     @field = lookup.slot.field
+    @fx = field.x - shift_of(palette, 0)
+    @fy = field.y - shift_of(palette, 1)
     (palette.typed == yes) {
         @size = 15
         @tall = typeface.line_height(palette.regular, size) + INSET * 2
-        @upper = field.y + (text_field.TEXT_FIELD_HEIGHT - tall) / 2
+        @upper = fy + (text_field.TEXT_FIELD_HEIGHT - tall) / 2
         @edge = palette.line
         (id == runtime.focused) { edge = palette.accent }
-        shapes.shape(screen, field.x, upper, field.width, tall, FIELD_RADIUS, palette.ground)
-        shapes.ring(screen, field.x, upper, field.width, tall, FIELD_RADIUS, 1, edge)
-        @after = typeface.paint(screen, palette.regular, field.x + INSET + 2, upper + INSET, field.text, typeface.Brush { size = size, ink = palette.ink, fade = palette.ink })
+        shapes.shape(screen, fx, upper, field.width, tall, FIELD_RADIUS, palette.ground)
+        shapes.ring(screen, fx, upper, field.width, tall, FIELD_RADIUS, 1, edge)
+        @after = typeface.paint(screen, palette.regular, fx + INSET + 2, upper + INSET, field.text, typeface.Brush { size = size, ink = palette.ink, fade = palette.ink })
         (id == runtime.focused) { graphics.fill(screen, after + 1, upper + INSET, 2, tall - INSET * 2, palette.accent) }
         out none
     }
     @face = lettering.FACE_SMALL
     @height = face.height + INSET * 2
-    @top = field.y + (text_field.TEXT_FIELD_HEIGHT - height) / 2
+    @top = fy + (text_field.TEXT_FIELD_HEIGHT - height) / 2
     @color = palette.line
     (id == runtime.focused) { color = palette.accent }
-    shapes.frame(screen, field.x, top, field.width, height, color)
-    @end = lettering.paint_text(screen, face, field.x + INSET, top + INSET, field.text, palette.ink)
+    shapes.frame(screen, fx, top, field.width, height, color)
+    @end = lettering.paint_text(screen, face, fx + INSET, top + INSET, field.text, palette.ink)
     (id == runtime.focused) { graphics.fill(screen, end + 1, top + INSET, 2, face.height, palette.accent) }
     out none
+}
+
+skill shift_of(palette, index) {
+    (group.count(palette.shift) == 4) { out group.get(palette.shift, index) }
+    out 0
 }
 
 skill draw_slider(screen, runtime, palette, id) {
     @lookup = jtml.find_slider(runtime, id)
     (lookup.found == no) { out none }
     @slot = lookup.slot
+    @sx = slot.x - shift_of(palette, 0)
+    @sy = slot.y - shift_of(palette, 1)
     @span = slot.most - slot.least
     (span < 1) { span = 1 }
     @filled = (slot.level - slot.least) * slot.width / span
-    @middle = slot.y + slider.HEIGHT / 2
-    graphics.fill(screen, slot.x, middle - TRACK / 2, slot.width, TRACK, palette.line)
-    graphics.fill(screen, slot.x, middle - TRACK / 2, filled, TRACK, palette.accent)
+    @middle = sy + slider.HEIGHT / 2
+    graphics.fill(screen, sx, middle - TRACK / 2, slot.width, TRACK, palette.line)
+    graphics.fill(screen, sx, middle - TRACK / 2, filled, TRACK, palette.accent)
     @knob = palette.ink
     (id == runtime.focused) { knob = palette.accent }
-    (palette.typed == yes) { out shapes.shape(screen, slot.x + filled - ROUND_KNOB / 2, middle - ROUND_KNOB / 2, ROUND_KNOB, ROUND_KNOB, ROUND_KNOB / 2, knob) }
-    out graphics.fill(screen, slot.x + filled - KNOB / 2, slot.y + 3, KNOB, slider.HEIGHT - 6, knob)
+    (palette.typed == yes) { out shapes.shape(screen, sx + filled - ROUND_KNOB / 2, middle - ROUND_KNOB / 2, ROUND_KNOB, ROUND_KNOB, ROUND_KNOB / 2, knob) }
+    out graphics.fill(screen, sx + filled - KNOB / 2, sy + 3, KNOB, slider.HEIGHT - 6, knob)
 }

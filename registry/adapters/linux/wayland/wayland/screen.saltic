@@ -18,6 +18,8 @@
 -- из событий Wayland, мс. Жесты из них собирает программа (gestures.Reader).
 -- way_inside — указатель в окне (enter — yes, leave — no): свет-фонарик.
 -- Стрелку указателя показывает композитор: картинка и запрос — cursor.
+-- present_parts(link, rects) — показать кадр, сказав композитору только
+--     изменившиеся куски [[x, y, ширина, высота]] (частичная перерисовка Attacus)
 -- Внутри: typed(scan, shift) -> знак или ""; named(scan) -> имя клавиши из
 --     KEYS или ""; wheel_step(value) -> ±1
 
@@ -342,6 +344,22 @@ skill present(link) {
     wire.put32(damage, 16, link.way_width)
     wire.put32(damage, 20, link.way_height)
     send_buffer(link.way_fd, damage)
+    @commit = wire.request(SURFACE, 6, 8)
+    out send_buffer(link.way_fd, commit)
+}
+
+skill present_parts(link, rects) {
+    @attach = wire.request(SURFACE, 1, 20)
+    wire.put32(attach, 8, BUFFER)
+    send_buffer(link.way_fd, attach)
+    drum (rects) {
+        @damage = wire.request(SURFACE, 2, 24)
+        wire.put32(damage, 8, group.get(beat, 0))
+        wire.put32(damage, 12, group.get(beat, 1))
+        wire.put32(damage, 16, group.get(beat, 2))
+        wire.put32(damage, 20, group.get(beat, 3))
+        send_buffer(link.way_fd, damage)
+    }
     @commit = wire.request(SURFACE, 6, 8)
     out send_buffer(link.way_fd, commit)
 }

@@ -17,7 +17,8 @@
 --     точек 2×2 с шагом GRID_STEP внутри места, у соседних мест сходится в
 --     одну; center [] — свет из точки (60 %, 40 %) экрана, гаснет на 3/4 пути
 --     до дальнего угла; center [x, y] — фонарик: свет из этой точки, гаснет
---     на TORCH долях суммы сторон экрана
+--     на TORCH долях суммы сторон экрана; dots_from(…, whole) — то же на
+--     холсте-окне: whole [сдвиг x, сдвиг y, ширина, высота всего экрана]
 -- circle(screen, [x, y, w, h], [border, start, sweep], fill, edge) — круг
 --     поперечником в меньшую сторону: заливка fill (сектор, если sweep < 360)
 --     и кольцо edge толщиной border; дуга — sweep градусов от start (−90 — 12
@@ -212,25 +213,41 @@ skill sheen(screen, place, radius, color) {
 }
 
 skill dots(screen, place, color, center) {
-    @left = group.get(place, 0)
-    @top = group.get(place, 1)
+    out dots_from(screen, place, color, center, [0, 0, screen.width, screen.height])
+}
+
+skill dots_from(screen, place, color, center, whole) {
+    @shift_x = group.get(whole, 0)
+    @shift_y = group.get(whole, 1)
+    @wide = group.get(whole, 2)
+    @high = group.get(whole, 3)
+    @left = group.get(place, 0) + shift_x
+    @top = group.get(place, 1) + shift_y
     @right = left + group.get(place, 2)
     @bottom = top + group.get(place, 3)
-    @middle_x = screen.width * 3 / 5
-    @middle_y = screen.height * 2 / 5
-    @below = screen.height - middle_y
+    @middle_x = wide * 3 / 5
+    @middle_y = high * 2 / 5
+    @below = high - middle_y
     @reach = root(middle_x * middle_x + below * below) * 3 / 4
     (group.count(center) == 2) {
         middle_x = group.get(center, 0)
         middle_y = group.get(center, 1)
-        reach = (screen.width + screen.height) / TORCH
+        reach = (wide + high) / TORCH
     }
     (reach <= 0) { out none }
-    drum (screen.height / GRID_STEP) {
-        @y = beat * GRID_STEP + GRID_STEP / 2
+    @first_row = top / GRID_STEP - 1
+    (first_row < 0) { first_row = 0 }
+    @last_row = bottom / GRID_STEP + 1
+    (last_row > high / GRID_STEP) { last_row = high / GRID_STEP }
+    @first_column = left / GRID_STEP - 1
+    (first_column < 0) { first_column = 0 }
+    @last_column = right / GRID_STEP + 1
+    (last_column > wide / GRID_STEP) { last_column = wide / GRID_STEP }
+    drum (last_row - first_row) {
+        @y = (first_row + beat) * GRID_STEP + GRID_STEP / 2
         @rise = y - middle_y
-        drum (screen.width / GRID_STEP) {
-            @x = beat * GRID_STEP + GRID_STEP / 2
+        drum (last_column - first_column) {
+            @x = (first_column + beat) * GRID_STEP + GRID_STEP / 2
             @run = x - middle_x
             @distance = root(run * run + rise * rise)
             @inside = yes
@@ -239,7 +256,7 @@ skill dots(screen, place, color, center) {
             (x + 1 > right) { inside = no }
             (y + 1 > bottom) { inside = no }
             (inside == yes) {
-                (distance < reach) { graphics.blend(screen, x - 1, y - 1, 2, 2, color, OPAQUE * (reach - distance) / reach) }
+                (distance < reach) { graphics.blend(screen, x - 1 - shift_x, y - 1 - shift_y, 2, 2, color, OPAQUE * (reach - distance) / reach) }
             }
         }
     }

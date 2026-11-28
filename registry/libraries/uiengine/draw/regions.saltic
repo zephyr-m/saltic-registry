@@ -1,0 +1,208 @@
+-- regions — частичная перерисовка Attacus (решение автора 28.11.2026: кадр
+-- пульта стоил ~92 мс, из них рисунок ~75 — рисуем только изменившееся).
+-- spots — плоский список узлов дерева с местом на экране и отпечатком вида
+-- (всё, что меняет рисунок узла); changes — прямоугольники, где отпечатки или
+-- места разошлись; redraw рисует только их:
+-- кусок — холст-окно в тот же буфер (адрес сдвинут на угол куска, ширина и
+-- высота — куска), дерево рисуется со сдвигом, примитивы сами обрезают всё за
+-- краями окна, узлы вне куска atoms.draw_node пропускает целиком; сетка точек —
+-- в координатах всего экрана (palette.shift).
+--
+-- Spot { x, y, width, height, reach, mark, live } — узел на экране; reach —
+--     тень за краями; live — поле или ползунок: их вид — в runtime, всегда заново
+-- spots(runtime) -> [Spot] в порядке рисования
+-- changes(before, after, width, height) -> [[x, y, ширина, высота]], [] — нечего:
+--     общее начало и общий конец списков пропускаются; при той же длине —
+--     куски разошедшихся узлов, иначе — все узлы середины (были и стали)
+-- merged(rects, width, height) -> слитые куски (PASSES проходов pass), не больше
+--     MOST (иначе один общий)
+-- redraw(screen, runtime, palette, rects) — нарисовать куски
+-- Внутри: walk(node, place, found) — обход, как у atoms.draw_node; mark(node) —
+--     отпечаток; area(spot) — его место с тенью; differs(old, new) -> yes, если узел другой;
+--     joined(a, b) — общий
+--     прямоугольник; near(a, b) — пересекаются или ближе NEAR; clipped(rect,
+--     width, height) -> внутри экрана или []
+
+use core.group
+use registry.libraries.graphics.graphics
+use registry.libraries.uiengine.jtml
+use registry.libraries.uiengine.jtml.atom
+use registry.libraries.uiengine.draw.atoms
+use registry.libraries.uiengine.draw.shapes
+
+MOST = 12
+PASSES = 4
+NEAR = 16
+
+Spot = Box {
+    x = 0,
+    y = 0,
+    width = 0,
+    height = 0,
+    reach = 0,
+    mark = "",
+    live = no
+}
+
+skill mark(node) {
+    out "{node.kind}|{node.value}|{node.tone}|{node.fill}|{node.edge}|{node.border}|{node.radius}|{node.sweep}|{node.start}|{node.weight}|{node.size}|{node.pixels}|{node.icon}|{node.ink}|{node.shadow}|{node.inset}|{node.caps}|{node.mono}|{node.cut}|{node.fade}|{node.align}|{node.corners}|{node.id}"
+}
+
+skill walk(node, place, found) {
+    @x = group.get(place, 0)
+    @y = group.get(place, 1)
+    @width = group.get(place, 2)
+    @height = group.get(place, 3)
+    @live = no
+    (node.kind == atom.Kind.FIELD) { live = yes }
+    (node.kind == atom.Kind.SLIDER) { live = yes }
+    @all = group.add(found, Spot { x = x, y = y, width = width, height = height, reach = node.shadow, mark = mark(node), live = live })
+    @nested = no
+    (node.kind == atom.Kind.BOX) { nested = yes }
+    (node.kind == atom.Kind.CIRCLE) { nested = yes }
+    (nested == yes) {
+        drum (jtml.children_layout(node, x, y, width, height)) { all = walk(beat.node, [beat.x, beat.y, beat.width, beat.height], all) }
+    }
+    out all
+}
+
+skill spots(runtime) {
+    out walk(runtime.root, [0, 0, runtime.width, runtime.height], [])
+}
+
+skill area(spot) {
+    out [spot.x - spot.reach, spot.y - spot.reach, spot.width + spot.reach * 2, spot.height + spot.reach * 2]
+}
+
+skill joined(a, b) {
+    @left = group.get(a, 0)
+    (group.get(b, 0) < left) { left = group.get(b, 0) }
+    @top = group.get(a, 1)
+    (group.get(b, 1) < top) { top = group.get(b, 1) }
+    @right = group.get(a, 0) + group.get(a, 2)
+    (group.get(b, 0) + group.get(b, 2) > right) { right = group.get(b, 0) + group.get(b, 2) }
+    @bottom = group.get(a, 1) + group.get(a, 3)
+    (group.get(b, 1) + group.get(b, 3) > bottom) { bottom = group.get(b, 1) + group.get(b, 3) }
+    out [left, top, right - left, bottom - top]
+}
+
+skill near(a, b) {
+    (group.get(a, 0) + group.get(a, 2) + NEAR < group.get(b, 0)) { out no }
+    (group.get(b, 0) + group.get(b, 2) + NEAR < group.get(a, 0)) { out no }
+    (group.get(a, 1) + group.get(a, 3) + NEAR < group.get(b, 1)) { out no }
+    (group.get(b, 1) + group.get(b, 3) + NEAR < group.get(a, 1)) { out no }
+    out yes
+}
+
+skill differs(old, new) {
+    ((old.x == new.x) == no) { out yes }
+    ((old.y == new.y) == no) { out yes }
+    ((old.width == new.width) == no) { out yes }
+    ((old.height == new.height) == no) { out yes }
+    ((old.mark == new.mark) == no) { out yes }
+    out new.live
+}
+
+skill changes(before, after, width, height) {
+    @old_count = group.count(before)
+    @new_count = group.count(after)
+    @common = old_count
+    (new_count < common) { common = new_count }
+    @head = common
+    @found_head = no
+    drum (common) {
+        (found_head == no) {
+            (differs(group.get(before, beat), group.get(after, beat)) == yes) {
+                head = beat
+                found_head = yes
+            }
+        }
+    }
+    @tail = 0
+    @found_tail = no
+    drum (common - head) {
+        (found_tail == no) {
+            (differs(group.get(before, old_count - 1 - beat), group.get(after, new_count - 1 - beat)) == yes) { found_tail = yes }
+            (found_tail == no) { tail = tail + 1 }
+        }
+    }
+    @found = []
+    drum (old_count - head - tail) { found = group.add(found, area(group.get(before, head + beat))) }
+    drum (new_count - head - tail) { found = group.add(found, area(group.get(after, head + beat))) }
+    (old_count == new_count) {
+        @middle = []
+        drum (new_count - head - tail) {
+            @old = group.get(before, head + beat)
+            @new = group.get(after, head + beat)
+            (differs(old, new) == yes) { middle = group.add(middle, joined(area(old), area(new))) }
+        }
+        found = middle
+    }
+    out merged(found, width, height)
+}
+
+skill pass(pile) {
+    @next = []
+    drum (pile) {
+        @rect = beat
+        @taken = no
+        drum (group.count(next)) {
+            (taken == no) {
+                @other = group.get(next, beat)
+                (near(rect, other) == yes) {
+                    next = group.replaced(next, beat, joined(rect, other))
+                    taken = yes
+                }
+            }
+        }
+        (taken == no) { next = group.add(next, rect) }
+    }
+    out next
+}
+
+skill merged(rects, width, height) {
+    @pile = rects
+    drum (PASSES) { pile = pass(pile) }
+    (group.count(pile) > MOST) {
+        @whole = group.get(pile, 0)
+        drum (pile) { whole = joined(whole, beat) }
+        pile = [whole]
+    }
+    @inside = []
+    drum (pile) {
+        @cut = clipped(beat, width, height)
+        (group.count(cut) == 4) { inside = group.add(inside, cut) }
+    }
+    out inside
+}
+
+skill clipped(rect, width, height) {
+    @left = group.get(rect, 0)
+    @top = group.get(rect, 1)
+    @right = left + group.get(rect, 2)
+    @bottom = top + group.get(rect, 3)
+    (left < 0) { left = 0 }
+    (top < 0) { top = 0 }
+    (right > width) { right = width }
+    (bottom > height) { bottom = height }
+    (right <= left) { out [] }
+    (bottom <= top) { out [] }
+    out [left, top, right - left, bottom - top]
+}
+
+skill redraw(screen, runtime, palette, rects) {
+    drum (rects) {
+        @x = group.get(beat, 0)
+        @y = group.get(beat, 1)
+        @width = group.get(beat, 2)
+        @height = group.get(beat, 3)
+        @view = graphics.Screen { width = width, height = height, stride = screen.stride, format = screen.format, frame = screen.frame, memory = screen.memory + (y * screen.stride + x) * graphics.PIXEL_BYTES, accel = [], vsync = screen.vsync }
+        graphics.fill(view, 0, 0, width, height, palette.ground)
+        @whole = [x, y, screen.width, screen.height]
+        (palette.lit == yes) { shapes.dots_from(view, [0, 0, width, height], palette.rim, atoms.glow(palette), whole) }
+        palette.shift = whole
+        atoms.draw_node(view, runtime, palette, runtime.root, [0 - x, 0 - y, runtime.width, runtime.height])
+        palette.shift = []
+    }
+    out none
+}
