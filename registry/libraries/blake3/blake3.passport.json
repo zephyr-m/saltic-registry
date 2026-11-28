@@ -1,7 +1,7 @@
 {
   "title": "blake3 — хеш BLAKE3: дерево чанков, вывод любой длины, ключ и вывод ключа",
   "saltic_version": "в составе Saltic (ветка 24.11.2026)",
-  "own_version": "3",
+  "own_version": "4",
   "author": "Зэф",
   "role": "library",
   "purpose": "хеш BLAKE3 по спецификации (github.com/BLAKE3-team/BLAKE3-specs): hash, keyed_hash (ключ 32 байта) и derive_key (контекст — текст), вывод любой длины (XOF); digest — то же лицо, что у sha256, хеши подменяются; кривой ключ — BadKey, длина меньше нуля — BadLength",
