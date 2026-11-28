@@ -110,10 +110,11 @@ skill changes(before, after, width, height) {
     (new_count < common) { common = new_count }
     @head = common
     @found_head = no
-    drum (common) {
+    drum (group.count(common)) {
+        @entry = group.get(common, beat)
         (found_head == no) {
-            (differs(group.get(before, beat), group.get(after, beat)) == yes) {
-                head = beat
+            (differs(group.get(before, entry), group.get(after, entry)) == yes) {
+                head = entry
                 found_head = yes
             }
         }
@@ -143,8 +144,8 @@ skill changes(before, after, width, height) {
 
 skill pass(pile) {
     @next = []
-    drum (pile) {
-        @rect = beat
+    drum (group.count(pile)) {
+        @rect = group.get(pile, beat)
         @taken = no
         drum (group.count(next)) {
             (taken == no) {
@@ -169,8 +170,9 @@ skill merged(rects, width, height) {
         pile = [whole]
     }
     @inside = []
-    drum (pile) {
-        @cut = clipped(beat, width, height)
+    drum (group.count(pile)) {
+        @entry = group.get(pile, beat)
+        @cut = clipped(entry, width, height)
         (group.count(cut) == 4) { inside = group.add(inside, cut) }
     }
     out inside
@@ -191,11 +193,12 @@ skill clipped(rect, width, height) {
 }
 
 skill redraw(screen, runtime, palette, rects) {
-    drum (rects) {
-        @x = group.get(beat, 0)
-        @y = group.get(beat, 1)
-        @width = group.get(beat, 2)
-        @height = group.get(beat, 3)
+    drum (group.count(rects)) {
+        @rect_2 = group.get(rects, beat)
+        @x = group.get(rect_2, 0)
+        @y = group.get(rect_2, 1)
+        @width = group.get(rect_2, 2)
+        @height = group.get(rect_2, 3)
         @view = graphics.Screen { width = width, height = height, stride = screen.stride, format = screen.format, frame = screen.frame, memory = screen.memory + (y * screen.stride + x) * graphics.PIXEL_BYTES, accel = [], vsync = screen.vsync }
         graphics.fill(view, 0, 0, width, height, palette.ground)
         @whole = [x, y, screen.width, screen.height]

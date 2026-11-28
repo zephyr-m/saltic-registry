@@ -29,9 +29,10 @@ Probe = Box {
     suite = testing.test_new()
 
     skill exchange(width) {
-        drum (groups) {
-            (beat.width == width) {
-                out beat
+        drum (group.count(groups)) {
+            @group_2 = group.get(groups, beat)
+            (group_2.width == width) {
+                out group_2
             }
         }
         out error.UnknownGroup
@@ -117,26 +118,30 @@ program() {
         ]
     }
     io.show("группы: p из hex RFC 7919 = p по формуле RFC (Python)")
-    drum (cases.PRIMES) {
-        @width = group.get(beat, 0)
+    drum (group.count(cases.PRIMES)) {
+        @prime_2 = group.get(cases.PRIMES, beat)
+        @width = group.get(prime_2, 0)
         @side = probe.exchange(width)
         @start = time.now()
         @prime = side.modulus()
         @spent = probe.passed(start)
         io.show("  ffdhe{width}: разбор p и множитель Барретта {spent} мс")
-        probe.suite = testing.test_yes(probe.suite, "  ffdhe{width}: p", probe.same(prime, group.get(beat, 1)))
+        probe.suite = testing.test_yes(probe.suite, "  ffdhe{width}: p", probe.same(prime, group.get(prime_2, 1)))
     }
     io.show("пары: открытые ключи и общий секрет против Python")
-    drum (cases.PAIRS) {
-        probe.pair(beat)
+    drum (group.count(cases.PAIRS)) {
+        @pair_2 = group.get(cases.PAIRS, beat)
+        probe.pair(pair_2)
     }
     io.show("чужие открытые вне 1 < y < p − 1 (RFC 7919 §5.1):")
-    drum (cases.BAD_PEERS) {
-        probe.peer(beat)
+    drum (group.count(cases.BAD_PEERS)) {
+        @bad_peer = group.get(cases.BAD_PEERS, beat)
+        probe.peer(bad_peer)
     }
     io.show("закрытые вне 1 < x < p − 1:")
-    drum (cases.BAD_PRIVATE) {
-        probe.private(beat)
+    drum (group.count(cases.BAD_PRIVATE)) {
+        @entry = group.get(cases.BAD_PRIVATE, beat)
+        probe.private(entry)
     }
     @odd = dh.Exchange {
         width = 1024

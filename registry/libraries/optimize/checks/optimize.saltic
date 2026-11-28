@@ -60,9 +60,10 @@ Probe = Box {
         smart.rate = 0.05
         @a = cases.START
         @b = cases.START
-        drum (cases.GRADS) {
-            a = slow.step(a, beat)
-            b = smart.step(b, beat)
+        drum (group.count(cases.GRADS)) {
+            @grad = group.get(cases.GRADS, beat)
+            a = slow.step(a, grad)
+            b = smart.step(b, grad)
         }
         out [same(a, cases.DESCENT_END), same(b, cases.ADAM_END)]
     }

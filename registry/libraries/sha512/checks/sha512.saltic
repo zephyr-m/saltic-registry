@@ -18,11 +18,12 @@ program() {
     @hash = sha512.Sha512 {}
     @code = hex.Hex {}
     @wrong = 0
-    drum (cases.CASES) {
-        @got = code.encode(hash.digest(code.decode(group.get(beat, 0))))
-        ((got == group.get(beat, 1)) == no) {
+    drum (group.count(cases.CASES)) {
+        @case = group.get(cases.CASES, beat)
+        @got = code.encode(hash.digest(code.decode(group.get(case, 0))))
+        ((got == group.get(case, 1)) == no) {
             wrong = wrong + 1
-            @size = str.bytes(group.get(beat, 0)) / 2
+            @size = str.bytes(group.get(case, 0)) / 2
             io.show("  расхождение на сообщении {size} байт")
         }
     }

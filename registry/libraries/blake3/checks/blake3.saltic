@@ -77,11 +77,12 @@ program() {
     @probe = Probe {}
     @hasher = blake3.Blake3 {}
     @wrong = 0
-    drum (cases.OFFICIAL) {
-        @missed = probe.official(beat)
+    drum (group.count(cases.OFFICIAL)) {
+        @entry = group.get(cases.OFFICIAL, beat)
+        @missed = probe.official(entry)
         ((missed == 0) == no) {
             wrong = wrong + missed
-            @size = group.get(beat, 0)
+            @size = group.get(entry, 0)
             io.show("  расхождение с официальным вектором: длина {size}, мимо {missed}")
         }
     }
@@ -89,11 +90,12 @@ program() {
     io.show("blake3: официальных длин {count} (по 6 сверок), расхождений {wrong}")
     suite = testing.test_equal(suite, "как в официальном test_vectors.json", wrong, 0)
     @own = 0
-    drum (cases.CASES) {
-        (probe.check(beat) == no) {
+    drum (group.count(cases.CASES)) {
+        @case = group.get(cases.CASES, beat)
+        (probe.check(case) == no) {
             own = own + 1
-            @kind = group.get(beat, 0)
-            @message = group.get(beat, 1)
+            @kind = group.get(case, 0)
+            @message = group.get(case, 1)
             io.show("  расхождение {kind}: {message}")
         }
     }

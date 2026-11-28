@@ -98,8 +98,10 @@ skill glyph(face, code, size) {
 
 skill measure(face, text, size, spacing) {
     @width = 0
-    drum (str.letters(text)) {
-        @made = glyph(face, raster.code_of(beat), size)
+    @letters_2 = str.letters(text)
+    drum (group.count(letters_2)) {
+        @letter = group.get(letters_2, beat)
+        @made = glyph(face, raster.code_of(letter), size)
         width = width + made.advance + spacing
     }
     out width
@@ -122,8 +124,10 @@ skill paint(screen, face, x, y, text, brush) {
     @wide = measure(face, text, size, spacing)
     (wide < 1) { wide = 1 }
     @base_line = y + rise(face, size)
-    drum (str.letters(text)) {
-        @made = glyph(face, raster.code_of(beat), size)
+    @letters_2 = str.letters(text)
+    drum (group.count(letters_2)) {
+        @letter = group.get(letters_2, beat)
+        @made = glyph(face, raster.code_of(letter), size)
         drum (made.height) {
             @row = base_line - made.top + beat
             (row >= 0) {

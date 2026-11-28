@@ -15,9 +15,10 @@ program() {
     @suite = testing.test_new()
     @codec = hex.Hex {}
     @wrong = 0
-    drum (cases.CASES) {
-        @low = group.get(beat, 0)
-        @high = group.get(beat, 1)
+    drum (group.count(cases.CASES)) {
+        @case = group.get(cases.CASES, beat)
+        @low = group.get(case, 0)
+        @high = group.get(case, 1)
         @there = codec.decode(high)
         ((codec.encode(there) == low) == no) {
             wrong = wrong + 1

@@ -116,8 +116,9 @@ skill handles_with(base, kind, guid) {
 skill connect_all(base) {
     @services = uefi.boot_services(base)
     @everything = handles_with(base, ALL_HANDLES, [])
-    drum (everything) {
-        firmware.call(base, firmware.pointer(services, base, BOOT_CONNECT_CONTROLLER), [beat, firmware.number(0), firmware.number(0), firmware.number(1)])
+    drum (group.count(everything)) {
+        @entry = group.get(everything, beat)
+        firmware.call(base, firmware.pointer(services, base, BOOT_CONNECT_CONTROLLER), [entry, firmware.number(0), firmware.number(0), firmware.number(1)])
     }
     out group.count(everything)
 }
@@ -222,11 +223,12 @@ skill volume_report(base, index, handle) {
     @efi = folder_names(base, root, "EFI")
     (group.count(efi) > 0) {
         lines = group.add(lines, str.concat("  EFI: ", str.join(efi, " ")))
-        drum (efi) {
-            (str.ends_with(beat, "/") == yes) {
-                @inner = str.slice(beat, 0, str.bytes(beat) - 1)
+        drum (group.count(efi)) {
+            @entry = group.get(efi, beat)
+            (str.ends_with(entry, "/") == yes) {
+                @inner = str.slice(entry, 0, str.bytes(entry) - 1)
                 @inside = folder_names(base, root, str.concat("EFI\\", inner))
-                lines = group.add(lines, str.concat("  EFI/{beat}", str.concat(" ", str.join(inside, " "))))
+                lines = group.add(lines, str.concat("  EFI/{entry}", str.concat(" ", str.join(inside, " "))))
             }
         }
     }
@@ -270,8 +272,10 @@ skill fixed_volume(base, owner) {
 }
 
 skill saltic_root(base) {
-    drum (file_systems(base)) {
-        (fixed_volume(base, beat) == yes) { out open_root(base, beat) }
+    @file_systems_2 = file_systems(base)
+    drum (group.count(file_systems_2)) {
+        @file_system = group.get(file_systems_2, beat)
+        (fixed_volume(base, file_system) == yes) { out open_root(base, file_system) }
     }
     out error.NoSalticVolume
 }

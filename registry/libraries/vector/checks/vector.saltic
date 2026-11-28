@@ -56,10 +56,11 @@ program() {
     @probe = Probe {}
     @space = vector.Vector {}
     @wrong = 0
-    drum (cases.CASES) {
-        (probe.check(beat) == no) {
+    drum (group.count(cases.CASES)) {
+        @case = group.get(cases.CASES, beat)
+        (probe.check(case) == no) {
             wrong = wrong + 1
-            @kind = group.get(beat, 0)
+            @kind = group.get(case, 0)
             io.show("  расхождение: {kind}")
         }
     }

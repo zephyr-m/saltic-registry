@@ -57,9 +57,10 @@ Pen = Box {
             @kind = "o"
             (closed == yes) { kind = "c" }
             @parts = []
-            drum (points) {
-                @px = group.get(beat, 0)
-                @py = group.get(beat, 1)
+            drum (group.count(points)) {
+                @point = group.get(points, beat)
+                @px = group.get(point, 0)
+                @py = group.get(point, 1)
                 parts = group.add(parts, "{px},{py}")
             }
             @joined = str.join(parts, " ")
@@ -417,8 +418,8 @@ skill icon(text) {
     @pen = Pen {}
     drum (str.bytes(text)) {
         @at = beat
-        drum (TAGS) {
-            @tag = beat
+        drum (group.count(TAGS)) {
+            @tag = group.get(TAGS, beat)
             (str.starts_at(text, "\"{tag}\",", at) == yes) {
                 @open = at
                 drum (str.bytes(text) - at) {
@@ -441,8 +442,8 @@ program(source) {
     @lines = []
     @done = 0
     @total = group.count(files)
-    drum (files) {
-        @name = beat
+    drum (group.count(files)) {
+        @name = group.get(files, beat)
         (str.ends_with(name, TAIL) == yes) {
             @short = str.slice(name, 0, str.bytes(name) - str.bytes(TAIL))
             @strokes = icon(file.read("{source}/{name}"))

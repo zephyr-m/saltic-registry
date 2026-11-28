@@ -44,8 +44,9 @@ Script = Box {
         @drained = reader.drain(core)
         core = drained.core
         @lines = []
-        drum (drained.gestures) {
-            lines = group.add(lines, line.described(beat))
+        drum (group.count(drained.gestures)) {
+            @gesture = group.get(drained.gestures, beat)
+            lines = group.add(lines, line.described(gesture))
         }
         out str.join(lines, " | ")
     }

@@ -26,9 +26,11 @@ HOME_KEY = "SALTIC_HOME="
 MANIFEST = "tarantul.json"
 
 skill home() {
-    drum (process.environment()) {
-        (str.starts_with(beat, HOME_KEY) == yes) {
-            out str.slice(beat, str.bytes(HOME_KEY), str.bytes(beat))
+    @settings = process.environment()
+    drum (group.count(settings)) {
+        @setting = group.get(settings, beat)
+        (str.starts_with(setting, HOME_KEY) == yes) {
+            out str.slice(setting, str.bytes(HOME_KEY), str.bytes(setting))
         }
     }
     io.show("checks: нет SALTIC_HOME — дом Saltic задаёт justfile реестра")
@@ -69,8 +71,10 @@ skill tail(log) {
     (from < 0) {
         from = 0
     }
-    drum (group.slice(lines, from, group.count(lines))) {
-        io.show("    {beat}")
+    @lines_2 = group.slice(lines, from, group.count(lines))
+    drum (group.count(lines_2)) {
+        @line = group.get(lines_2, beat)
+        io.show("    {line}")
     }
     out none
 }
@@ -85,8 +89,9 @@ program() {
     @tarantul_ready = no
     @failed = []
     @count = 0
-    drum (sources()) {
-        @path = beat
+    @paths = sources()
+    drum (group.count(paths)) {
+        @path = group.get(paths, beat)
         (runnable(path) == yes) {
             count = count + 1
             @name = flat(path)
@@ -128,8 +133,9 @@ program() {
     @broken = group.count(failed)
     (broken > 0) {
         io.show("checks: из {count} упало {broken}:")
-        drum (failed) {
-            io.show("  {beat}")
+        drum (group.count(failed)) {
+            @entry = group.get(failed, beat)
+            io.show("  {entry}")
         }
         out error.ChecksFailed
     }

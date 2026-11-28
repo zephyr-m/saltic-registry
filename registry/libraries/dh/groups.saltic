@@ -89,8 +89,8 @@ Named = Box {
 
     skill hex_digits(lines) {
         @digits = []
-        drum (lines) {
-            @line = beat
+        drum (group.count(lines)) {
+            @line = group.get(lines, beat)
             drum (str.bytes(line)) {
                 @at = beat
                 ((str.byte(line, at) == SPACE) == no) {

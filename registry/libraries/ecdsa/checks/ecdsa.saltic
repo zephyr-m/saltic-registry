@@ -92,10 +92,11 @@ program() {
     @wrong = 0
     @finished = 0
     @count = group.count(cases.SIGNED)
-    drum (cases.SIGNED) {
-        (probe.signed(beat) == no) {
+    drum (group.count(cases.SIGNED)) {
+        @entry_2 = group.get(cases.SIGNED, beat)
+        (probe.signed(entry_2) == no) {
             wrong = wrong + 1
-            @secret = group.get(beat, 0)
+            @secret = group.get(entry_2, 0)
             io.show("  расхождение подписи: секрет {secret}")
         }
         finished = finished + 1
@@ -107,10 +108,11 @@ program() {
     wrong = 0
     @done = 0
     @total = group.count(cases.VERIFIED)
-    drum (cases.VERIFIED) {
-        (probe.verified(beat) == no) {
+    drum (group.count(cases.VERIFIED)) {
+        @entry = group.get(cases.VERIFIED, beat)
+        (probe.verified(entry) == no) {
             wrong = wrong + 1
-            @number = group.get(beat, 0)
+            @number = group.get(entry, 0)
             io.show("  расхождение Wycheproof: случай {number}")
         }
         done = done + 1
@@ -122,15 +124,16 @@ program() {
     suite = testing.test_equal(suite, "Wycheproof p1363: вердикты как у эталона, плохие r/s — BadSignature", wrong, 0)
 
     @bad_points = 0
-    drum (cases.POINTS) {
+    drum (group.count(cases.POINTS)) {
+        @point_2 = group.get(cases.POINTS, beat)
         @hit = no
-        @point = sign.point_from(text.decode(group.get(beat, 0))) rescue |err| {
+        @point = sign.point_from(text.decode(group.get(point_2, 0))) rescue |err| {
             hit = (err == error.BadPoint)
             none
         }
         (hit == no) {
             bad_points = bad_points + 1
-            @why = group.get(beat, 1)
+            @why = group.get(point_2, 1)
             io.show("  точка прошла: {why}")
         }
     }
@@ -138,8 +141,9 @@ program() {
 
     @bad_secrets = 0
     @message = text.decode("616263")
-    drum (cases.SECRETS) {
-        @secret = text.decode(group.get(beat, 0))
+    drum (group.count(cases.SECRETS)) {
+        @secret_2 = group.get(cases.SECRETS, beat)
+        @secret = text.decode(group.get(secret_2, 0))
         @public_hit = no
         @public = sign.public_of(secret) rescue |err| {
             public_hit = (err == error.BadSecret)

@@ -19,23 +19,24 @@ program() {
     @suite = testing.test_new()
     @wrong = 0
     @start = time.now()
-    drum (split_cases.CASES) {
-        @a = bignum.parse(group.get(beat, 1))
-        @b = bignum.parse(group.get(beat, 2))
+    drum (group.count(split_cases.CASES)) {
+        @case = group.get(split_cases.CASES, beat)
+        @a = bignum.parse(group.get(case, 1))
+        @b = bignum.parse(group.get(case, 2))
         @share = a.quotient(b)
         @left = a.remainder(b)
-        @name = group.get(beat, 0)
-        ((share.text() == group.get(beat, 3)) == no) {
+        @name = group.get(case, 0)
+        ((share.text() == group.get(case, 3)) == no) {
             io.show("частное разошлось: {name}")
             wrong = wrong + 1
         }
-        ((left.text() == group.get(beat, 4)) == no) {
+        ((left.text() == group.get(case, 4)) == no) {
             io.show("остаток разошёлся: {name}")
             wrong = wrong + 1
         }
         @back = share.times(b)
         @whole = back.plus(left)
-        ((whole.text() == group.get(beat, 1)) == no) {
+        ((whole.text() == group.get(case, 1)) == no) {
             io.show("частное · делитель + остаток ≠ делимое: {name}")
             wrong = wrong + 1
         }

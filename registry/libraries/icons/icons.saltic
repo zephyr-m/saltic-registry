@@ -188,10 +188,10 @@ skill dot(edges, center, half) {
 skill outline(lines, size) {
     @half = size * raster.FINE / 24
     @edges = []
-    drum (lines) {
-        @stroke = beat
+    drum (group.count(lines)) {
+        @stroke = group.get(lines, beat)
         @scaled = []
-        drum (stroke) { scaled = group.add(scaled, [group.get(beat, 0) * size * raster.FINE / GRID, 0 - group.get(beat, 1) * size * raster.FINE / GRID]) }
+        drum (stroke) { scaled = group.add(scaled, [group.get(stroke, 0) * size * raster.FINE / GRID, 0 - group.get(stroke, 1) * size * raster.FINE / GRID]) }
         @count = group.count(scaled)
         drum (count) {
             edges = dot(edges, group.get(scaled, beat), half)

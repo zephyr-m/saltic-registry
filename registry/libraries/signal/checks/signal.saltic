@@ -92,11 +92,12 @@ program() {
     @probe = Probe {}
     @wave = signal.Signal {}
     @wrong = 0
-    drum (cases.CASES) {
-        (probe.check(beat) == no) {
+    drum (group.count(cases.CASES)) {
+        @case = group.get(cases.CASES, beat)
+        (probe.check(case) == no) {
             wrong = wrong + 1
-            @kind = group.get(beat, 0)
-            @n = group.get(beat, 1)
+            @kind = group.get(case, 0)
+            @n = group.get(case, 1)
             io.show("  расхождение {kind}, n = {n}")
         }
     }

@@ -96,19 +96,21 @@ Link = Box {
 }
 
 skill typed(scan, shift) {
-    drum (LETTERS) {
-        (group.get(beat, 0) == scan) {
-            (shift == yes) { out group.get(beat, 2) }
-            out group.get(beat, 1)
+    drum (group.count(LETTERS)) {
+        @letter = group.get(LETTERS, beat)
+        (group.get(letter, 0) == scan) {
+            (shift == yes) { out group.get(letter, 2) }
+            out group.get(letter, 1)
         }
     }
     out ""
 }
 
 skill named(scan) {
-    drum (KEYS) {
-        (group.get(beat, 0) == scan) {
-            out group.get(beat, 1)
+    drum (group.count(KEYS)) {
+        @key = group.get(KEYS, beat)
+        (group.get(key, 0) == scan) {
+            out group.get(key, 1)
         }
     }
     out ""
@@ -127,8 +129,9 @@ skill cap(version, limit) {
 
 skill value_of(name) {
     @found = ""
-    drum (process.environment()) {
-        @row = beat
+    @rows = process.environment()
+    drum (group.count(rows)) {
+        @row = group.get(rows, beat)
         @cut = 0
         drum (str.bytes(row)) {
             (str.byte(row, beat) == 61) { cut = beat }
@@ -352,12 +355,13 @@ skill present_parts(link, rects) {
     @attach = wire.request(SURFACE, 1, 20)
     wire.put32(attach, 8, BUFFER)
     send_buffer(link.way_fd, attach)
-    drum (rects) {
+    drum (group.count(rects)) {
+        @rect_2 = group.get(rects, beat)
         @damage = wire.request(SURFACE, 2, 24)
-        wire.put32(damage, 8, group.get(beat, 0))
-        wire.put32(damage, 12, group.get(beat, 1))
-        wire.put32(damage, 16, group.get(beat, 2))
-        wire.put32(damage, 20, group.get(beat, 3))
+        wire.put32(damage, 8, group.get(rect_2, 0))
+        wire.put32(damage, 12, group.get(rect_2, 1))
+        wire.put32(damage, 16, group.get(rect_2, 2))
+        wire.put32(damage, 20, group.get(rect_2, 3))
         send_buffer(link.way_fd, damage)
     }
     @commit = wire.request(SURFACE, 6, 8)

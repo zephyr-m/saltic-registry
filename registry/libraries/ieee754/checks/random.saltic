@@ -43,8 +43,10 @@ Sweep = Box {
     skill run(suite, path, layout, name) {
         @wrong = 0
         @total = 0
-        drum (group.without(str.lines(file.read(path)), "")) {
-            @parts = str.split(beat, " ")
+        @lines_2 = group.without(str.lines(file.read(path)), "")
+        drum (group.count(lines_2)) {
+            @line = group.get(lines_2, beat)
+            @parts = str.split(line, " ")
             @op = group.get(parts, 0)
             @expected = group.get(parts, 3)
             @made = result(op, bits.read(layout, group.get(parts, 1)), bits.read(layout, group.get(parts, 2)))
@@ -56,7 +58,7 @@ Sweep = Box {
             ((got == expected) == no) {
                 wrong = wrong + 1
                 (shown < LIMIT) {
-                    io.show("  расхождение {name}: {beat} — у нас {got}")
+                    io.show("  расхождение {name}: {line} — у нас {got}")
                     shown = shown + 1
                 }
             }

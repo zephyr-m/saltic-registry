@@ -19,11 +19,12 @@ program() {
     @text = hex.Hex {}
     @line = wire.Wire {}
     @wrong = 0
-    drum (cases.SUMS) {
-        @data = text.decode(group.get(beat, 0))
-        ((line.checksum(data) == group.get(beat, 1)) == no) {
+    drum (group.count(cases.SUMS)) {
+        @sum_2 = group.get(cases.SUMS, beat)
+        @data = text.decode(group.get(sum_2, 0))
+        ((line.checksum(data) == group.get(sum_2, 1)) == no) {
             wrong = wrong + 1
-            @shown = group.get(beat, 0)
+            @shown = group.get(sum_2, 0)
             io.show("  сумма разошлась: {shown}")
         }
     }
@@ -39,17 +40,18 @@ program() {
     suite = testing.test_equal(suite, "по кускам — как целиком", pieces, line.checksum(whole))
 
     @numbers_wrong = 0
-    drum (cases.NUMBERS) {
-        @four = text.decode(group.get(beat, 0))
-        ((line.word(four, 0) == group.get(beat, 1)) == no) {
+    drum (group.count(cases.NUMBERS)) {
+        @number = group.get(cases.NUMBERS, beat)
+        @four = text.decode(group.get(number, 0))
+        ((line.word(four, 0) == group.get(number, 1)) == no) {
             numbers_wrong = numbers_wrong + 1
         }
-        ((line.long(four, 0) == group.get(beat, 2)) == no) {
+        ((line.long(four, 0) == group.get(number, 2)) == no) {
             numbers_wrong = numbers_wrong + 1
         }
         @back = bytes.new(4)
-        line.put_long(back, 0, group.get(beat, 2))
-        ((text.encode(back) == group.get(beat, 0)) == no) {
+        line.put_long(back, 0, group.get(number, 2))
+        ((text.encode(back) == group.get(number, 0)) == no) {
             numbers_wrong = numbers_wrong + 1
         }
     }

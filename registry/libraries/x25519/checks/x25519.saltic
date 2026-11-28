@@ -61,10 +61,11 @@ program() {
     @probe = Probe {}
     @curve = x25519.X25519 {}
     @wrong = 0
-    drum (cases.CASES) {
-        (probe.check(beat) == no) {
+    drum (group.count(cases.CASES)) {
+        @case = group.get(cases.CASES, beat)
+        (probe.check(case) == no) {
             wrong = wrong + 1
-            @secret = group.get(beat, 0)
+            @secret = group.get(case, 0)
             io.show("  расхождение: секрет {secret}")
         }
     }

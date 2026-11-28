@@ -1,7 +1,7 @@
 {
   "title": "ecdsa — подпись ECDSA P-256 с SHA-256 (FIPS 186-5, RFC 6979)",
   "saltic_version": "в составе Saltic (ветка 24.11.2026)",
-  "own_version": "4",
+  "own_version": "5",
   "author": "Зэф",
   "role": "library",
   "purpose": "подпись и проверка подписи ECDSA на кривой P-256 (secp256r1) с SHA-256: открытый ключ 04 ‖ X ‖ Y из секрета, подпись r ‖ s по 64 байта с детерминированным k (RFC 6979), проверка — TLS, ключи хостов SSH ecdsa-sha2-nistp256, WebAuthn, JWT ES256; лицо то же, что у ed25519 (public_of / sign / verify)",

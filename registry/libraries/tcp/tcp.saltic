@@ -192,10 +192,11 @@ Connection = Box {
 
     skill acknowledge(number) {
         @kept = []
-        drum (flight) {
-            @end = circle.after(group.get(beat, 0), span_of(beat))
+        drum (group.count(flight)) {
+            @entry = group.get(flight, beat)
+            @end = circle.after(group.get(entry, 0), span_of(entry))
             (circle.before(number, end) == yes) {
-                kept = group.add(kept, beat)
+                kept = group.add(kept, entry)
             }
         }
         flight = kept

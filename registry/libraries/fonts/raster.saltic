@@ -86,9 +86,10 @@ skill flat(contour, size, units) {
     (count < 2) { out [] }
     @points = []
     @kinds = []
-    drum (contour) {
-        points = group.add(points, scaled(beat, size, units))
-        kinds = group.add(kinds, group.get(beat, 2))
+    drum (group.count(contour)) {
+        @entry = group.get(contour, beat)
+        points = group.add(points, scaled(entry, size, units))
+        kinds = group.add(kinds, group.get(entry, 2))
     }
     @start = group.get(points, 0)
     @order = group.slice(points, 1, count)
@@ -134,15 +135,16 @@ skill flat(contour, size, units) {
 
 skill crossings(edges, level) {
     @found = []
-    drum (edges) {
-        @y0 = group.get(beat, 1)
-        @y1 = group.get(beat, 3)
+    drum (group.count(edges)) {
+        @edge = group.get(edges, beat)
+        @y0 = group.get(edge, 1)
+        @y1 = group.get(edge, 3)
         @inside = no
         (y0 <= level) { (level < y1) { inside = yes } }
         (y1 <= level) { (level < y0) { inside = yes } }
         (inside == yes) {
-            @x0 = group.get(beat, 0)
-            @x = x0 + (level - y0) * (group.get(beat, 2) - x0) / (y1 - y0)
+            @x0 = group.get(edge, 0)
+            @x = x0 + (level - y0) * (group.get(edge, 2) - x0) / (y1 - y0)
             @turn = 1
             (y1 < y0) { turn = -1 }
             @at = group.count(found)
@@ -195,10 +197,13 @@ skill filled(edges) {
     @high_x = low_x
     @low_y = group.get(group.get(edges, 0), 1)
     @high_y = low_y
-    drum (edges) {
-        drum ([[group.get(beat, 0), group.get(beat, 1)], [group.get(beat, 2), group.get(beat, 3)]]) {
-            @x = group.get(beat, 0)
-            @y = group.get(beat, 1)
+    drum (group.count(edges)) {
+        @edge = group.get(edges, beat)
+        @entries = [[group.get(edge, 0), group.get(edge, 1)], [group.get(edge, 2), group.get(edge, 3)]]
+        drum (group.count(entries)) {
+            @entry = group.get(entries, beat)
+            @x = group.get(entry, 0)
+            @y = group.get(entry, 1)
             (x < low_x) { low_x = x }
             (x > high_x) { high_x = x }
             (y < low_y) { low_y = y }
@@ -251,15 +256,17 @@ skill line_image(font, text, size) {
     @height = rise + above((0 - font.descent) * size, font.units)
     @glyphs = []
     @width = 0
-    drum (str.letters(text)) {
-        @made = render(font, code_of(beat), size)
+    @letters_2 = str.letters(text)
+    drum (group.count(letters_2)) {
+        @letter = group.get(letters_2, beat)
+        @made = render(font, code_of(letter), size)
         glyphs = group.add(glyphs, made)
         width = width + made.advance
     }
     @pixels = bytes.new(width * height)
     @pen = 0
-    drum (glyphs) {
-        @glyph = beat
+    drum (group.count(glyphs)) {
+        @glyph = group.get(glyphs, beat)
         drum (glyph.height) {
             @row = rise - glyph.top + beat
             (row >= 0) {

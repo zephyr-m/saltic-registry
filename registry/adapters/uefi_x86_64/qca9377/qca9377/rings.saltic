@@ -85,8 +85,9 @@ skill descriptor(ring, base, index, buffer, length, flags) {
 }
 
 skill at(chip, name) {
-    drum (MEMORY) {
-        (group.get(beat, 0) == name) { out firmware.add(chip.memory, group.get(beat, 1)) }
+    drum (group.count(MEMORY)) {
+        @entry = group.get(MEMORY, beat)
+        (group.get(entry, 0) == name) { out firmware.add(chip.memory, group.get(entry, 1)) }
     }
     out error.UnknownRegion
 }

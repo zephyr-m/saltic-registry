@@ -59,8 +59,8 @@ program() {
     @maker = xorshift.Xorshift {}
     @probe = Probe {}
     @wrong = 0
-    drum (cases.CASES) {
-        @row = beat
+    drum (group.count(cases.CASES)) {
+        @row = group.get(cases.CASES, beat)
         @source = maker.seeded(group.get(row, 0))
         drum (20) {
             ((source.next() == group.get(row, 1 + beat)) == no) {
@@ -72,8 +72,9 @@ program() {
     io.show("xorshift: зёрен {count}, неверных слов {wrong}")
     suite = testing.test_equal(suite, "последовательность как xorshift32 Марсальи", wrong, 0)
     @missed = 0
-    drum (cases.BELOW) {
-        @row = beat
+    drum (group.count(cases.BELOW)) {
+        @entry = group.get(cases.BELOW, beat)
+        @row = entry
         @source = maker.seeded(group.get(row, 0))
         @n = group.get(row, 1)
         drum (10) {

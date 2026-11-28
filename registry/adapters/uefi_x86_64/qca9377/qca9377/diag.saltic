@@ -70,10 +70,11 @@ skill write(chip, address, value) {
 
 skill write_rows(chip, address, rows) {
     @offset = 0
-    drum (rows) {
-        @row = beat
-        drum (row) {
-            firmware.write_phys32(rings.at(chip, "wifi_diag_buffer"), chip.base, offset, firmware.number(beat))
+    drum (group.count(rows)) {
+        @row = group.get(rows, beat)
+        drum (group.count(row)) {
+            @entry = group.get(row, beat)
+            firmware.write_phys32(rings.at(chip, "wifi_diag_buffer"), chip.base, offset, firmware.number(entry))
             offset = offset + 4
         }
     }

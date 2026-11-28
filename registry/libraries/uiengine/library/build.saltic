@@ -57,9 +57,10 @@ skill calls(node) {
         (shelf == no) { found = group.add(found, tag) }
     }
     (props.kind == reader.Kind.JTML_OBJECT) {
-        drum (props.items) {
-            (beat.kind == reader.Kind.JTML_ARRAY) {
-                drum (beat.items) { found = group.concat(found, calls(beat)) }
+        drum (group.count(props.items)) {
+            @item = group.get(props.items, beat)
+            (item.kind == reader.Kind.JTML_ARRAY) {
+                drum (item.items) { found = group.concat(found, calls(item)) }
             }
         }
     }
@@ -76,8 +77,9 @@ skill body_of(read) {
 
 skill drawn(props) {
     (props.kind == reader.Kind.JTML_OBJECT) {
-        drum (props.keys) {
-            (group.contains(VISUAL, beat) == yes) { out yes }
+        drum (group.count(props.keys)) {
+            @key = group.get(props.keys, beat)
+            (group.contains(VISUAL, key) == yes) { out yes }
         }
     }
     out no
@@ -106,8 +108,8 @@ program() {
         @files = file.list(folder)
         @count = group.count(files)
         io.show("уровень {level}: {folder}, файлов {count}")
-        drum (files) {
-            @name = beat
+        drum (group.count(files)) {
+            @name = group.get(files, beat)
             (str.ends_with(name, TAIL) == yes) {
                 @short = str.slice(name, 0, str.bytes(name) - str.bytes(TAIL))
                 @text = file.read("{folder}/{name}")
@@ -144,14 +146,16 @@ program() {
         @name = group.get(names, index)
         @level = group.get(levels, index)
         @wrong = []
-        drum (calls(body_of(group.get(bodies, index)))) {
-            @floor = floor_of(names, levels, beat)
+        @bodys = calls(body_of(group.get(bodies, index)))
+        drum (group.count(bodys)) {
+            @body = group.get(bodys, beat)
+            @floor = floor_of(names, levels, body)
             (floor == 0) {
-                io.show("  {name}: зовёт «{beat}», а его нет в библиотеке")
+                io.show("  {name}: зовёт «{body}», а его нет в библиотеке")
                 out error.UnknownComponent
             }
             ((floor == level - 1) == no) {
-                (group.contains(wrong, "{beat} ({floor})") == no) { wrong = group.add(wrong, "{beat} ({floor})") }
+                (group.contains(wrong, "{body} ({floor})") == no) { wrong = group.add(wrong, "{body} ({floor})") }
             }
         }
         (group.count(wrong) > 0) {

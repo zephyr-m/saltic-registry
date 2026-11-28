@@ -67,11 +67,12 @@ program() {
     @probe = Probe {}
     @stats = statistics.Statistics {}
     @wrong = 0
-    drum (cases.CASES) {
-        @broken = probe.check(beat)
+    drum (group.count(cases.CASES)) {
+        @case = group.get(cases.CASES, beat)
+        @broken = probe.check(case)
         ((broken == "") == no) {
             wrong = wrong + 1
-            @n = group.get(beat, 0)
+            @n = group.get(case, 0)
             io.show("  расхождение {broken} на выборке {n}")
         }
     }

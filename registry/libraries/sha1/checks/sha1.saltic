@@ -31,11 +31,12 @@ program() {
     @hash = sha1.Sha1 {}
     @code = hex.Hex {}
     @wrong = 0
-    drum (cases.CASES) {
-        (probe.check(beat) == no) {
+    drum (group.count(cases.CASES)) {
+        @case = group.get(cases.CASES, beat)
+        (probe.check(case) == no) {
             wrong = wrong + 1
-            @kind = group.get(beat, 0)
-            @message = group.get(beat, 1)
+            @kind = group.get(case, 0)
+            @message = group.get(case, 1)
             io.show("  расхождение {kind}: {message}")
         }
     }

@@ -61,9 +61,10 @@ Judge = Box {
 program() {
     @suite = testing.test_new()
     @judge = Judge {}
-    drum (cases.CASES) {
-        @name = group.get(beat, 0)
-        suite = testing.test_equal(suite, name, judge.verdict(beat), AGREED)
+    drum (group.count(cases.CASES)) {
+        @case = group.get(cases.CASES, beat)
+        @name = group.get(case, 0)
+        suite = testing.test_equal(suite, name, judge.verdict(case), AGREED)
     }
     @left = bignum.parse("-123456789012345678901234567890")
     @right = bignum.parse("98765432109876543210")

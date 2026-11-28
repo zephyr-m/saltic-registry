@@ -22,15 +22,16 @@ program() {
     @reader = probe.Probe {}
     @publics = []
     @privates = []
-    drum (cases.KEYS) {
-        @name = group.get(beat, 0)
+    drum (group.count(cases.KEYS)) {
+        @key_2 = group.get(cases.KEYS, beat)
+        @name = group.get(key_2, 0)
         io.show("ключ {name} бит: открытый и закрытый (CRT)")
-        publics = group.add(publics, reader.public(group.get(beat, 1), group.get(beat, 2)))
-        privates = group.add(privates, reader.crt(beat))
+        publics = group.add(publics, reader.public(group.get(key_2, 1), group.get(key_2, 2)))
+        privates = group.add(privates, reader.crt(key_2))
     }
     @wrong = 0
-    drum (cases.SIGNS) {
-        @row = beat
+    drum (group.count(cases.SIGNS)) {
+        @row = group.get(cases.SIGNS, beat)
         @key = group.get(privates, group.get(row, 0))
         @start = time.now()
         @got = reader.signature(key, row)
@@ -49,8 +50,9 @@ program() {
     @plain_row = group.get(cases.SIGNS, 7)
     suite = testing.test_equal(suite, "подпись формой (n, e, d), 1024 бит", reader.signature(slow, plain_row), group.get(plain_row, 4))
     wrong = 0
-    drum (cases.VERIFIES) {
-        @row = beat
+    drum (group.count(cases.VERIFIES)) {
+        @verify = group.get(cases.VERIFIES, beat)
+        @row = verify
         @got = reader.verdict(group.get(publics, group.get(row, 0)), row)
         ((got == group.get(row, 5)) == no) {
             wrong = wrong + 1
@@ -61,8 +63,9 @@ program() {
     @verifies = group.count(cases.VERIFIES)
     suite = testing.test_equal(suite, "проверки как у Python ({verifies})", wrong, 0)
     wrong = 0
-    drum (cases.SIGN_ERRORS) {
-        @row = beat
+    drum (group.count(cases.SIGN_ERRORS)) {
+        @sign_error = group.get(cases.SIGN_ERRORS, beat)
+        @row = sign_error
         @key = group.get(privates, group.get(row, 0))
         @got = reader.signature(key, ["", group.get(row, 1), "78", group.get(row, 2)])
         ((got == group.get(row, 3)) == no) {

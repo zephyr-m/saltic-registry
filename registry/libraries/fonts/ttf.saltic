@@ -276,9 +276,11 @@ skill compound(font, at) {
             (flags / HAS_SCALE % 2 == 1) { cursor = cursor + 2 }
             (flags / HAS_XY_SCALE % 2 == 1) { cursor = cursor + 4 }
             (flags / HAS_TWO_BY_TWO % 2 == 1) { cursor = cursor + 8 }
-            drum (outline(font, part)) {
+            @entries = outline(font, part)
+            drum (group.count(entries)) {
+                @entry = group.get(entries, beat)
                 @moved = []
-                drum (beat) { moved = group.add(moved, [group.get(beat, 0) + dx, group.get(beat, 1) + dy, group.get(beat, 2)]) }
+                drum (entry) { moved = group.add(moved, [group.get(entry, 0) + dx, group.get(entry, 1) + dy, group.get(entry, 2)]) }
                 shapes = group.add(shapes, moved)
             }
             more = flags / MORE % 2 == 1

@@ -30,9 +30,10 @@ Graph = Box {
         drum (size) {
             lists = group.add(lists, [])
         }
-        drum (edges) {
-            @from = group.get(beat, 0)
-            lists = group.replaced(lists, from, group.add(group.get(lists, from), [group.get(beat, 1), group.get(beat, 2)]))
+        drum (group.count(edges)) {
+            @edge = group.get(edges, beat)
+            @from = group.get(edge, 0)
+            lists = group.replaced(lists, from, group.add(group.get(lists, from), [group.get(edge, 1), group.get(edge, 2)]))
         }
         out lists
     }
@@ -40,8 +41,9 @@ Graph = Box {
     skill made(count, list, directed) {
         @all = list
         (directed == no) {
-            drum (list) {
-                all = group.add(all, [group.get(beat, 1), group.get(beat, 0), group.get(beat, 2)])
+            drum (group.count(list)) {
+                @entry = group.get(list, beat)
+                all = group.add(all, [group.get(entry, 1), group.get(entry, 0), group.get(entry, 2)])
             }
         }
         @shaped = Graph {
@@ -122,9 +124,11 @@ Graph = Box {
                 (vertex == goal) {
                     leave
                 }
-                drum (group.get(near, vertex)) {
-                    @to = group.get(beat, 0)
-                    @length = group.get(best, vertex) + group.get(beat, 1)
+                @entries = group.get(near, vertex)
+                drum (group.count(entries)) {
+                    @entry = group.get(entries, beat)
+                    @to = group.get(entry, 0)
+                    @length = group.get(best, vertex) + group.get(entry, 1)
                     (length < group.get(best, to)) {
                         best = group.replaced(best, to, length)
                         previous = group.replaced(previous, to, vertex)
@@ -189,8 +193,10 @@ Graph = Box {
             }
             @vertex = group.get(queue, head)
             head = head + 1
-            drum (group.get(near, vertex)) {
-                @to = group.get(beat, 0)
+            @entries = group.get(near, vertex)
+            drum (group.count(entries)) {
+                @entry = group.get(entries, beat)
+                @to = group.get(entry, 0)
                 (group.get(depth, to) < 0) {
                     depth = group.replaced(depth, to, group.get(depth, vertex) + 1)
                     queue = group.add(queue, to)

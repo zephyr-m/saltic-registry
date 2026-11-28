@@ -77,8 +77,8 @@ skill octets(address) {
         out error.BadAddress
     }
     @found = []
-    drum (parts) {
-        @part = beat
+    drum (group.count(parts)) {
+        @part = group.get(parts, beat)
         ((str.bytes(part) > 3) ○○ (str.bytes(part) == 0)) {
             out error.BadAddress
         }

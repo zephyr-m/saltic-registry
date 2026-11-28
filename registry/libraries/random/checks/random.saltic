@@ -66,8 +66,8 @@ program() {
     @stats = statistics.Statistics {}
     @maker = random.Random {}
     @wrong = 0
-    drum (cases.CASES) {
-        @row = beat
+    drum (group.count(cases.CASES)) {
+        @row = group.get(cases.CASES, beat)
         @source = maker.seeded(group.get(row, 0))
         drum (20) {
             ((source.next() == group.get(row, 1 + beat)) == no) {

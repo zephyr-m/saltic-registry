@@ -1,7 +1,7 @@
 {
   "title": "exponent — степени и логарифмы",
   "saltic_version": "в составе Saltic (ветка 22.11.2026)",
-  "own_version": "2",
+  "own_version": "3",
   "author": "Зэф",
   "role": "library",
   "purpose": "exp, log, log2, log10 и степень x^y на дробных Saltic, без родных операций — как синус и корень в ядре",

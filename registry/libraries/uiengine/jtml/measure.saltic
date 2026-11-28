@@ -31,8 +31,9 @@ skill side(node, index) {
 
 skill flowing(node) {
     @found = []
-    drum (node.children) {
-        (group.count(beat.at) == 0) { found = group.add(found, beat) }
+    drum (group.count(node.children)) {
+        @child = group.get(node.children, beat)
+        (group.count(child.at) == 0) { found = group.add(found, child) }
     }
     out found
 }
@@ -48,8 +49,9 @@ skill node_intrinsic_width(node) {
     (atom.holds(node) == yes) {
         (group.count(node.layers) > 0) {
             @widest = 0
-            drum (node.layers) {
-                @layer_width = node_intrinsic_width(beat)
+            drum (group.count(node.layers)) {
+                @layer = group.get(node.layers, beat)
+                @layer_width = node_intrinsic_width(layer)
                 (layer_width > widest) { widest = layer_width }
             }
             out widest + side(node, 1) + side(node, 3)
@@ -87,8 +89,9 @@ skill node_intrinsic_height(node) {
     (atom.holds(node) == yes) {
         (group.count(node.layers) > 0) {
             @tallest = 0
-            drum (node.layers) {
-                @layer_height = node_intrinsic_height(beat)
+            drum (group.count(node.layers)) {
+                @layer = group.get(node.layers, beat)
+                @layer_height = node_intrinsic_height(layer)
                 (layer_height > tallest) { tallest = layer_height }
             }
             out tallest + side(node, 0) + side(node, 2)

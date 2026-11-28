@@ -27,10 +27,12 @@ Probe = Box {
             @from = group.get(route, beat)
             @to = group.get(route, beat + 1)
             @step = -1
-            drum (group.get(shape.near, from)) {
-                (group.get(beat, 0) == to) {
-                    ((step < 0) ○○ (group.get(beat, 1) < step)) {
-                        step = group.get(beat, 1)
+            @entries = group.get(shape.near, from)
+            drum (group.count(entries)) {
+                @entry = group.get(entries, beat)
+                (group.get(entry, 0) == to) {
+                    ((step < 0) ○○ (group.get(entry, 1) < step)) {
+                        step = group.get(entry, 1)
                     }
                 }
             }
@@ -96,11 +98,12 @@ program() {
     @suite = testing.test_new()
     @probe = Probe {}
     @wrong = 0
-    drum (cases.CASES) {
-        @broken = probe.check(beat)
+    drum (group.count(cases.CASES)) {
+        @case = group.get(cases.CASES, beat)
+        @broken = probe.check(case)
         ((broken == "") == no) {
             wrong = wrong + 1
-            @n = group.get(beat, 0)
+            @n = group.get(case, 0)
             io.show("  расхождение: {broken} на графе {n}")
         }
     }

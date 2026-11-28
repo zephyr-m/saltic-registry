@@ -103,9 +103,10 @@ skill put(painter, place, index, value) {
 
 skill load(painter, place, words, relocs, target, extra) {
     drum (group.count(words)) { put(painter, place, beat, group.get(words, beat)) }
-    drum (relocs) {
-        @index = group.get(beat, 0)
-        @kind = group.get(beat, 1)
+    drum (group.count(relocs)) {
+        @reloc = group.get(relocs, beat)
+        @index = group.get(reloc, 0)
+        @kind = group.get(reloc, 1)
         @add = place
         (kind == KIND_TARGET) { add = target.at }
         (kind == KIND_TEXTURE) { add = extra }

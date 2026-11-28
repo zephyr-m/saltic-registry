@@ -32,10 +32,11 @@ Probe = Box {
     skill turns() {
         @wave = cordic.Cordic {}
         @wrong = 0
-        drum (cases.TURNS) {
-            @angle = group.get(beat, 0)
-            @far = gap(wave.cos(angle), group.get(beat, 1))
-            @other = gap(wave.sin(angle), group.get(beat, 2))
+        drum (group.count(cases.TURNS)) {
+            @turn = group.get(cases.TURNS, beat)
+            @angle = group.get(turn, 0)
+            @far = gap(wave.cos(angle), group.get(turn, 1))
+            @other = gap(wave.sin(angle), group.get(turn, 2))
             (other > far) {
                 far = other
             }
@@ -53,10 +54,11 @@ Probe = Box {
     skill points() {
         @wave = cordic.Cordic {}
         @wrong = 0
-        drum (cases.POINTS) {
-            @y = group.get(beat, 0)
-            @x = group.get(beat, 1)
-            @far = gap(wave.atan2(y, x), group.get(beat, 2))
+        drum (group.count(cases.POINTS)) {
+            @point = group.get(cases.POINTS, beat)
+            @y = group.get(point, 0)
+            @x = group.get(point, 1)
+            @far = gap(wave.atan2(y, x), group.get(point, 2))
             (far > worst_angle) {
                 worst_angle = far
             }
@@ -64,7 +66,7 @@ Probe = Box {
                 wrong = wrong + 1
                 io.show("  расхождение atan2: ({x}, {y}), отклонение {far}")
             }
-            @want = group.get(beat, 3)
+            @want = group.get(point, 3)
             @long = gap(wave.hypot(x, y), want)
             @share = (long - 1) * cordic.ONE / (want + 1)
             (share > worst_length) {

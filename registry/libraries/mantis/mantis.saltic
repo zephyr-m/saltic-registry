@@ -73,16 +73,19 @@ Exam = Box {
             out none
         }
         io.show("проваленные проверки:")
-        drum (failures) {
-            io.show("- {beat.name} -> {beat.actual}  [FAIL] (ожидалось {beat.expected})")
+        drum (group.count(failures)) {
+            @failure = group.get(failures, beat)
+            io.show("- {failure.name} -> {failure.actual}  [FAIL] (ожидалось {failure.expected})")
         }
         out error.TestsFailed
     }
 
     skill scratch(name) {
-        drum (process.environment()) {
-            (str.starts_with(beat, SCRATCH) == yes) {
-                @folder = str.slice(beat, str.bytes(SCRATCH), str.bytes(beat))
+        @settings = process.environment()
+        drum (group.count(settings)) {
+            @setting = group.get(settings, beat)
+            (str.starts_with(setting, SCRATCH) == yes) {
+                @folder = str.slice(setting, str.bytes(SCRATCH), str.bytes(setting))
                 out "{folder}/{name}"
             }
         }

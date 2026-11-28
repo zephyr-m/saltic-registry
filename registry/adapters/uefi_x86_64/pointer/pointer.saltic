@@ -36,8 +36,10 @@ skill open_mouse(base) {
     files.connect_all(base)
     @devices = []
     @resolutions = []
-    drum (files.handles_with(base, files.BY_PROTOCOL, SIMPLE)) {
-        @device = files.protocol_of(base, beat, SIMPLE)
+    @entries = files.handles_with(base, files.BY_PROTOCOL, SIMPLE)
+    drum (group.count(entries)) {
+        @entry = group.get(entries, beat)
+        @device = files.protocol_of(base, entry, SIMPLE)
         firmware.call(base, firmware.pointer(device, base, 0), [device, firmware.number(1)])
         @mode = firmware.pointer(device, base, MODE)
         @resolution = signed32(firmware.read32(mode, base, 0))
