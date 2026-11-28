@@ -57,10 +57,10 @@ skill calls(node) {
         (shelf == no) { found = group.add(found, tag) }
     }
     (props.kind == reader.Kind.JTML_OBJECT) {
-        drum (group.count(props.items)) {
+        drum (props.items) {
             @item = group.get(props.items, beat)
             (item.kind == reader.Kind.JTML_ARRAY) {
-                drum (group.count(item.items)) {
+                drum (item.items) {
                     @inner = group.get(item.items, beat)
                     found = group.concat(found, calls(inner))
                 }
@@ -72,7 +72,7 @@ skill calls(node) {
 
 skill body_of(read) {
     @about = group.get(read.items, 0)
-    drum (group.count(about.keys)) {
+    drum (about.keys) {
         (group.get(about.keys, beat) == "body") { out group.get(about.items, beat) }
     }
     out reader.Value {}
@@ -80,7 +80,7 @@ skill body_of(read) {
 
 skill drawn(props) {
     (props.kind == reader.Kind.JTML_OBJECT) {
-        drum (group.count(props.keys)) {
+        drum (props.keys) {
             @key = group.get(props.keys, beat)
             (group.contains(VISUAL, key) == yes) { out yes }
         }
@@ -94,7 +94,7 @@ skill floor_of(names, levels, tag) {
 }
 
 skill level_of(names, levels, name) {
-    drum (group.count(names)) {
+    drum (names) {
         (group.get(names, beat) == name) { out group.get(levels, beat) }
     }
     out 0
@@ -111,7 +111,7 @@ program() {
         @files = file.list(folder)
         @count = group.count(files)
         io.show("уровень {level}: {folder}, файлов {count}")
-        drum (group.count(files)) {
+        drum (files) {
             @name = group.get(files, beat)
             (str.ends_with(name, TAIL) == yes) {
                 @short = str.slice(name, 0, str.bytes(name) - str.bytes(TAIL))
@@ -126,7 +126,7 @@ program() {
                 }
                 @about = group.get(read.items, 0)
                 @told = ""
-                drum (group.count(about.keys)) {
+                drum (about.keys) {
                     (group.get(about.keys, beat) == "name") {
                         @said = group.get(about.items, beat)
                         told = said.words
@@ -144,13 +144,13 @@ program() {
         }
     }
     @broken = 0
-    drum (group.count(names)) {
+    drum (names) {
         @index = beat
         @name = group.get(names, index)
         @level = group.get(levels, index)
         @wrong = []
         @bodys = calls(body_of(group.get(bodies, index)))
-        drum (group.count(bodys)) {
+        drum (bodys) {
             @body = group.get(bodys, beat)
             @floor = floor_of(names, levels, body)
             (floor == 0) {
@@ -171,7 +171,7 @@ program() {
     @quoted = []
     @numbers = []
     @bodies_text = []
-    drum (group.count(names)) {
+    drum (names) {
         @name = group.get(names, beat)
         @level = group.get(levels, beat)
         @text = escaped(group.get(texts, beat))

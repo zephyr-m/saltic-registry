@@ -77,7 +77,7 @@ program() {
     @probe = Probe {}
     @hasher = blake3.Blake3 {}
     @wrong = 0
-    drum (group.count(cases.OFFICIAL)) {
+    drum (cases.OFFICIAL) {
         @entry = group.get(cases.OFFICIAL, beat)
         @missed = probe.official(entry)
         ((missed == 0) == no) {
@@ -90,7 +90,7 @@ program() {
     io.show("blake3: официальных длин {count} (по 6 сверок), расхождений {wrong}")
     suite = testing.test_equal(suite, "как в официальном test_vectors.json", wrong, 0)
     @own = 0
-    drum (group.count(cases.CASES)) {
+    drum (cases.CASES) {
         @case = group.get(cases.CASES, beat)
         (probe.check(case) == no) {
             own = own + 1

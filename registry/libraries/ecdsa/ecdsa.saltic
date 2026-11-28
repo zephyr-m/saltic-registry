@@ -67,7 +67,7 @@ Ecdsa = Box {
         points.ready()
         @space = points.space
         @point = [space.number_at(buffer, 1), space.number_at(buffer, 33)]
-        drum (group.count(point)) {
+        drum (point) {
             @entry = group.get(point, beat)
             ((math.order(entry, space.value) < 0) == no) {
                 out error.BadPoint
@@ -86,7 +86,7 @@ Ecdsa = Box {
         points.ready()
         @scalars = points.scalars
         @parts = [scalars.number_at(signature, 0), scalars.number_at(signature, 32)]
-        drum (group.count(parts)) {
+        drum (parts) {
             @part = group.get(parts, beat)
             ((group.count(part) == 0) ○○ ((math.order(part, scalars.value) < 0) == no)) {
                 out error.BadSignature

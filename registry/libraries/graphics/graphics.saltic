@@ -228,7 +228,7 @@ skill canvas_edges(points, y) {
             @x = ceiling_of((ax * 2 - 1) * under + shift, under * 2)
             @sorted = []
             @placed = no
-            drum (group.count(found)) {
+            drum (found) {
                 @entry = group.get(found, beat)
                 ((placed == no) ○ (x < entry)) {
                     sorted = group.add(sorted, x)
@@ -262,7 +262,7 @@ skill canvas_polygon(screen, points, value, alpha) {
     }
     @top = screen.height
     @bottom = -1
-    drum (group.count(points)) {
+    drum (points) {
         @point = group.get(points, beat)
         @y = group.get(point, 1)
         (y < top) {

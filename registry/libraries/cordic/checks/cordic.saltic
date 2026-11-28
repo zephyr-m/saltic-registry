@@ -32,7 +32,7 @@ Probe = Box {
     skill turns() {
         @wave = cordic.Cordic {}
         @wrong = 0
-        drum (group.count(cases.TURNS)) {
+        drum (cases.TURNS) {
             @turn = group.get(cases.TURNS, beat)
             @angle = group.get(turn, 0)
             @far = gap(wave.cos(angle), group.get(turn, 1))
@@ -54,7 +54,7 @@ Probe = Box {
     skill points() {
         @wave = cordic.Cordic {}
         @wrong = 0
-        drum (group.count(cases.POINTS)) {
+        drum (cases.POINTS) {
             @point = group.get(cases.POINTS, beat)
             @y = group.get(point, 0)
             @x = group.get(point, 1)

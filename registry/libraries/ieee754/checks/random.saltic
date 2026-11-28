@@ -44,7 +44,7 @@ Sweep = Box {
         @wrong = 0
         @total = 0
         @lines_2 = group.without(str.lines(file.read(path)), "")
-        drum (group.count(lines_2)) {
+        drum (lines_2) {
             @line = group.get(lines_2, beat)
             @parts = str.split(line, " ")
             @op = group.get(parts, 0)

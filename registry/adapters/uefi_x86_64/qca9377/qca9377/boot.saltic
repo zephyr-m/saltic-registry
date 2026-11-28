@@ -79,7 +79,7 @@ skill settle(chip, data) {
 skill launch(chip, data) {
     card.say(chip, "J. firmware: 6 segments, 727 KB, the card pulls them by DMA through CE7")
     @sent = 0
-    drum (group.count(SEGMENTS)) {
+    drum (SEGMENTS) {
         @segment_2 = group.get(SEGMENTS, beat)
         sent = sent + diag.segment(chip, data, segment_2, beat + 1, sent)
     }

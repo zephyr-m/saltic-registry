@@ -72,7 +72,7 @@ Duo = Box {
 
     skill carry(packets, to, from_ip) {
         @moved = 0
-        drum (group.count(packets)) {
+        drum (packets) {
             @packet = group.get(packets, beat)
             count = count + 1
             @lost = ((drop_every > 0) ○ ((count % drop_every) == 0))
@@ -132,7 +132,7 @@ program() {
     @text = hex.Hex {}
     @circle = sequence.Sequence {}
     @wrong = 0
-    drum (group.count(cases.CASES)) {
+    drum (cases.CASES) {
         @row = group.get(cases.CASES, beat)
         @packet = text.decode(group.get(row, 0))
         @item = segment.Segment {

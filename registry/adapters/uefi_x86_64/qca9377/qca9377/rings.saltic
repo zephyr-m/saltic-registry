@@ -85,7 +85,7 @@ skill descriptor(ring, base, index, buffer, length, flags) {
 }
 
 skill at(chip, name) {
-    drum (group.count(MEMORY)) {
+    drum (MEMORY) {
         @entry = group.get(MEMORY, beat)
         (group.get(entry, 0) == name) { out firmware.add(chip.memory, group.get(entry, 1)) }
     }

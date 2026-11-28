@@ -486,14 +486,14 @@ TEXTS = [
 ]
 
 skill find(name) {
-    drum (group.count(NAMES)) {
+    drum (NAMES) {
         (group.get(NAMES, beat) == name) { out group.get(TEXTS, beat) }
     }
     out error.UnknownComponent
 }
 
 skill level(name) {
-    drum (group.count(NAMES)) {
+    drum (NAMES) {
         (group.get(NAMES, beat) == name) { out group.get(LEVELS, beat) }
     }
     out error.UnknownComponent

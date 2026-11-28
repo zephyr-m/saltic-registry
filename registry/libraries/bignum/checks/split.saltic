@@ -19,7 +19,7 @@ program() {
     @suite = testing.test_new()
     @wrong = 0
     @start = time.now()
-    drum (group.count(split_cases.CASES)) {
+    drum (split_cases.CASES) {
         @case = group.get(split_cases.CASES, beat)
         @a = bignum.parse(group.get(case, 1))
         @b = bignum.parse(group.get(case, 2))

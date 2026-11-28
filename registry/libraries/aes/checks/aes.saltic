@@ -116,7 +116,7 @@ program() {
     @suite = testing.test_new()
     @probe = Probe {}
     @wrong = 0
-    drum (group.count(cases.CASES)) {
+    drum (cases.CASES) {
         @case = group.get(cases.CASES, beat)
         (probe.check(case) == no) {
             wrong = wrong + 1

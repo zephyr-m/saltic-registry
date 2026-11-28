@@ -58,7 +58,7 @@ skill ip_words(ip) {
 
 skill checksum(words) {
     @total = 0
-    drum (group.count(words)) {
+    drum (words) {
         @word = group.get(words, beat)
         total = total + word
     }
@@ -93,7 +93,7 @@ skill text_of(bytes, first, count) {
 
 skill same_bytes(left, right) {
     ((group.count(left) == group.count(right)) == no) { out no }
-    drum (group.count(left)) {
+    drum (left) {
         ((group.get(left, beat) == group.get(right, beat)) == no) { out no }
     }
     out yes

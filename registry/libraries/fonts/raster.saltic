@@ -86,7 +86,7 @@ skill flat(contour, size, units) {
     (count < 2) { out [] }
     @points = []
     @kinds = []
-    drum (group.count(contour)) {
+    drum (contour) {
         @entry = group.get(contour, beat)
         points = group.add(points, scaled(entry, size, units))
         kinds = group.add(kinds, group.get(entry, 2))
@@ -112,7 +112,7 @@ skill flat(contour, size, units) {
     @current = start
     @control = start
     @pending = no
-    drum (group.count(order)) {
+    drum (order) {
         @point = group.get(order, beat)
         (group.get(order_kinds, beat) == 1) {
             (pending == yes) { edges = curve(edges, current, control, point) }
@@ -135,7 +135,7 @@ skill flat(contour, size, units) {
 
 skill crossings(edges, level) {
     @found = []
-    drum (group.count(edges)) {
+    drum (edges) {
         @edge = group.get(edges, beat)
         @y0 = group.get(edge, 1)
         @y1 = group.get(edge, 3)
@@ -148,7 +148,7 @@ skill crossings(edges, level) {
             @turn = 1
             (y1 < y0) { turn = -1 }
             @at = group.count(found)
-            drum (group.count(found)) {
+            drum (found) {
                 @other = group.get(found, group.count(found) - 1 - beat)
                 (group.get(other, 0) > x) { at = group.count(found) - 1 - beat }
             }
@@ -185,7 +185,7 @@ skill render(font, code, size) {
     @advance = below(ttf.advance(font, glyph) * size, font.units)
     @edges = []
     @entrys = ttf.outline(font, glyph)
-    drum (group.count(entrys)) {
+    drum (entrys) {
         @entry = group.get(entrys, beat)
         edges = group.concat(edges, flat(entry, size, font.units))
     }
@@ -201,10 +201,10 @@ skill filled(edges) {
     @high_x = low_x
     @low_y = group.get(group.get(edges, 0), 1)
     @high_y = low_y
-    drum (group.count(edges)) {
+    drum (edges) {
         @edge = group.get(edges, beat)
         @entries = [[group.get(edge, 0), group.get(edge, 1)], [group.get(edge, 2), group.get(edge, 3)]]
-        drum (group.count(entries)) {
+        drum (entries) {
             @entry = group.get(entries, beat)
             @x = group.get(entry, 0)
             @y = group.get(entry, 1)
@@ -226,7 +226,7 @@ skill filled(edges) {
             @level = top * FINE - row * FINE - beat * FINE / ROWS - FINE / ROWS / 2
             @found = crossings(edges, level)
             @winding = 0
-            drum (group.count(found)) {
+            drum (found) {
                 @here = group.get(found, beat)
                 winding = winding + group.get(here, 1)
                 ((winding == 0) == no) {
@@ -261,7 +261,7 @@ skill line_image(font, text, size) {
     @glyphs = []
     @width = 0
     @letters_2 = str.letters(text)
-    drum (group.count(letters_2)) {
+    drum (letters_2) {
         @letter = group.get(letters_2, beat)
         @made = render(font, code_of(letter), size)
         glyphs = group.add(glyphs, made)
@@ -269,7 +269,7 @@ skill line_image(font, text, size) {
     }
     @pixels = bytes.new(width * height)
     @pen = 0
-    drum (group.count(glyphs)) {
+    drum (glyphs) {
         @glyph = group.get(glyphs, beat)
         drum (glyph.height) {
             @row = rise - glyph.top + beat

@@ -87,7 +87,7 @@ skill from_bytes(buffer) {
 
 skill glyph(face, code, size) {
     @key = code * 256 + size
-    drum (group.count(face.keys)) {
+    drum (face.keys) {
         (group.get(face.keys, beat) == key) { out group.get(face.glyphs, beat) }
     }
     @made = raster.render(face.font, code, size)
@@ -99,7 +99,7 @@ skill glyph(face, code, size) {
 skill measure(face, text, size, spacing) {
     @width = 0
     @letters_2 = str.letters(text)
-    drum (group.count(letters_2)) {
+    drum (letters_2) {
         @letter = group.get(letters_2, beat)
         @made = glyph(face, raster.code_of(letter), size)
         width = width + made.advance + spacing
@@ -125,7 +125,7 @@ skill paint(screen, face, x, y, text, brush) {
     (wide < 1) { wide = 1 }
     @base_line = y + rise(face, size)
     @letters_2 = str.letters(text)
-    drum (group.count(letters_2)) {
+    drum (letters_2) {
         @letter = group.get(letters_2, beat)
         @made = glyph(face, raster.code_of(letter), size)
         drum (made.height) {

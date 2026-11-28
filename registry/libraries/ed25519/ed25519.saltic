@@ -141,13 +141,13 @@ Ed25519 = Box {
 
     skill joined(parts) {
         @total = 0
-        drum (group.count(parts)) {
+        drum (parts) {
             @part = group.get(parts, beat)
             total = total + bytes.count(part)
         }
         @made = bytes.new(total)
         @at = 0
-        drum (group.count(parts)) {
+        drum (parts) {
             @piece = group.get(parts, beat)
             drum (bytes.count(piece)) {
                 bytes.set(made, at + beat, bytes.get(piece, beat))

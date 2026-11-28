@@ -19,7 +19,7 @@ program() {
     @text = hex.Hex {}
     @line = wire.Wire {}
     @wrong = 0
-    drum (group.count(cases.SUMS)) {
+    drum (cases.SUMS) {
         @sum_2 = group.get(cases.SUMS, beat)
         @data = text.decode(group.get(sum_2, 0))
         ((line.checksum(data) == group.get(sum_2, 1)) == no) {
@@ -40,7 +40,7 @@ program() {
     suite = testing.test_equal(suite, "по кускам — как целиком", pieces, line.checksum(whole))
 
     @numbers_wrong = 0
-    drum (group.count(cases.NUMBERS)) {
+    drum (cases.NUMBERS) {
         @number = group.get(cases.NUMBERS, beat)
         @four = text.decode(group.get(number, 0))
         ((line.word(four, 0) == group.get(number, 1)) == no) {

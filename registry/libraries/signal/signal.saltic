@@ -151,7 +151,7 @@ Signal = Box {
         drum (total) {
             @i = beat
             @sum = 0.0
-            drum (group.count(b)) {
+            drum (b) {
                 @j = i - beat
                 ((j >= 0) ○ (j < group.count(a))) {
                     sum = sum + part(a, j) * part(b, beat)

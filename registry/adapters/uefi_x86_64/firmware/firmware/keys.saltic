@@ -30,7 +30,7 @@ NAMES = [
 
 skill codes(text) {
     (str.bytes(text) == 0) { out error.UnknownKey }
-    drum (group.count(NAMES)) {
+    drum (NAMES) {
         @row = group.get(NAMES, beat)
         (group.get(row, 0) == str.lower(text)) { out [[group.get(row, 1), group.get(row, 2)]] }
     }
@@ -61,7 +61,7 @@ skill push(base, text) {
     @queue = firmware.region(base, "keys")
     @count = firmware.read16(queue, base, 0)
     (count + group.count(wanted) > LIMIT) { out error.KeysFull }
-    drum (group.count(wanted)) {
+    drum (wanted) {
         @key = group.get(wanted, beat)
         @cell = CELL + (count + beat) * CELL
         firmware.write16(queue, base, cell, group.get(key, 0))

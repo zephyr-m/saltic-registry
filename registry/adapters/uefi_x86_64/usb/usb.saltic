@@ -93,7 +93,7 @@ skill report(base) {
     @total = group.count(handles)
     @controllers = group.count(files.handles_with(base, files.BY_PROTOCOL, USB2_HC_GUID))
     @lines = ["подключил драйверы к {connected} устройствам", "контроллеров USB у прошивки: {controllers}", "интерфейсов USB: {total}"]
-    drum (group.count(handles)) {
+    drum (handles) {
         lines = group.add(lines, interface_line(base, beat, group.get(handles, beat)))
     }
     out str.join(lines, "\n")

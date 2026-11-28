@@ -53,7 +53,7 @@ Probe = Box {
         got = group.concat(got, [stats.least(x), stats.most(x), stats.covariance(x, y), stats.correlation(x, y)])
         got = group.concat(got, stats.regression(x, y))
         @names = ["mean", "variance", "pvariance", "median", "q1", "q2", "q3", "least", "most", "covariance", "correlation", "наклон", "сдвиг"]
-        drum (group.count(got)) {
+        drum (got) {
             (close(stats.part(got, beat), stats.part(row, at + beat), stats.part(row, at + 13)) == no) {
                 out group.get(names, beat)
             }
@@ -67,7 +67,7 @@ program() {
     @probe = Probe {}
     @stats = statistics.Statistics {}
     @wrong = 0
-    drum (group.count(cases.CASES)) {
+    drum (cases.CASES) {
         @case = group.get(cases.CASES, beat)
         @broken = probe.check(case)
         ((broken == "") == no) {

@@ -283,10 +283,10 @@ skill compound(font, at) {
             (flags / HAS_XY_SCALE % 2 == 1) { cursor = cursor + 4 }
             (flags / HAS_TWO_BY_TWO % 2 == 1) { cursor = cursor + 8 }
             @entries = outline(font, part)
-            drum (group.count(entries)) {
+            drum (entries) {
                 @entry = group.get(entries, beat)
                 @moved = []
-                drum (group.count(entry)) {
+                drum (entry) {
                     @point = group.get(entry, beat)
                     moved = group.add(moved, [group.get(point, 0) + dx, group.get(point, 1) + dy, group.get(point, 2)])
                 }

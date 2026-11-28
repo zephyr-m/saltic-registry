@@ -18,7 +18,7 @@ program() {
     @hash = sha512.Sha512 {}
     @code = hex.Hex {}
     @wrong = 0
-    drum (group.count(cases.CASES)) {
+    drum (cases.CASES) {
         @case = group.get(cases.CASES, beat)
         @got = code.encode(hash.digest(code.decode(group.get(case, 0))))
         ((got == group.get(case, 1)) == no) {

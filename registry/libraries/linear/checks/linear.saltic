@@ -146,7 +146,7 @@ program() {
     @probe = Probe {}
     @line = linear.Linear {}
     @wrong = 0
-    drum (group.count(cases.CASES)) {
+    drum (cases.CASES) {
         @row = group.get(cases.CASES, beat)
         @n = group.get(row, 0)
         @a = probe.square(row)

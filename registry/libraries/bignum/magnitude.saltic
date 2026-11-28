@@ -105,7 +105,7 @@ Magnitude = Box {
     skill difference(a, b) {
         @digits = []
         @borrow = 0
-        drum (group.count(a)) {
+        drum (a) {
             @value = group.get(a, beat) - borrow - digit(b, beat)
             borrow = 0
             (value < 0) {
@@ -123,7 +123,7 @@ Magnitude = Box {
         }
         @digits = []
         @carry = 0
-        drum (group.count(a)) {
+        drum (a) {
             @entry = group.get(a, beat)
             @total = entry * k + carry
             digits = group.add(digits, total % BASE)
@@ -273,7 +273,7 @@ Magnitude = Box {
     skill row_restored(digits, v) {
         @back = []
         @carry = 0
-        drum (group.count(v)) {
+        drum (v) {
             @value = group.get(digits, beat) + group.get(v, beat) + carry
             back = group.add(back, value % BASE)
             carry = value / BASE
@@ -286,7 +286,7 @@ Magnitude = Box {
         @value = 0
         @weight = 1
         @filled = 0
-        drum (group.count(bits_low_first)) {
+        drum (bits_low_first) {
             @entry = group.get(bits_low_first, beat)
             value = value + entry * weight
             weight = weight * 2

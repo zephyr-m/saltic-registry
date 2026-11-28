@@ -78,7 +78,7 @@ skill index(icons) {
 
 skill find(icons, name) {
     index(icons)
-    drum (group.count(icons.names)) {
+    drum (icons.names) {
         (group.get(icons.names, beat) == name) { out group.get(icons.starts, beat) }
     }
     out error.UnknownIcon
@@ -190,10 +190,10 @@ skill dot(edges, center, half) {
 skill outline(lines, size) {
     @half = size * raster.FINE / 24
     @edges = []
-    drum (group.count(lines)) {
+    drum (lines) {
         @stroke = group.get(lines, beat)
         @scaled = []
-        drum (group.count(stroke)) {
+        drum (stroke) {
             @point = group.get(stroke, beat)
             scaled = group.add(scaled, [group.get(point, 0) * size * raster.FINE / GRID, 0 - group.get(point, 1) * size * raster.FINE / GRID])
         }
@@ -208,7 +208,7 @@ skill outline(lines, size) {
 
 skill mask(icons, name, size) {
     @key = "{name}:{size}"
-    drum (group.count(icons.keys)) {
+    drum (icons.keys) {
         (group.get(icons.keys, beat) == key) { out group.get(icons.glyphs, beat) }
     }
     @made = raster.filled(outline(strokes(icons, find(icons, name)), size))

@@ -27,7 +27,7 @@ MANIFEST = "tarantul.json"
 
 skill home() {
     @settings = process.environment()
-    drum (group.count(settings)) {
+    drum (settings) {
         @setting = group.get(settings, beat)
         (str.starts_with(setting, HOME_KEY) == yes) {
             out str.slice(setting, str.bytes(HOME_KEY), str.bytes(setting))
@@ -72,7 +72,7 @@ skill tail(log) {
         from = 0
     }
     @lines_2 = group.slice(lines, from, group.count(lines))
-    drum (group.count(lines_2)) {
+    drum (lines_2) {
         @line = group.get(lines_2, beat)
         io.show("    {line}")
     }
@@ -90,7 +90,7 @@ program() {
     @failed = []
     @count = 0
     @paths = sources()
-    drum (group.count(paths)) {
+    drum (paths) {
         @path = group.get(paths, beat)
         (runnable(path) == yes) {
             count = count + 1
@@ -133,7 +133,7 @@ program() {
     @broken = group.count(failed)
     (broken > 0) {
         io.show("checks: из {count} упало {broken}:")
-        drum (group.count(failed)) {
+        drum (failed) {
             @entry = group.get(failed, beat)
             io.show("  {entry}")
         }

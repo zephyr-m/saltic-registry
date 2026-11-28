@@ -8,7 +8,7 @@
   "effects": "только читает",
   "hardware": "любое устройство, которое прошивка отдаёт как Simple Pointer (тачпад Acer)",
   "identifiers": "uefi simple-pointer",
-  "own_version": "4",
+  "own_version": "5",
   "protocols": "UEFI Simple Pointer Protocol",
   "architectures": "x86_64-uefi",
   "primitives": "положение x, y на экране; кнопка держится; щелчок",

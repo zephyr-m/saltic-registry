@@ -150,10 +150,10 @@ skill changes(before, after, width, height) {
 
 skill pass(pile) {
     @next = []
-    drum (group.count(pile)) {
+    drum (pile) {
         @rect = group.get(pile, beat)
         @taken = no
-        drum (group.count(next)) {
+        drum (next) {
             (taken == no) {
                 @other = group.get(next, beat)
                 (near(rect, other) == yes) {
@@ -174,14 +174,14 @@ skill merged(rects, width, height) {
     }
     (group.count(pile) > MOST) {
         @whole = group.get(pile, 0)
-        drum (group.count(pile)) {
+        drum (pile) {
             @entry_2 = group.get(pile, beat)
             whole = joined(whole, entry_2)
         }
         pile = [whole]
     }
     @inside = []
-    drum (group.count(pile)) {
+    drum (pile) {
         @entry = group.get(pile, beat)
         @cut = clipped(entry, width, height)
         (group.count(cut) == 4) { inside = group.add(inside, cut) }
@@ -204,7 +204,7 @@ skill clipped(rect, width, height) {
 }
 
 skill redraw(screen, runtime, palette, rects) {
-    drum (group.count(rects)) {
+    drum (rects) {
         @rect_2 = group.get(rects, beat)
         @x = group.get(rect_2, 0)
         @y = group.get(rect_2, 1)

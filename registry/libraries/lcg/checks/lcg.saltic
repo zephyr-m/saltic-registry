@@ -54,7 +54,7 @@ program() {
     @maker = lcg.Lcg {}
     @probe = Probe {}
     @wrong = 0
-    drum (group.count(cases.CASES)) {
+    drum (cases.CASES) {
         @row = group.get(cases.CASES, beat)
         @source = maker.seeded(group.get(row, 0))
         drum (20) {
@@ -67,7 +67,7 @@ program() {
     io.show("lcg: зёрен {count}, неверных слов {wrong}")
     suite = testing.test_equal(suite, "последовательность как у Numerical Recipes", wrong, 0)
     @missed = 0
-    drum (group.count(cases.BELOW)) {
+    drum (cases.BELOW) {
         @entry = group.get(cases.BELOW, beat)
         @row = entry
         @source = maker.seeded(group.get(row, 0))

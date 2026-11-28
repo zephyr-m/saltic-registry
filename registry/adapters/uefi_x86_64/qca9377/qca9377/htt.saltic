@@ -125,7 +125,7 @@ skill next_frame(chip) {
 }
 
 skill intact(attention) {
-    drum (group.count(DAMAGE_BITS)) {
+    drum (DAMAGE_BITS) {
         @damage_bit = group.get(DAMAGE_BITS, beat)
         (attention / num.power2(damage_bit) % 2 == 1) { out no }
     }

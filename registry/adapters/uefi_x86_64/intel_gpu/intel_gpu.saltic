@@ -254,7 +254,7 @@ skill push(gpu, engine, ring, words) {
         drained(gpu, engine)
         tail = 0
     }
-    drum (group.count(all)) {
+    drum (all) {
         firmware.write_phys32(ring, base, tail + beat * 4, group.get(all, beat))
     }
     out firmware.write_phys32(gpu.mmio, base, engine + TAIL, tail + group.count(all) * 4)

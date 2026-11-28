@@ -81,7 +81,7 @@ skill frame(chip) {
 }
 
 skill bytes(chip, at, values) {
-    drum (group.count(values)) {
+    drum (values) {
         firmware.write8(frame(chip), chip.base, at + beat, group.get(values, beat))
     }
     out at + group.count(values)
@@ -285,7 +285,7 @@ skill link(chip, network) {
 }
 
 skill named(networks, name) {
-    drum (group.count(networks)) {
+    drum (networks) {
         @found = group.get(networks, beat)
         (found.name == name) { out found }
     }

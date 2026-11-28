@@ -8,7 +8,7 @@
   "effects": "соединения TCP через сокеты ядра Linux",
   "hardware": "любой Linux",
   "identifiers": "нет",
-  "own_version": "3",
+  "own_version": "4",
   "protocols": "TCP/IPv4 ядра Linux",
   "architectures": "x86_64 (Linux)",
   "primitives": "соединиться с адресом и портом, отправить, принять, закрыть; причина сбоя — в имени ошибки",

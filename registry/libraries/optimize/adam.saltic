@@ -26,7 +26,7 @@ Adam = Box {
 
     skill step(params, grads) {
         (group.count(moment) == 0) {
-            drum (group.count(params)) {
+            drum (params) {
                 moment = group.add(moment, 0.0)
                 square = group.add(square, 0.0)
             }
@@ -37,7 +37,7 @@ Adam = Box {
         @moments = []
         @squares = []
         @moved = []
-        drum (group.count(params)) {
+        drum (params) {
             @g = part(grads, beat)
             @m = first * part(moment, beat) + (1.0 - first) * g
             @s = second * part(square, beat) + (1.0 - second) * g * g

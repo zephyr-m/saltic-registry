@@ -26,7 +26,7 @@ skill listed(items) {
 
 skill call(name, pairs) {
     @parts = []
-    drum (group.count(pairs)) {
+    drum (pairs) {
         @pair = group.get(pairs, beat)
         @key = group.get(pair, 0)
         @raw = group.get(pair, 1)

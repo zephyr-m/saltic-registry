@@ -87,7 +87,7 @@ program() {
     @suite = testing.test_new()
     @bench = Bench {}
     io.show("один разрез пополам против школьного (мс на все повторы):")
-    drum (group.count(SPLIT_SIZES)) {
+    drum (SPLIT_SIZES) {
         @size = group.get(SPLIT_SIZES, beat)
         @a = bench.number(size)
         @b = bench.number(size)
@@ -100,14 +100,14 @@ program() {
     io.show("порог: Карацуба на {THRESHOLD_SIZE} цифрах (мс на одно умножение):")
     @wide_a = bench.number(THRESHOLD_SIZE)
     @wide_b = bench.number(THRESHOLD_SIZE)
-    drum (group.count(THRESHOLDS)) {
+    drum (THRESHOLDS) {
         @threshold = group.get(THRESHOLDS, beat)
         @spent = bench.fast(wide_a, wide_b, 1, threshold)
         io.show("  порог {threshold}: {spent}")
         suite = testing.test_yes(suite, "  порог {threshold}: Карацуба = школьное", bench.same(wide_a, wide_b, threshold))
     }
     io.show("Карацуба (порог {karatsuba.THRESHOLD}) против школьного (мс на все повторы):")
-    drum (group.count(FULL_SIZES)) {
+    drum (FULL_SIZES) {
         @full_size = group.get(FULL_SIZES, beat)
         @size = full_size
         @decimal = size * DECIMAL_PER_1000 / 1000

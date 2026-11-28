@@ -50,7 +50,7 @@ skill page(base) {
 }
 
 skill bytes_at(base, place, offset, values) {
-    drum (group.count(values)) {
+    drum (values) {
         firmware.write8(place, base, offset + beat, group.get(values, beat))
     }
     out none

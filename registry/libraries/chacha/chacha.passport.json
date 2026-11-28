@@ -1,7 +1,7 @@
 {
   "title": "chacha — шифр ChaCha20, подпись Poly1305, шифр с подписью (RFC 8439)",
   "saltic_version": "в составе Saltic (ветка 22.11.2026)",
-  "own_version": "2",
+  "own_version": "3",
   "author": "Зэф",
   "role": "library",
   "purpose": "шифрование ChaCha20, одноразовая подпись Poly1305 и ChaCha20-Poly1305 (seal / open с проверкой подделки) — шифр SSH и TLS",

@@ -37,7 +37,7 @@ skill open_mouse(base) {
     @devices = []
     @resolutions = []
     @entries = files.handles_with(base, files.BY_PROTOCOL, SIMPLE)
-    drum (group.count(entries)) {
+    drum (entries) {
         @entry = group.get(entries, beat)
         @device = files.protocol_of(base, entry, SIMPLE)
         firmware.call(base, firmware.pointer(device, base, 0), [device, firmware.number(1)])
@@ -54,7 +54,7 @@ skill poll_mouse(base, mouse, width, height) {
     @state = firmware.scratch(base, STATE_AT)
     @was = mouse.held
     @pressed = no
-    drum (group.count(mouse.devices)) {
+    drum (mouse.devices) {
         @device = group.get(mouse.devices, beat)
         @got = firmware.call(base, firmware.pointer(device, base, GET_STATE), [device, state])
         (got.failed == no) {

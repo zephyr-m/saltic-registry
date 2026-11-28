@@ -60,7 +60,7 @@ skill row(index) {
 }
 
 skill region(name) {
-    drum (group.count(REGIONS)) {
+    drum (REGIONS) {
         @found = row(beat)
         (found.name == name) { out found }
     }
@@ -69,7 +69,7 @@ skill region(name) {
 
 skill used() {
     @total = 0
-    drum (group.count(REGIONS)) {
+    drum (REGIONS) {
         @found = row(beat)
         total = total + found.bytes
     }

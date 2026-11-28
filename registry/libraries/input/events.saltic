@@ -49,7 +49,7 @@ Taken = Box {
 }
 
 skill current(kernel, id) {
-    drum (group.count(kernel.values)) {
+    drum (kernel.values) {
         @known = group.get(kernel.values, beat)
         (known.id == id) { out Lookup { found = yes, change = known } }
     }
@@ -68,7 +68,7 @@ skill same(kernel, id, number, text) {
 skill remembered(values, fresh) {
     @result = []
     @placed = no
-    drum (group.count(values)) {
+    drum (values) {
         @known = group.get(values, beat)
         (known.id == fresh.id) {
             known = fresh

@@ -44,7 +44,7 @@ Script = Box {
         @drained = reader.drain(core)
         core = drained.core
         @lines = []
-        drum (group.count(drained.gestures)) {
+        drum (drained.gestures) {
             @gesture = group.get(drained.gestures, beat)
             lines = group.add(lines, line.described(gesture))
         }

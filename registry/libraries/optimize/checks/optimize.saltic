@@ -36,7 +36,7 @@ Probe = Box {
     }
 
     skill same(got, want) {
-        drum (group.count(got)) {
+        drum (got) {
             (near(slow.part(got, beat), slow.part(want, beat), CLOSE) == no) {
                 out no
             }
@@ -60,7 +60,7 @@ Probe = Box {
         smart.rate = 0.05
         @a = cases.START
         @b = cases.START
-        drum (group.count(cases.GRADS)) {
+        drum (cases.GRADS) {
             @grad = group.get(cases.GRADS, beat)
             a = slow.step(a, grad)
             b = smart.step(b, grad)

@@ -39,7 +39,7 @@ program() {
     @probe = Probe {}
     @math = exponent.Exponent {}
     @wrong = 0
-    drum (group.count(cases.CASES)) {
+    drum (cases.CASES) {
         @case = group.get(cases.CASES, beat)
         @name = group.get(case, 0)
         @x = 0.0 + group.get(case, 1)

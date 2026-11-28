@@ -18,13 +18,13 @@ Descent = Box {
 
     skill step(params, grads) {
         (group.count(velocity) == 0) {
-            drum (group.count(params)) {
+            drum (params) {
                 velocity = group.add(velocity, 0.0)
             }
         }
         @moved = []
         @speeds = []
-        drum (group.count(params)) {
+        drum (params) {
             @v = momentum * part(velocity, beat) - rate * part(grads, beat)
             speeds = group.add(speeds, v)
             moved = group.add(moved, part(params, beat) + v)

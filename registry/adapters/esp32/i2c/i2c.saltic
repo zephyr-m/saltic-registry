@@ -128,7 +128,7 @@ skill setup() {
     put(gpio(), IN_SELECT_SDA, 23 + FROM_MATRIX)
     put(gpio(), ENABLE_SET, BOTH_PINS)
     put(i2c(), CTR, MASTER)
-    drum (group.count(TIMINGS)) {
+    drum (TIMINGS) {
         @timing = group.get(TIMINGS, beat)
         put(i2c(), group.get(timing, 0), group.get(timing, 1))
     }
@@ -175,7 +175,7 @@ skill finish(count) {
 
 skill send(bytes) {
     begin()
-    drum (group.count(bytes)) {
+    drum (bytes) {
         @entry = group.get(bytes, beat)
         push(entry)
     }

@@ -115,7 +115,7 @@ LayoutState = Box {
 
 skill layers_layout(node, x, y, width, height) {
     @items = []
-    drum (group.count(node.layers)) {
+    drum (node.layers) {
         @layer = group.get(node.layers, beat)
         items = group.add(items, Placement { node = layer, x = x + measure.side(node, 3), y = y + measure.side(node, 0), width = width - measure.side(node, 1) - measure.side(node, 3), height = height - measure.side(node, 0) - measure.side(node, 2) })
     }
@@ -193,7 +193,7 @@ skill children_layout(node, x, y, width, height) {
         cursor = cursor + main_size + node.gap + spread
         index = index + 1
     }
-    drum (group.count(node.children)) {
+    drum (node.children) {
         @child_2 = group.get(node.children, beat)
         (group.count(child_2.at) == 2) {
             @free_width = child_2.width
@@ -301,7 +301,7 @@ skill find_field(runtime, id) {
 }
 
 skill find_slider(runtime, id) {
-    drum (group.count(runtime.sliders)) {
+    drum (runtime.sliders) {
         @slot = group.get(runtime.sliders, beat)
         (slot.id == id) { out SliderLookup { found = yes, slot = slot } }
     }
@@ -348,7 +348,7 @@ skill moved_to(slot, level) {
 
 skill set_level(runtime, id, level) {
     @sliders = []
-    drum (group.count(runtime.sliders)) {
+    drum (runtime.sliders) {
         @slot = group.get(runtime.sliders, beat)
         (slot.id == id) { slot = moved_to(slot, slider.clamp(level, slot.least, slot.most)) }
         sliders = group.add(sliders, slot)
@@ -369,7 +369,7 @@ skill focus_at(runtime, x, y) {
         (inside == yes) { out rebuilt(runtime, runtime.fields, runtime.sliders, slot.id) }
         index = index + 1
     }
-    drum (group.count(runtime.sliders)) {
+    drum (runtime.sliders) {
         @slot = group.get(runtime.sliders, beat)
         @inside = yes
         (x < slot.x) { inside = no }
@@ -402,17 +402,17 @@ skill hit(runtime, x, y) {
 
 skill next_focus(runtime) {
     @ids = []
-    drum (group.count(runtime.fields)) {
+    drum (runtime.fields) {
         @slot = group.get(runtime.fields, beat)
         ids = group.add(ids, slot.id)
     }
-    drum (group.count(runtime.sliders)) {
+    drum (runtime.sliders) {
         @slot = group.get(runtime.sliders, beat)
         ids = group.add(ids, slot.id)
     }
     (group.count(ids) == 0) { out runtime }
     @next = group.get(ids, 0)
-    drum (group.count(ids)) {
+    drum (ids) {
         (group.get(ids, beat) == runtime.focused) { next = group.get(ids, (beat + 1) % group.count(ids)) }
     }
     out rebuilt(runtime, runtime.fields, runtime.sliders, next)

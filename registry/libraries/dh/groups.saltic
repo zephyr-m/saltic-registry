@@ -89,7 +89,7 @@ Named = Box {
 
     skill hex_digits(lines) {
         @digits = []
-        drum (group.count(lines)) {
+        drum (lines) {
             @line = group.get(lines, beat)
             drum (str.bytes(line)) {
                 @at = beat

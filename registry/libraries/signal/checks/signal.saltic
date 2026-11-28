@@ -49,7 +49,7 @@ Probe = Box {
     }
 
     skill same(got, row, from) {
-        drum (group.count(got)) {
+        drum (got) {
             (close(wave.part(got, beat), wave.part(row, from + beat)) == no) {
                 out no
             }
@@ -92,7 +92,7 @@ program() {
     @probe = Probe {}
     @wave = signal.Signal {}
     @wrong = 0
-    drum (group.count(cases.CASES)) {
+    drum (cases.CASES) {
         @case = group.get(cases.CASES, beat)
         (probe.check(case) == no) {
             wrong = wrong + 1

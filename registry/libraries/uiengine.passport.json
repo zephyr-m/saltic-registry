@@ -1,7 +1,7 @@
 {
   "title": "uiengine — официальное имя Attacus (павлиноглазка атлас, Attacus atlas)",
   "saltic_version": "Saltic (в составе текущей ветки)",
-  "own_version": "13",
+  "own_version": "14",
   "author": "Зэф",
   "role": "library",
   "purpose": "интерфейс программ — атомы JTML, раскладка, рисование, закрытая библиотека жителей по этажам и темы",

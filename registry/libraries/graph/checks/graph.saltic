@@ -28,7 +28,7 @@ Probe = Box {
             @to = group.get(route, beat + 1)
             @step = -1
             @entries = group.get(shape.near, from)
-            drum (group.count(entries)) {
+            drum (entries) {
                 @entry = group.get(entries, beat)
                 (group.get(entry, 0) == to) {
                     ((step < 0) ○○ (group.get(entry, 1) < step)) {
@@ -98,7 +98,7 @@ program() {
     @suite = testing.test_new()
     @probe = Probe {}
     @wrong = 0
-    drum (group.count(cases.CASES)) {
+    drum (cases.CASES) {
         @case = group.get(cases.CASES, beat)
         @broken = probe.check(case)
         ((broken == "") == no) {

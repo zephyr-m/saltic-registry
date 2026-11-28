@@ -1,7 +1,7 @@
 {
   "title": "sha512 — хеш SHA-512",
   "saltic_version": "в составе Saltic (ветка 22.11.2026)",
-  "own_version": "4",
+  "own_version": "5",
   "author": "Зэф",
   "role": "library",
   "purpose": "хеш SHA-512 (FIPS 180-4) — основа подписи Ed25519 и SSH",

@@ -25,7 +25,7 @@ Statistics = Box {
         @n = 0
         @average = 0.0
         @squares = 0.0
-        drum (group.count(data)) {
+        drum (data) {
             n = n + 1
             @x = part(data, beat)
             @delta = x - average
@@ -64,11 +64,11 @@ Statistics = Box {
 
     skill sorted(data) {
         @result = []
-        drum (group.count(data)) {
+        drum (data) {
             @x = part(data, beat)
             @placed = []
             @done = no
-            drum (group.count(result)) {
+            drum (result) {
                 @y = part(result, beat)
                 ((done == no) ○ (x < y)) {
                     placed = group.add(placed, x)
@@ -123,7 +123,7 @@ Statistics = Box {
             out error.Empty
         }
         @best = part(data, 0)
-        drum (group.count(data)) {
+        drum (data) {
             (part(data, beat) < best) {
                 best = part(data, beat)
             }
@@ -136,7 +136,7 @@ Statistics = Box {
             out error.Empty
         }
         @best = part(data, 0)
-        drum (group.count(data)) {
+        drum (data) {
             (part(data, beat) > best) {
                 best = part(data, beat)
             }

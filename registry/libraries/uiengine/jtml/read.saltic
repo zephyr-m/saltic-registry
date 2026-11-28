@@ -67,7 +67,7 @@ skill styled(props, styles) {
     ((found.kind == reader.Kind.JTML_OBJECT) == no) { out error.UnknownStyle }
     @keys = props.keys
     @items = props.items
-    drum (group.count(found.keys)) {
+    drum (found.keys) {
         @key = group.get(found.keys, beat)
         (group.contains(props.keys, key) == no) {
             keys = group.add(keys, key)
@@ -78,7 +78,7 @@ skill styled(props, styles) {
 }
 
 skill prop(props, name) {
-    drum (group.count(props.keys)) {
+    drum (props.keys) {
         (group.get(props.keys, beat) == name) { out group.get(props.items, beat) }
     }
     out reader.Value {}
@@ -107,7 +107,7 @@ skill children_of(props, styles) {
     @found = prop(props, "children")
     @nodes = []
     (found.kind == reader.Kind.JTML_ARRAY) {
-        drum (group.count(found.items)) {
+        drum (found.items) {
             nodes = group.add(nodes, node(group.get(found.items, beat), styles))
         }
     }
@@ -133,7 +133,7 @@ skill shaped(made, props) {
     (padding.kind == reader.Kind.JTML_ARRAY) {
         ((group.count(padding.items) == 4) == no) { out error.BadPadding }
         @sides = []
-        drum (group.count(padding.items)) {
+        drum (padding.items) {
             @item_2 = group.get(padding.items, beat)
             ((item_2.kind == reader.Kind.AMOUNT) == no) { out error.BadPadding }
             sides = group.add(sides, item_2.amount)
@@ -144,7 +144,7 @@ skill shaped(made, props) {
     (at.kind == reader.Kind.JTML_ARRAY) {
         ((group.count(at.items) == 2) == no) { out error.BadAt }
         @place = []
-        drum (group.count(at.items)) {
+        drum (at.items) {
             @item = group.get(at.items, beat)
             ((item.kind == reader.Kind.AMOUNT) == no) { out error.BadAt }
             place = group.add(place, item.amount)
@@ -171,7 +171,7 @@ skill layers_of(props, styles) {
     @found = prop(props, "layers")
     @made = []
     (found.kind == reader.Kind.JTML_ARRAY) {
-        drum (group.count(found.items)) {
+        drum (found.items) {
             @item = group.get(found.items, beat)
             made = group.add(made, layer(item, styles))
         }
@@ -240,7 +240,7 @@ skill spoken(value) {
 skill filled(value, names, args) {
     (value.kind == reader.Kind.WORDS) {
         @text = value.words
-        drum (group.count(names)) {
+        drum (names) {
             @name = group.get(names, beat)
             @arg = group.get(args, beat)
             (text == "\{{name}\}") { out arg }
@@ -250,7 +250,7 @@ skill filled(value, names, args) {
     }
     (value.kind == reader.Kind.JTML_ARRAY) {
         @items = []
-        drum (group.count(value.items)) {
+        drum (value.items) {
             @item = group.get(value.items, beat)
             @made = filled(item, names, args)
             @spliced = no
@@ -267,7 +267,7 @@ skill filled(value, names, args) {
     }
     (value.kind == reader.Kind.JTML_OBJECT) {
         @items = []
-        drum (group.count(value.items)) {
+        drum (value.items) {
             @item_2 = group.get(value.items, beat)
             items = group.add(items, filled(item_2, names, args))
         }
@@ -282,16 +282,16 @@ skill expand(tag, props, styles) {
     @about = group.get(declared.items, 0)
     @listed = prop(about, "params")
     @names = []
-    drum (group.count(listed.items)) {
+    drum (listed.items) {
         @item = group.get(listed.items, beat)
         names = group.add(names, item.words)
     }
-    drum (group.count(props.keys)) {
+    drum (props.keys) {
         @key = group.get(props.keys, beat)
         (group.contains(names, key) == no) { out error.UnknownParam }
     }
     @args = []
-    drum (group.count(names)) {
+    drum (names) {
         @name = group.get(names, beat)
         args = group.add(args, prop(props, name))
     }

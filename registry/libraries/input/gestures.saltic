@@ -184,7 +184,7 @@ Reader = Box {
     skill drain(kernel) {
         @rest = kernel
         @made = []
-        drum (group.count(kernel.queue)) {
+        drum (kernel.queue) {
             @taken = events.take(rest)
             rest = taken.core
             made = group.concat(made, read(taken.change))

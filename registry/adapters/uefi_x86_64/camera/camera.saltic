@@ -41,7 +41,7 @@ Reading = Box {
 skill find_camera(base) {
     files.connect_all(base)
     @found = files.handles_with(base, files.BY_PROTOCOL, usb.USB_IO_GUID)
-    drum (group.count(found)) {
+    drum (found) {
         @entry = group.get(found, beat)
         @usb_io = files.protocol_of(base, entry, usb.USB_IO_GUID)
         @device = firmware.scratch(base, usb.SCRATCH_DESCRIPTOR)

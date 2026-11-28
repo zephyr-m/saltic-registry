@@ -18,13 +18,13 @@ program() {
     @suite = testing.test_new()
     @reader = probe.Probe {}
     @keys = []
-    drum (group.count(vectors.KEYS)) {
+    drum (vectors.KEYS) {
         @key = group.get(vectors.KEYS, beat)
         keys = group.add(keys, reader.public(group.get(key, 0), group.get(key, 1)))
     }
     @wrong = 0
     @accepted = 0
-    drum (group.count(vectors.ROWS)) {
+    drum (vectors.ROWS) {
         @row = group.get(vectors.ROWS, beat)
         @got = reader.verdict(group.get(keys, group.get(row, 0)), row)
         @want = group.get(row, 5)

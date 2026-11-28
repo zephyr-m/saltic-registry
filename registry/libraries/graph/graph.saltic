@@ -30,7 +30,7 @@ Graph = Box {
         drum (size) {
             lists = group.add(lists, [])
         }
-        drum (group.count(edges)) {
+        drum (edges) {
             @edge = group.get(edges, beat)
             @from = group.get(edge, 0)
             lists = group.replaced(lists, from, group.add(group.get(lists, from), [group.get(edge, 1), group.get(edge, 2)]))
@@ -41,7 +41,7 @@ Graph = Box {
     skill made(count, list, directed) {
         @all = list
         (directed == no) {
-            drum (group.count(list)) {
+            drum (list) {
                 @entry = group.get(list, beat)
                 all = group.add(all, [group.get(entry, 1), group.get(entry, 0), group.get(entry, 2)])
             }
@@ -125,7 +125,7 @@ Graph = Box {
                     leave
                 }
                 @entries = group.get(near, vertex)
-                drum (group.count(entries)) {
+                drum (entries) {
                     @entry = group.get(entries, beat)
                     @to = group.get(entry, 0)
                     @length = group.get(best, vertex) + group.get(entry, 1)
@@ -194,7 +194,7 @@ Graph = Box {
             @vertex = group.get(queue, head)
             head = head + 1
             @entries = group.get(near, vertex)
-            drum (group.count(entries)) {
+            drum (entries) {
                 @entry = group.get(entries, beat)
                 @to = group.get(entry, 0)
                 (group.get(depth, to) < 0) {

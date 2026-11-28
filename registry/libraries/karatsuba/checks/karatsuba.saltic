@@ -61,7 +61,7 @@ Judge = Box {
 program() {
     @suite = testing.test_new()
     @judge = Judge {}
-    drum (group.count(cases.CASES)) {
+    drum (cases.CASES) {
         @case = group.get(cases.CASES, beat)
         @name = group.get(case, 0)
         suite = testing.test_equal(suite, name, judge.verdict(case), AGREED)

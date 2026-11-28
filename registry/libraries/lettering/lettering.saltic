@@ -98,7 +98,7 @@ skill paint_glyph(screen, face, x, y, code, ink) {
 skill paint_bytes(screen, face, x, y, bytes, ink) {
     @index = 0
     @left = x
-    drum (group.count(bytes)) {
+    drum (bytes) {
         (index < group.count(bytes)) {
             @point = decode(bytes, index)
             (left + face.width <= screen.width) { paint_glyph(screen, face, left, y, point.value, ink) }

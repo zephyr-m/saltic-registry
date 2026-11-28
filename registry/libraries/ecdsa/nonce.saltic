@@ -27,7 +27,7 @@ Nonce = Box {
 
     skill glued(parts) {
         @made = []
-        drum (group.count(parts)) {
+        drum (parts) {
             @part = group.get(parts, beat)
             made = group.concat(made, bytes.to_group(part))
         }

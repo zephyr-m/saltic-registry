@@ -245,7 +245,7 @@ skill wait_link(card) {
 }
 
 skill send(card, bytes) {
-    drum (group.count(bytes)) {
+    drum (bytes) {
         firmware.write8(card.tx_buffer, card.base, beat, group.get(bytes, beat))
     }
     out send_prepared(card, group.count(bytes))

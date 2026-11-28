@@ -228,7 +228,7 @@ skill typed_trim(face, line, size, width, gap) {
     (typeface.measure(face, line, size, gap) <= width) { out line }
     @chars = str.letters(line)
     @keep = group.count(chars)
-    drum (group.count(chars)) {
+    drum (chars) {
         @tried = str.concat(str.join(group.slice(chars, 0, keep), ""), "...")
         (typeface.measure(face, tried, size, gap) <= width) { out tried }
         keep = keep - 1
@@ -254,13 +254,13 @@ skill fitted(node, in_row, palette) {
     }
     (atom.holds(node) == yes) {
         @children = []
-        drum (group.count(node.children)) {
+        drum (node.children) {
             @child = group.get(node.children, beat)
             children = group.add(children, fitted(child, node.flow == atom.Flow.ROW, palette))
         }
         @copy = copy_node(node, node.width, node.height, children)
         @layers = []
-        drum (group.count(node.layers)) {
+        drum (node.layers) {
             @layer = group.get(node.layers, beat)
             layers = group.add(layers, fitted(layer, no, palette))
         }
@@ -371,12 +371,12 @@ skill measured(node, in_row) {
     }
     (atom.holds(node) == yes) {
         @children = []
-        drum (group.count(node.children)) {
+        drum (node.children) {
             children = group.add(children, measured(group.get(node.children, beat), node.flow == atom.Flow.ROW))
         }
         @copy = copy_node(node, node.width, node.height, children)
         @layers = []
-        drum (group.count(node.layers)) {
+        drum (node.layers) {
             @layer = group.get(node.layers, beat)
             layers = group.add(layers, measured(layer, no))
         }
@@ -445,8 +445,10 @@ skill draw_node(screen, runtime, palette, node, place) {
     (node.kind == atom.Kind.SLIDER) { out draw_slider(screen, runtime, palette, node.id) }
     (node.kind == atom.Kind.CIRCLE) {
         shapes.circle(screen, [x, y, width, height], [node.border, node.start, node.sweep], tone_color(palette, node.fill, -1), tone_color(palette, node.edge, -1))
-        drum (jtml.children_layout(node, x, y, width, height)) {
-            draw_node(screen, runtime, palette, beat.node, [beat.x, beat.y, beat.width, beat.height])
+        @placements = jtml.children_layout(node, x, y, width, height)
+        drum (placements) {
+            @placed = group.get(placements, beat)
+            draw_node(screen, runtime, palette, placed.node, [placed.x, placed.y, placed.width, placed.height])
         }
         out none
     }

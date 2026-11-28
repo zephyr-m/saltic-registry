@@ -285,7 +285,7 @@ skill sound_voice_sample(voice) {
 skill sound_mix_frame(sound) {
     @sample = 0
     @active = 0
-    drum (group.count(sound.voices)) {
+    drum (sound.voices) {
         @voice = group.get(sound.voices, beat)
         (voice.active == yes) {
             sample = sample + sound_voice_sample(voice)
@@ -350,7 +350,7 @@ skill sound_note_off(sound, voice_index) {
 }
 
 skill sound_all_notes_off(sound) {
-    drum (group.count(sound.voices)) {
+    drum (sound.voices) {
         @voice = group.get(sound.voices, beat)
         (voice.active == yes) { voice.releasing = yes }
     }

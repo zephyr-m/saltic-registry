@@ -190,7 +190,7 @@ skill parse_frame(chip, frame, length, snr, channel) {
 }
 
 skill remember(networks, found) {
-    drum (group.count(networks)) {
+    drum (networks) {
         @known = group.get(networks, beat)
         (known.bssid == found.bssid) {
             (found.snr > known.snr) { known.snr = found.snr }

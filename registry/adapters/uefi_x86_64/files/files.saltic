@@ -122,7 +122,7 @@ skill handles_with(base, kind, guid) {
 skill connect_all(base) {
     @services = uefi.boot_services(base)
     @everything = handles_with(base, ALL_HANDLES, [])
-    drum (group.count(everything)) {
+    drum (everything) {
         @entry = group.get(everything, beat)
         firmware.call(base, firmware.pointer(services, base, BOOT_CONNECT_CONTROLLER), [entry, firmware.number(0), firmware.number(0), firmware.number(1)])
     }
@@ -229,7 +229,7 @@ skill volume_report(base, index, handle) {
     @efi = folder_names(base, root, "EFI")
     (group.count(efi) > 0) {
         lines = group.add(lines, str.concat("  EFI: ", str.join(efi, " ")))
-        drum (group.count(efi)) {
+        drum (efi) {
             @entry = group.get(efi, beat)
             (str.ends_with(entry, "/") == yes) {
                 @inner = str.slice(entry, 0, str.bytes(entry) - 1)
@@ -247,13 +247,13 @@ skill report(base) {
     @disks = handles_with(base, BY_PROTOCOL, BLOCK_IO_GUID)
     @disk_total = group.count(disks)
     @lines = ["подключил драйверы к {connected} устройствам", "блочных устройств: {disk_total}"]
-    drum (group.count(disks)) {
+    drum (disks) {
         lines = group.add(lines, disk_line(base, beat, group.get(disks, beat)))
     }
     @handles = file_systems(base)
     @total = group.count(handles)
     lines = group.add(lines, "файловых систем: {total}")
-    drum (group.count(handles)) {
+    drum (handles) {
         lines = group.concat(lines, volume_report(base, beat, group.get(handles, beat)))
     }
     out str.join(lines, "\n")
@@ -283,7 +283,7 @@ skill fixed_volume(base, owner) {
 
 skill saltic_root(base) {
     @file_systems_2 = file_systems(base)
-    drum (group.count(file_systems_2)) {
+    drum (file_systems_2) {
         @file_system = group.get(file_systems_2, beat)
         (fixed_volume(base, file_system) == yes) { out open_root(base, file_system) }
     }

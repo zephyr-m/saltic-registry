@@ -26,7 +26,7 @@ Pkcs1 = Box {
             bytes.set(made, 2 + beat, 255)
         }
         @at = size - info
-        drum (group.count(PREFIX)) {
+        drum (PREFIX) {
             bytes.set(made, at + beat, group.get(PREFIX, beat))
         }
         @tail = size - bytes.count(digest)

@@ -59,7 +59,7 @@ skill tlv(chip, at, tag, length) {
 }
 
 skill words(chip, at, values) {
-    drum (group.count(values)) {
+    drum (values) {
         firmware.write_phys32(frame(chip), chip.base, at + beat * 4, group.get(values, beat))
     }
     out at + group.count(values) * 4

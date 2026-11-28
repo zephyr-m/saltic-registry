@@ -57,7 +57,7 @@ Pen = Box {
             @kind = "o"
             (closed == yes) { kind = "c" }
             @parts = []
-            drum (group.count(points)) {
+            drum (points) {
                 @point = group.get(points, beat)
                 @px = group.get(point, 0)
                 @py = group.get(point, 1)
@@ -261,7 +261,7 @@ skill path(pen, d) {
     @list = tokens(d)
     @index = 0
     @command = "M"
-    drum (group.count(list)) {
+    drum (list) {
         (index < group.count(list)) {
             @head = group.get(list, index)
             @letter = str.is_digit(str.slice(head, 0, 1)) == no
@@ -420,7 +420,7 @@ skill icon(text) {
     @pen = Pen {}
     drum (str.bytes(text)) {
         @at = beat
-        drum (group.count(TAGS)) {
+        drum (TAGS) {
             @tag = group.get(TAGS, beat)
             (str.starts_at(text, "\"{tag}\",", at) == yes) {
                 @open = at
@@ -444,7 +444,7 @@ program(source) {
     @lines = []
     @done = 0
     @total = group.count(files)
-    drum (group.count(files)) {
+    drum (files) {
         @name = group.get(files, beat)
         (str.ends_with(name, TAIL) == yes) {
             @short = str.slice(name, 0, str.bytes(name) - str.bytes(TAIL))

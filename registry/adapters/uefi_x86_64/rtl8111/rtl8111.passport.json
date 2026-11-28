@@ -8,7 +8,7 @@
   "effects": "пишет в железо: регистры MMIO, DMA колец",
   "hardware": "Realtek RTL8111/8168, PCI 10ec:8168",
   "identifiers": "pci 10ec:8168",
-  "own_version": "3",
+  "own_version": "4",
   "protocols": "PCIe MMIO (BAR2); кадры Ethernet",
   "architectures": "x86_64-uefi",
   "primitives": "кадр Ethernet: отправить, принять; линк: есть/нет, скорость, дуплекс; MAC",
