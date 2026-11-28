@@ -92,7 +92,9 @@ skill graphics_fill(screen, ink) {
 skill graphics_rect(screen, x, y, width, height, ink) {
     drum (height) {
         @row = beat
-        drum (width) { graphics_pixel(screen, x + beat, y + row, ink) }
+        drum (width) {
+            graphics_pixel(screen, x + beat, y + row, ink)
+        }
     }
     out none
 }

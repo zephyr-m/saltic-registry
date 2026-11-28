@@ -107,7 +107,9 @@ skill children_of(props, styles) {
     @found = prop(props, "children")
     @nodes = []
     (found.kind == reader.Kind.JTML_ARRAY) {
-        drum (group.count(found.items)) { nodes = group.add(nodes, node(group.get(found.items, beat), styles)) }
+        drum (group.count(found.items)) {
+            nodes = group.add(nodes, node(group.get(found.items, beat), styles))
+        }
     }
     out nodes
 }
@@ -169,7 +171,10 @@ skill layers_of(props, styles) {
     @found = prop(props, "layers")
     @made = []
     (found.kind == reader.Kind.JTML_ARRAY) {
-        drum (found.items) { made = group.add(made, layer(beat, styles)) }
+        drum (group.count(found.items)) {
+            @item = group.get(found.items, beat)
+            made = group.add(made, layer(item, styles))
+        }
     }
     out made
 }
@@ -262,7 +267,10 @@ skill filled(value, names, args) {
     }
     (value.kind == reader.Kind.JTML_OBJECT) {
         @items = []
-        drum (value.items) { items = group.add(items, filled(beat, names, args)) }
+        drum (group.count(value.items)) {
+            @item_2 = group.get(value.items, beat)
+            items = group.add(items, filled(item_2, names, args))
+        }
         out reader.Value { kind = reader.Kind.JTML_OBJECT, keys = value.keys, items = items }
     }
     out value
@@ -274,12 +282,18 @@ skill expand(tag, props, styles) {
     @about = group.get(declared.items, 0)
     @listed = prop(about, "params")
     @names = []
-    drum (listed.items) { names = group.add(names, beat.words) }
+    drum (group.count(listed.items)) {
+        @item = group.get(listed.items, beat)
+        names = group.add(names, item.words)
+    }
     drum (group.count(props.keys)) {
         @key = group.get(props.keys, beat)
         (group.contains(names, key) == no) { out error.UnknownParam }
     }
     @args = []
-    drum (names) { args = group.add(args, prop(props, beat)) }
+    drum (group.count(names)) {
+        @name = group.get(names, beat)
+        args = group.add(args, prop(props, name))
+    }
     out node(filled(prop(about, "body"), names, args), styles)
 }

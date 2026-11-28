@@ -8,7 +8,7 @@
   "effects": "пишет на диск через протоколы Simple File System и File",
   "hardware": "любой ПК с UEFI",
   "identifiers": "нет",
-  "own_version": "2",
+  "own_version": "3",
   "protocols": "UEFI",
   "architectures": "x86_64-uefi",
   "primitives": "тома и папки, открыть, создать, записать, прочитать (load_file), установить загрузчик",

@@ -8,7 +8,7 @@
   "effects": "нет своих: только разбор и сборка байтов в памяти",
   "hardware": "любой ПК с UEFI",
   "identifiers": "нет",
-  "own_version": "1",
+  "own_version": "2",
   "protocols": "UEFI",
   "architectures": "x86_64-uefi",
   "primitives": "кадр и адреса Ethernet/IP/UDP, текст байтов; dhcp — запрос и ответ",

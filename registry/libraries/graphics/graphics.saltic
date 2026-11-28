@@ -116,7 +116,9 @@ skill fill(screen, x0, y0, width0, height0, value) {
     @point = u32.from(value)
     drum (height) {
         @row = ((y + beat) * screen.stride + x) * PIXEL_BYTES
-        drum (width) { mem.store32(base, usize.from(row + beat * PIXEL_BYTES), point) }
+        drum (width) {
+            mem.store32(base, usize.from(row + beat * PIXEL_BYTES), point)
+        }
     }
     out none
 }

@@ -93,7 +93,9 @@ skill report(base) {
     @total = group.count(handles)
     @controllers = group.count(files.handles_with(base, files.BY_PROTOCOL, USB2_HC_GUID))
     @lines = ["подключил драйверы к {connected} устройствам", "контроллеров USB у прошивки: {controllers}", "интерфейсов USB: {total}"]
-    drum (group.count(handles)) { lines = group.add(lines, interface_line(base, beat, group.get(handles, beat))) }
+    drum (group.count(handles)) {
+        lines = group.add(lines, interface_line(base, beat, group.get(handles, beat)))
+    }
     out str.join(lines, "\n")
 }
 
@@ -126,6 +128,8 @@ skill protocols(base, words) {
     (asked.failed == yes) { out "прошивка не отдала протоколы" }
     @list = firmware.pointer(list_at, base, 0)
     @lines = ["протоколы диска {index}:"]
-    drum (firmware.read16(count_at, base, 0)) { lines = group.add(lines, str.concat("  ", guid_text(base, firmware.pointer(list, base, beat * 8)))) }
+    drum (firmware.read16(count_at, base, 0)) {
+        lines = group.add(lines, str.concat("  ", guid_text(base, firmware.pointer(list, base, beat * 8))))
+    }
     out str.join(lines, "\n")
 }

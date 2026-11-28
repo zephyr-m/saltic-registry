@@ -102,7 +102,9 @@ skill put(painter, place, index, value) {
 }
 
 skill load(painter, place, words, relocs, target, extra) {
-    drum (group.count(words)) { put(painter, place, beat, group.get(words, beat)) }
+    drum (group.count(words)) {
+        put(painter, place, beat, group.get(words, beat))
+    }
     drum (group.count(relocs)) {
         @reloc = group.get(relocs, beat)
         @index = group.get(reloc, 0)
@@ -153,7 +155,9 @@ skill draw_rect(painter, target, texture, x, y, width, height, words) {
     surface(painter, place, rect.SOURCE, words, texture)
     put(painter, place, rect.DRAWING_WORD, (target.height - 1) * HALF_WORD + target.width - 1)
     @corners = [(x + width) + (y + height) * HALF_WORD, ONE, ONE, x + (y + height) * HALF_WORD, 0, ONE, x + y * HALF_WORD, 0, 0]
-    drum (9) { put(painter, place, rect.VERTICES / 4 + beat, group.get(corners, beat)) }
+    drum (9) {
+        put(painter, place, rect.VERTICES / 4 + beat, group.get(corners, beat))
+    }
     out run(painter, place)
 }
 

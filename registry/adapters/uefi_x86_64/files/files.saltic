@@ -74,13 +74,17 @@ ENTRY_LIMIT = 64
 
 skill write_guid(base, bytes) {
     @at = firmware.scratch(base, SCRATCH_GUID)
-    drum (16) { firmware.write8(at, base, beat, group.get(bytes, beat)) }
+    drum (16) {
+        firmware.write8(at, base, beat, group.get(bytes, beat))
+    }
     out at
 }
 
 skill wide_name(base, name) {
     @at = firmware.scratch(base, SCRATCH_NAME)
-    drum (str.bytes(name)) { firmware.write16(at, base, beat * 2, str.byte(name, beat)) }
+    drum (str.bytes(name)) {
+        firmware.write16(at, base, beat * 2, str.byte(name, beat))
+    }
     firmware.write16(at, base, str.bytes(name) * 2, 0)
     out at
 }
@@ -109,7 +113,9 @@ skill handles_with(base, kind, guid) {
     (located.failed == yes) { out [] }
     @handles = firmware.pointer(buffer_at, base, 0)
     @found = []
-    drum (firmware.read16(count_at, base, 0)) { found = group.add(found, firmware.pointer(handles, base, beat * 8)) }
+    drum (firmware.read16(count_at, base, 0)) {
+        found = group.add(found, firmware.pointer(handles, base, beat * 8))
+    }
     out found
 }
 
@@ -241,11 +247,15 @@ skill report(base) {
     @disks = handles_with(base, BY_PROTOCOL, BLOCK_IO_GUID)
     @disk_total = group.count(disks)
     @lines = ["подключил драйверы к {connected} устройствам", "блочных устройств: {disk_total}"]
-    drum (group.count(disks)) { lines = group.add(lines, disk_line(base, beat, group.get(disks, beat))) }
+    drum (group.count(disks)) {
+        lines = group.add(lines, disk_line(base, beat, group.get(disks, beat)))
+    }
     @handles = file_systems(base)
     @total = group.count(handles)
     lines = group.add(lines, "файловых систем: {total}")
-    drum (group.count(handles)) { lines = group.concat(lines, volume_report(base, beat, group.get(handles, beat))) }
+    drum (group.count(handles)) {
+        lines = group.concat(lines, volume_report(base, beat, group.get(handles, beat)))
+    }
     out str.join(lines, "\n")
 }
 

@@ -60,7 +60,10 @@ skill calls(node) {
         drum (group.count(props.items)) {
             @item = group.get(props.items, beat)
             (item.kind == reader.Kind.JTML_ARRAY) {
-                drum (item.items) { found = group.concat(found, calls(item)) }
+                drum (group.count(item.items)) {
+                    @inner = group.get(item.items, beat)
+                    found = group.concat(found, calls(inner))
+                }
             }
         }
     }

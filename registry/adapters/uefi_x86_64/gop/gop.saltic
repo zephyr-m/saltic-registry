@@ -80,7 +80,9 @@ skill put(base, source, whole, left) {
 
 skill open_whole(base) {
     @guid_at = firmware.scratch(base, 32)
-    drum (16) { firmware.write8(guid_at, base, beat, group.get(GOP_GUID, beat)) }
+    drum (16) {
+        firmware.write8(guid_at, base, beat, group.get(GOP_GUID, beat))
+    }
     @found_at = firmware.scratch(base, 64)
     @services = uefi.boot_services(base)
     @located = firmware.call(base, firmware.pointer(services, base, BOOT_LOCATE_PROTOCOL), [guid_at, firmware.number(0), found_at])
@@ -158,14 +160,18 @@ skill push(base, to, from) {
 
 skill copy_rect(base, to, from, x, y, width, height) {
     (group.count(from.accel) == 0) {
-        drum (height) { copy_span(base, to, from, y + beat, x, width) }
+        drum (height) {
+            copy_span(base, to, from, y + beat, x, width)
+        }
         out none
     }
     @gpu = group.get(from.accel, 0)
     @target = to.frame
     (group.count(to.accel) == 0) {
         (to.frame < gpu.aperture) {
-            drum (height) { copy_span(base, to, from, y + beat, x, width) }
+            drum (height) {
+                copy_span(base, to, from, y + beat, x, width)
+            }
             out none
         }
         target = intel_gpu.screen_at(gpu, to.frame)
@@ -183,8 +189,12 @@ skill copy_span(base, to, from, y, left, count) {
 skill open_frames(base) {
     @front = open(base)
     @frames = Frames { front = front, back = buffer_like(base, front), last = buffer_like(base, front), pages = buffer_pages(front) }
-    drum (front.height) { copy_span(base, frames.last, front, beat, 0, front.width) }
-    drum (front.height) { copy_span(base, frames.back, front, beat, 0, front.width) }
+    drum (front.height) {
+        copy_span(base, frames.last, front, beat, 0, front.width)
+    }
+    drum (front.height) {
+        copy_span(base, frames.back, front, beat, 0, front.width)
+    }
     out frames
 }
 

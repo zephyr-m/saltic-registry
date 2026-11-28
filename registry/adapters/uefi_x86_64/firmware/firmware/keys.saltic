@@ -76,7 +76,9 @@ skill pop(base) {
     @count = firmware.read16(queue, base, 0)
     (count == 0) { out none }
     @key = [firmware.read16(queue, base, CELL), firmware.read16(queue, base, CELL + 2)]
-    drum ((count - 1) * 2) { firmware.write16(queue, base, CELL + beat * 2, firmware.read16(queue, base, CELL + CELL + beat * 2)) }
+    drum ((count - 1) * 2) {
+        firmware.write16(queue, base, CELL + beat * 2, firmware.read16(queue, base, CELL + CELL + beat * 2))
+    }
     firmware.write16(queue, base, 0, count - 1)
     out key
 }

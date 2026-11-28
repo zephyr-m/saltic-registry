@@ -144,7 +144,9 @@ skill open(camera) {
     step(camera, CAMERA, "ACameraDevice_createCaptureRequest", [read_at(device), clib.number(PREVIEW), request])
     step(camera, CAMERA, "ACaptureRequest_addTarget", [read_at(request), read_at(target)])
     @session_calls = answer_at(camera, 4)
-    drum (3) { clib.set_word(place(session_calls) + 8 + beat * 8, camera.noop) }
+    drum (3) {
+        clib.set_word(place(session_calls) + 8 + beat * 8, camera.noop)
+    }
     @session = answer_at(camera, 1)
     step(camera, CAMERA, "ACameraDevice_createCaptureSession", [read_at(device), read_at(outputs), session_calls, session])
     step(camera, CAMERA, "ACameraCaptureSession_setRepeatingRequest", [read_at(session), clib.number(0), clib.number(1), request, clib.number(0)])
@@ -180,7 +182,9 @@ skill shrink(frame, buffer, at, wide, high, step) {
         @oy = beat
         @sx = (high - 1 - oy) * step
         @row = at + oy * wide
-        drum (wide) { bytes.set(buffer, row + beat, num.from(mem.load8(base, usize.from(beat * step * frame.row + sx)))) }
+        drum (wide) {
+            bytes.set(buffer, row + beat, num.from(mem.load8(base, usize.from(beat * step * frame.row + sx))))
+        }
     }
     out none
 }

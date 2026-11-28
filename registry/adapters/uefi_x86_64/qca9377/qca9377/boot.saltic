@@ -13,6 +13,7 @@ use registry.adapters.uefi_x86_64.qca9377.qca9377.card
 use registry.adapters.uefi_x86_64.qca9377.qca9377.rings
 use registry.adapters.uefi_x86_64.qca9377.qca9377.diag
 use registry.adapters.uefi_x86_64.qca9377.qca9377.bmi
+use core.group
 
 HI_APP = 4196352
 HI_OPTION = 4196368
@@ -78,7 +79,10 @@ skill settle(chip, data) {
 skill launch(chip, data) {
     card.say(chip, "J. firmware: 6 segments, 727 KB, the card pulls them by DMA through CE7")
     @sent = 0
-    drum (SEGMENTS) { sent = sent + diag.segment(chip, data, beat, beat + 1, sent) }
+    drum (group.count(SEGMENTS)) {
+        @segment_2 = group.get(SEGMENTS, beat)
+        sent = sent + diag.segment(chip, data, segment_2, segment_2 + 1, sent)
+    }
     card.say(chip, "   firmware: {sent} bytes, done")
     card.say(chip, "K. SET_APP_START 0xa0400: where the firmware begins")
     bmi.command(chip, bmi.BMI_SET_APP_START, APP_START)

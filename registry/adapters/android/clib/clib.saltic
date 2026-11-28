@@ -121,7 +121,9 @@ skill rewind(bridge, place) {
 skill put_text(bridge, text) {
     room_for(bridge, str.bytes(text) + 8)
     @at = bridge.next
-    drum (str.bytes(text)) { mem.store8(address.from(at), usize.from(beat), u8.from(str.byte(text, beat))) }
+    drum (str.bytes(text)) {
+        mem.store8(address.from(at), usize.from(beat), u8.from(str.byte(text, beat)))
+    }
     mem.store8(address.from(at), usize.from(str.bytes(text)), u8.from(0))
     bridge.next = at + str.bytes(text) + 8 - (str.bytes(text) % 8)
     out number(at)
@@ -130,7 +132,9 @@ skill put_text(bridge, text) {
 skill put_words(bridge, count) {
     room_for(bridge, count * 8)
     @at = bridge.next
-    drum (count) { set_word(at + beat * 8, Word {}) }
+    drum (count) {
+        set_word(at + beat * 8, Word {})
+    }
     bridge.next = at + count * 8
     out number(at)
 }

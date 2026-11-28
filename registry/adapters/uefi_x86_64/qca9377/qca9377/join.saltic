@@ -81,7 +81,9 @@ skill frame(chip) {
 }
 
 skill bytes(chip, at, values) {
-    drum (group.count(values)) { firmware.write8(frame(chip), chip.base, at + beat, group.get(values, beat)) }
+    drum (group.count(values)) {
+        firmware.write8(frame(chip), chip.base, at + beat, group.get(values, beat))
+    }
     out at + group.count(values)
 }
 
@@ -90,7 +92,9 @@ skill tune(chip, network) {
     card.say(chip, "J1. VDEV_START: interface 0 on channel {network.channel} ({freq} MHz)")
     @at = wmi.tlv(chip, wmi.BODY, TAG_VDEV_START, 72)
     at = wmi.words(chip, at, [0, 0, BEACON_INTERVAL, 1, 0])
-    drum (9) { at = wmi.words(chip, at, [0]) }
+    drum (9) {
+        at = wmi.words(chip, at, [0])
+    }
     at = wmi.words(chip, at, [0, 0, 0, 0])
     at = wmi.tlv(chip, at, scan.TAG_CHANNEL, 24)
     at = wmi.words(chip, at, [freq, freq, 0, scan.MODE_11G, scan.POWER * 256 + scan.POWER * 65536, scan.POWER * 256])
@@ -134,12 +138,16 @@ skill send_frame(chip, length) {
     @fetch = length
     (fetch > PREFETCH) { fetch = PREFETCH }
     fetch = fetch + (4 - fetch % 4) % 4
-    drum (4) { firmware.write8(place, chip.base, length + beat, 0) }
+    drum (4) {
+        firmware.write8(place, chip.base, length + beat, 0)
+    }
     firmware.write_phys32(letter, chip.base, 8, TX_FRM + MGMT_FLAGS * 256 + (TID_MGMT * 64 + POSTPONED) * firmware.PAGE)
     firmware.write_phys32(letter, chip.base, 12, length)
     firmware.write_phys32(letter, chip.base, 16, place)
     firmware.write_phys32(letter, chip.base, 20, NO_PEER)
-    drum (fetch / 4) { firmware.write_phys32(letter, chip.base, 24 + beat * 4, firmware.read32(place, chip.base, beat * 4)) }
+    drum (fetch / 4) {
+        firmware.write_phys32(letter, chip.base, 24 + beat * 4, firmware.read32(place, chip.base, beat * 4))
+    }
     out htt.send(chip, 16 + fetch)
 }
 
@@ -224,7 +232,9 @@ skill ask_association(chip, network, sequence) {
     at = bytes(chip, at, group.concat(CAPABILITY, [LISTEN, 0]))
     @size = str.bytes(network.name)
     at = bytes(chip, at, [0, size])
-    drum (size) { at = bytes(chip, at, [str.byte(network.name, beat)]) }
+    drum (size) {
+        at = bytes(chip, at, [str.byte(network.name, beat)])
+    }
     at = bytes(chip, at, RATES)
     at = bytes(chip, at, EXTENDED_RATES)
     send_frame(chip, at)

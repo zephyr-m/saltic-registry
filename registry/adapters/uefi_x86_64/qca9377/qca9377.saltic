@@ -107,7 +107,9 @@ skill look(chip) {
 
 skill bring_up(chip, data, name) {
     @told = ""
-    drum (group.count(STEPS)) { told = bring_step(chip, data, name, beat) }
+    drum (group.count(STEPS)) {
+        told = bring_step(chip, data, name, beat)
+    }
     out told
 }
 

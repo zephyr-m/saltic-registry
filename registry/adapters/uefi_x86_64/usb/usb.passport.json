@@ -8,7 +8,7 @@
   "effects": "только читает",
   "hardware": "контроллеры и устройства USB, которые видит прошивка",
   "identifiers": "uefi usb-io",
-  "own_version": "5",
+  "own_version": "6",
   "protocols": "UEFI UsbIo, дескрипторы USB",
   "architectures": "x86_64-uefi",
   "primitives": "нет: только отчёт об интерфейсах текстом",

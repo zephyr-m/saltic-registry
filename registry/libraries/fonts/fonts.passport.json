@@ -1,7 +1,7 @@
 {
   "title": "fonts — шрифты: разбор TTF, растровые глифы, Spleen и файлы Inter и JetBrains Mono",
   "saltic_version": "в составе Saltic (ветка 22.11.2026)",
-  "own_version": "3",
+  "own_version": "4",
   "author": "Зэф",
   "role": "library",
   "purpose": "буквы для всех экранов: гладкие TTF и растровые Spleen; пути к файлам шрифтов",

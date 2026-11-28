@@ -1,7 +1,7 @@
 {
   "title": "lettering — буквы Spleen на холсте без TTF, таблица глифов и геометрия",
   "saltic_version": "в составе Saltic (ветка 22.11.2026)",
-  "own_version": "3",
+  "own_version": "4",
   "author": "Зэф",
   "role": "library",
   "purpose": "текст на холсте там, где TTF нет или не нужен: Spleen 8×16, 12×24, 16×32 с кириллицей",

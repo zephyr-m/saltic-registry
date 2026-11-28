@@ -154,7 +154,9 @@ skill exit_output(base, services, size_at, data_at) {
     @count = size - first
     (count > OUTPUT_LIMIT) { count = OUTPUT_LIMIT }
     @bytes = []
-    drum (count) { bytes = group.add(bytes, firmware.read8(data, base, first + beat)) }
+    drum (count) {
+        bytes = group.add(bytes, firmware.read8(data, base, first + beat))
+    }
     firmware.call(base, firmware.pointer(services, base, BOOT_FREE_POOL), [data])
     out bytes
 }
@@ -216,7 +218,9 @@ skill find_table(base, guid) {
 
 skill add_table(base, guid, place) {
     @guid_at = firmware.scratch(base, SCRATCH_GUID)
-    drum (16) { firmware.write8(guid_at, base, beat, group.get(guid, beat)) }
+    drum (16) {
+        firmware.write8(guid_at, base, beat, group.get(guid, beat))
+    }
     out firmware.call(base, firmware.pointer(boot_services(base), base, BOOT_INSTALL_CONFIGURATION_TABLE), [guid_at, place])
 }
 

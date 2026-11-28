@@ -47,7 +47,9 @@ Offer = Box {
 }
 
 skill zeros(bytes, count) {
-    drum (count) { bytes = group.add(bytes, 0) }
+    drum (count) {
+        bytes = group.add(bytes, 0)
+    }
     out bytes
 }
 

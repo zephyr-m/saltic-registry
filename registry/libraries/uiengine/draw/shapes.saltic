@@ -87,7 +87,9 @@ skill soft_shadow(screen, x, y, width, height, radius, blur, color) {
 }
 
 skill inner_shadow(screen, x, y, width, radius, depth, color) {
-    drum (depth) { graphics.blend(screen, x + radius, y + beat, width - radius * 2, 1, color, INSET_ALPHA * (depth - beat) / depth) }
+    drum (depth) {
+        graphics.blend(screen, x + radius, y + beat, width - radius * 2, 1, color, INSET_ALPHA * (depth - beat) / depth)
+    }
     out none
 }
 

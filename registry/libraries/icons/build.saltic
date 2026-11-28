@@ -249,7 +249,9 @@ skill arc(pen, radius_x, radius_y, degrees, large, sweep, x2, y2) {
 
 skill take(list, from, count) {
     @made = []
-    drum (count) { made = group.add(made, number(group.get(list, from + beat))) }
+    drum (count) {
+        made = group.add(made, number(group.get(list, from + beat)))
+    }
     out made
 }
 

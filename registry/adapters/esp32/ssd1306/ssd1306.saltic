@@ -54,7 +54,9 @@ skill column(glyph, x) {
     @byte = 0
     @weight = 1
     @mask = 16
-    drum (x) { mask = mask / 2 }
+    drum (x) {
+        mask = mask / 2
+    }
     drum (8) {
         (group.get(glyph, beat) / mask % 2 == 1) { byte = byte + weight }
         weight = weight * 2
@@ -71,14 +73,18 @@ skill page(index, text) {
             (group.count(bytes) + STEP <= WIDTH) {
                 @code = font.font_decode(text, at)
                 @glyph = group.get(spleen.GLYPHS_5X8, font.font_glyph_index(code.value))
-                drum (GLYPH) { bytes = group.add(bytes, column(glyph, beat)) }
+                drum (GLYPH) {
+                    bytes = group.add(bytes, column(glyph, beat))
+                }
                 bytes = group.add(bytes, 0)
                 at = at + code.width
             }
             (group.count(bytes) + STEP > WIDTH) { at = str.bytes(text) }
         }
     }
-    drum (WIDTH - group.count(bytes)) { bytes = group.add(bytes, 0) }
+    drum (WIDTH - group.count(bytes)) {
+        bytes = group.add(bytes, 0)
+    }
     out stream(bytes)
 }
 

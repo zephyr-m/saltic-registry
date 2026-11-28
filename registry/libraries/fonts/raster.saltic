@@ -184,7 +184,11 @@ skill render(font, code, size) {
     @glyph = ttf.glyph_of(font, code)
     @advance = below(ttf.advance(font, glyph) * size, font.units)
     @edges = []
-    drum (ttf.outline(font, glyph)) { edges = group.concat(edges, flat(beat, size, font.units)) }
+    @entrys = ttf.outline(font, glyph)
+    drum (group.count(entrys)) {
+        @entry = group.get(entrys, beat)
+        edges = group.concat(edges, flat(entry, size, font.units))
+    }
     (group.count(edges) == 0) { out Glyph { advance = advance } }
     @made = filled(edges)
     made.advance = advance

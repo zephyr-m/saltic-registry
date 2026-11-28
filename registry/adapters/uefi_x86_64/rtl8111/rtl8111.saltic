@@ -131,7 +131,9 @@ skill registers(base, config) {
 
 skill read_mac(base, mmio) {
     @bytes = []
-    drum (6) { bytes = group.add(bytes, firmware.read8(mmio, base, beat)) }
+    drum (6) {
+        bytes = group.add(bytes, firmware.read8(mmio, base, beat))
+    }
     out bytes
 }
 
@@ -147,7 +149,9 @@ skill link_text(status) {
 }
 
 skill delay(card, count) {
-    drum (count) { firmware.read8(card.mmio, card.base, REGISTER_PHY_STATUS) }
+    drum (count) {
+        firmware.read8(card.mmio, card.base, REGISTER_PHY_STATUS)
+    }
     out none
 }
 
@@ -215,7 +219,9 @@ skill configure(card) {
     firmware.write8(card.mmio, card.base, REGISTER_CONFIG_LOCK, CONFIG_UNLOCK)
     firmware.write16(card.mmio, card.base, REGISTER_INTERRUPT_MASK, 0)
     firmware.write16(card.mmio, card.base, REGISTER_INTERRUPT_STATUS, 65535)
-    drum (RX_COUNT) { arm_rx(card, beat) }
+    drum (RX_COUNT) {
+        arm_rx(card, beat)
+    }
     write_ring(card, REGISTER_TX_RING, card.tx_ring)
     write_ring(card, REGISTER_RX_RING, card.rx_ring)
     firmware.write16(card.mmio, card.base, REGISTER_RX_MAX_SIZE, RX_MAX_SIZE)
@@ -239,7 +245,9 @@ skill wait_link(card) {
 }
 
 skill send(card, bytes) {
-    drum (group.count(bytes)) { firmware.write8(card.tx_buffer, card.base, beat, group.get(bytes, beat)) }
+    drum (group.count(bytes)) {
+        firmware.write8(card.tx_buffer, card.base, beat, group.get(bytes, beat))
+    }
     out send_prepared(card, group.count(bytes))
 }
 
@@ -265,7 +273,9 @@ skill read_frame(card, index) {
     (length > BUFFER_BYTES) { length = BUFFER_BYTES }
     card.received_bytes = card.received_bytes + length
     @bytes = []
-    drum (length) { bytes = group.add(bytes, firmware.read8(buffer, card.base, beat)) }
+    drum (length) {
+        bytes = group.add(bytes, firmware.read8(buffer, card.base, beat))
+    }
     out bytes
 }
 
@@ -317,7 +327,9 @@ skill owner(slot, base) {
 
 skill rings(card) {
     @text = "rx "
-    drum (RX_COUNT) { text = str.concat(text, owner(rx_slot(card, beat), card.base)) }
+    drum (RX_COUNT) {
+        text = str.concat(text, owner(rx_slot(card, beat), card.base))
+    }
     @tx = owner(card.tx_ring, card.base)
     out "{text} tx {tx}"
 }

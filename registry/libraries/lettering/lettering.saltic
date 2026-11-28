@@ -73,7 +73,9 @@ skill glyph_index(code) {
 
 skill row_value(glyph, row) {
     @value = 0
-    drum (4) { value = value * 16 + num.hex_value(str.get(glyph, row * 4 + beat)) }
+    drum (4) {
+        value = value * 16 + num.hex_value(str.get(glyph, row * 4 + beat))
+    }
     out value
 }
 
@@ -109,6 +111,8 @@ skill paint_bytes(screen, face, x, y, bytes, ink) {
 
 skill paint_text(screen, face, x, y, line, ink) {
     @bytes = []
-    drum (str.bytes(line)) { bytes = group.add(bytes, str.byte(line, beat)) }
+    drum (str.bytes(line)) {
+        bytes = group.add(bytes, str.byte(line, beat))
+    }
     out paint_bytes(screen, face, x, y, bytes, ink)
 }

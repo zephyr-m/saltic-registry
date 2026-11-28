@@ -59,7 +59,9 @@ skill tlv(chip, at, tag, length) {
 }
 
 skill words(chip, at, values) {
-    drum (group.count(values)) { firmware.write_phys32(frame(chip), chip.base, at + beat * 4, group.get(values, beat)) }
+    drum (group.count(values)) {
+        firmware.write_phys32(frame(chip), chip.base, at + beat * 4, group.get(values, beat))
+    }
     out at + group.count(values) * 4
 }
 
@@ -136,7 +138,9 @@ skill init(chip) {
         out "нет SERVICE_READY: {seen}"
     }
     chip.services = []
-    drum (32) { chip.services = group.add(chip.services, firmware.read32(passport, chip.base, SERVICE_BITS + beat * 4)) }
+    drum (32) {
+        chip.services = group.add(chip.services, firmware.read32(passport, chip.base, SERVICE_BITS + beat * 4))
+    }
     rings.release(chip)
     card.say(chip, "T1. ECHO {ECHO_VALUE}: do WMI commands reach the firmware?")
     @at_echo = tlv(chip, BODY, TAG_ECHO, 4)
@@ -166,7 +170,9 @@ skill init(chip) {
         out "нет READY ({echo_text}): {seen}"
     }
     @mac = []
-    drum (6) { mac = group.add(mac, firmware.read8(event, chip.base, READY_MAC + beat)) }
+    drum (6) {
+        mac = group.add(mac, firmware.read8(event, chip.base, READY_MAC + beat))
+    }
     chip.mac = mac
     @status = firmware.read32(event, chip.base, READY_STATUS)
     rings.release(chip)

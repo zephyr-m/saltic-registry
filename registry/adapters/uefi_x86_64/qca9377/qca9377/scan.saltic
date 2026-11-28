@@ -136,7 +136,9 @@ skill start(chip) {
     at = wmi.words(chip, at, COMMON)
     at = wmi.words(chip, at, [0, CHANNELS, 1, 0, 0, 3, 0, 0, 0, 0])
     at = wmi.tlv(chip, at, TAG_ARRAY_UINT32, CHANNELS * 4)
-    drum (CHANNELS) { at = wmi.words(chip, at, [mhz(beat)]) }
+    drum (CHANNELS) {
+        at = wmi.words(chip, at, [mhz(beat)])
+    }
     at = wmi.tlv(chip, at, TAG_FIXED_STRUCT, 0)
     at = wmi.tlv(chip, at, TAG_FIXED_STRUCT, 8)
     at = wmi.words(chip, at, [4294967295, 65535])
@@ -165,7 +167,9 @@ skill parse_frame(chip, frame, length, snr, channel) {
     (kind == PROBE_RESPONSE) { known = yes }
     (known == no) { out none }
     @address = []
-    drum (6) { address = group.add(address, firmware.read8(frame, chip.base, 16 + beat)) }
+    drum (6) {
+        address = group.add(address, firmware.read8(frame, chip.base, 16 + beat))
+    }
     @found = Network { bssid = bssid_text(chip, frame), address = address, snr = snr, channel = channel }
     @at = FIELDS
     drum (64) {
@@ -174,7 +178,9 @@ skill parse_frame(chip, frame, length, snr, channel) {
         @size = firmware.read8(frame, chip.base, at + 1)
         (id == 0) {
             @name = ""
-            drum (size) { name = str.concat(name, str.from_byte(firmware.read8(frame, chip.base, at + 2 + beat))) }
+            drum (size) {
+                name = str.concat(name, str.from_byte(firmware.read8(frame, chip.base, at + 2 + beat)))
+            }
             found.name = name
         }
         (id == 3) { found.channel = firmware.read8(frame, chip.base, at + 2) }

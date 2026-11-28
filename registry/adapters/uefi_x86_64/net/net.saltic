@@ -58,14 +58,21 @@ skill ip_words(ip) {
 
 skill checksum(words) {
     @total = 0
-    drum (words) { total = total + beat }
-    drum (4) { total = total % 65536 + total / 65536 }
+    drum (group.count(words)) {
+        @word = group.get(words, beat)
+        total = total + word
+    }
+    drum (4) {
+        total = total % 65536 + total / 65536
+    }
     out 65535 - total
 }
 
 skill pad(bytes) {
     (group.count(bytes) < FRAME_MINIMUM) {
-        drum (FRAME_MINIMUM - group.count(bytes)) { bytes = group.add(bytes, 0) }
+        drum (FRAME_MINIMUM - group.count(bytes)) {
+            bytes = group.add(bytes, 0)
+        }
     }
     out bytes
 }
@@ -78,7 +85,9 @@ skill printable(code) {
 
 skill text_of(bytes, first, count) {
     @text = ""
-    drum (count) { text = str.concat(text, utf8.byte_text(group.get(bytes, first + beat))) }
+    drum (count) {
+        text = str.concat(text, utf8.byte_text(group.get(bytes, first + beat)))
+    }
     out text
 }
 
@@ -115,7 +124,9 @@ skill ip_text(ip) {
 
 skill udp_frame(my_mac, my_ip, to_mac, to_ip, from_port, to_port, text) {
     @payload = []
-    drum (str.bytes(text)) { payload = group.add(payload, str.byte(text, beat)) }
+    drum (str.bytes(text)) {
+        payload = group.add(payload, str.byte(text, beat))
+    }
     out udp_frame_bytes(my_mac, my_ip, to_mac, to_ip, from_port, to_port, payload)
 }
 

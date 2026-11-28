@@ -8,7 +8,7 @@
   "effects": "читает и пишет физическую память, зовёт Boot Services прошивки",
   "hardware": "любой ПК с UEFI (x86-64)",
   "identifiers": "нет",
-  "own_version": "1",
+  "own_version": "2",
   "protocols": "UEFI Boot Services, ACPI (RSDP, MCFG), PCI ECAM",
   "architectures": "x86_64-uefi",
   "primitives": "firmware — окно памяти программы, чтение и запись физической памяти, вызов прошивки; uefi — страницы, таблицы, запуск образов, клавиша, время, перезагрузка; clock — часы; keys — очередь клавиш; pci — устройства ECAM; arena_map — карта арены",

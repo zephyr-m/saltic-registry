@@ -8,7 +8,7 @@
   "effects": "пишет в железо: регистры, таблица GTT, кольца команд, DMA",
   "hardware": "Intel HD 620 (Kaby Lake, Gen9.5), PCI 8086:5916",
   "identifiers": "pci 8086:5916",
-  "own_version": "3",
+  "own_version": "4",
   "protocols": "PCIe MMIO; кольца команд блиттера (BCS) и рендера (RCS); GGTT",
   "architectures": "x86_64-uefi",
   "primitives": "залить прямоугольник; скопировать прямоугольник; треугольники с цветом по вершинам (render); счётчик кадров экрана; vsync",

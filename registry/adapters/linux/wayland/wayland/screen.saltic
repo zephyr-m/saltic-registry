@@ -154,7 +154,9 @@ skill socket_path() {
 skill unix_address(path) {
     @buffer = bytes.new(str.bytes(path) + 3)
     bytes.set(buffer, 0, 1)
-    drum (str.bytes(path)) { bytes.set(buffer, beat + 2, str.byte(path, beat)) }
+    drum (str.bytes(path)) {
+        bytes.set(buffer, beat + 2, str.byte(path, beat))
+    }
     out buffer
 }
 

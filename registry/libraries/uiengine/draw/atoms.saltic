@@ -254,10 +254,16 @@ skill fitted(node, in_row, palette) {
     }
     (atom.holds(node) == yes) {
         @children = []
-        drum (node.children) { children = group.add(children, fitted(beat, node.flow == atom.Flow.ROW, palette)) }
+        drum (group.count(node.children)) {
+            @child = group.get(node.children, beat)
+            children = group.add(children, fitted(child, node.flow == atom.Flow.ROW, palette))
+        }
         @copy = copy_node(node, node.width, node.height, children)
         @layers = []
-        drum (node.layers) { layers = group.add(layers, fitted(beat, no, palette)) }
+        drum (group.count(node.layers)) {
+            @layer = group.get(node.layers, beat)
+            layers = group.add(layers, fitted(layer, no, palette))
+        }
         copy.layers = layers
         out copy
     }
@@ -365,10 +371,15 @@ skill measured(node, in_row) {
     }
     (atom.holds(node) == yes) {
         @children = []
-        drum (group.count(node.children)) { children = group.add(children, measured(group.get(node.children, beat), node.flow == atom.Flow.ROW)) }
+        drum (group.count(node.children)) {
+            children = group.add(children, measured(group.get(node.children, beat), node.flow == atom.Flow.ROW))
+        }
         @copy = copy_node(node, node.width, node.height, children)
         @layers = []
-        drum (node.layers) { layers = group.add(layers, measured(beat, no)) }
+        drum (group.count(node.layers)) {
+            @layer = group.get(node.layers, beat)
+            layers = group.add(layers, measured(layer, no))
+        }
         copy.layers = layers
         out copy
     }
@@ -434,7 +445,9 @@ skill draw_node(screen, runtime, palette, node, place) {
     (node.kind == atom.Kind.SLIDER) { out draw_slider(screen, runtime, palette, node.id) }
     (node.kind == atom.Kind.CIRCLE) {
         shapes.circle(screen, [x, y, width, height], [node.border, node.start, node.sweep], tone_color(palette, node.fill, -1), tone_color(palette, node.edge, -1))
-        drum (jtml.children_layout(node, x, y, width, height)) { draw_node(screen, runtime, palette, beat.node, [beat.x, beat.y, beat.width, beat.height]) }
+        drum (jtml.children_layout(node, x, y, width, height)) {
+            draw_node(screen, runtime, palette, beat.node, [beat.x, beat.y, beat.width, beat.height])
+        }
         out none
     }
     (node.kind == atom.Kind.BOX) {
@@ -478,7 +491,9 @@ skill draw_node(screen, runtime, palette, node, place) {
             (node.border > 1) { graphics.fill(screen, x, y, width, height, tone_color(palette, node.tone, palette.ink)) }
         }
         (str.bytes(node.icon) > 0) { (palette.iconed == yes) { draw_icon(screen, palette, node, place) } }
-        drum (jtml.children_layout(node, x, y, width, height)) { draw_node(screen, runtime, palette, beat.node, [beat.x, beat.y, beat.width, beat.height]) }
+        drum (jtml.children_layout(node, x, y, width, height)) {
+            draw_node(screen, runtime, palette, beat.node, [beat.x, beat.y, beat.width, beat.height])
+        }
     }
     out none
 }

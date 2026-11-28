@@ -8,7 +8,7 @@
   "effects": "зовёт любые функции C через платформу Android (cpu.call), своя память memfd",
   "hardware": "телефон Android (ARM64)",
   "identifiers": "нет",
-  "own_version": "1",
+  "own_version": "2",
   "protocols": "—",
   "architectures": "arm64 (Android)",
   "primitives": "найти функцию библиотеки, позвать её с 6 аргументами, строки и структуры C в своём куске",

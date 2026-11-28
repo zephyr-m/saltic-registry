@@ -84,7 +84,9 @@ skill post(chip, index) {
 skill rx_ring(chip) {
     card.say(chip, "V2. HTT RX_RING_CFG: {RX_SLOTS} buffers of {BUFFER} bytes, all frame kinds incl. management")
     @ring = rings.at(chip, "wifi_rx_ring")
-    drum (RX_SLOTS - 1) { post(chip, beat) }
+    drum (RX_SLOTS - 1) {
+        post(chip, beat)
+    }
     chip.rx_read = 0
     chip.rx_fill = RX_SLOTS - 1
     firmware.write_phys32(ring, chip.base, INDEX, chip.rx_fill)
@@ -94,7 +96,9 @@ skill rx_ring(chip) {
     firmware.write_phys32(at, chip.base, 16, ring)
     firmware.write_phys32(at, chip.base, 20, RX_SLOTS + BUFFER * firmware.PAGE)
     firmware.write_phys32(at, chip.base, 24, ALL_FRAMES + chip.rx_fill * firmware.PAGE)
-    drum (5) { firmware.write_phys32(at, chip.base, 28 + beat * 4, group.get(OFFSETS, beat * 2) + group.get(OFFSETS, beat * 2 + 1) * firmware.PAGE) }
+    drum (5) {
+        firmware.write_phys32(at, chip.base, 28 + beat * 4, group.get(OFFSETS, beat * 2) + group.get(OFFSETS, beat * 2 + 1) * firmware.PAGE)
+    }
     out send(chip, 40)
 }
 

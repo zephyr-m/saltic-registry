@@ -50,13 +50,17 @@ skill page(base) {
 }
 
 skill bytes_at(base, place, offset, values) {
-    drum (group.count(values)) { firmware.write8(place, base, offset + beat, group.get(values, beat)) }
+    drum (group.count(values)) {
+        firmware.write8(place, base, offset + beat, group.get(values, beat))
+    }
     out none
 }
 
 skill read_bytes(base, place, offset, count) {
     @values = []
-    drum (count) { values = group.add(values, firmware.read8(place, base, offset + beat)) }
+    drum (count) {
+        values = group.add(values, firmware.read8(place, base, offset + beat))
+    }
     out values
 }
 
@@ -65,7 +69,9 @@ skill write_counters(chip) {
     @live = 0
     (chip.letters_live == yes) { live = 1 }
     @values = [chip.send_at, chip.receive_at, chip.letters_from, chip.diag_send, chip.diag_receive, chip.command_at, chip.wmi_endpoint, chip.event_read, chip.event_write, chip.letter_read, chip.letters_seen, chip.htt_at, chip.rx_read, chip.rx_fill, chip.frames_damaged, chip.station, live]
-    drum (COUNTER_COUNT) { firmware.write_phys32(place, chip.base, COUNTERS + beat * 4, group.get(values, beat)) }
+    drum (COUNTER_COUNT) {
+        firmware.write_phys32(place, chip.base, COUNTERS + beat * 4, group.get(values, beat))
+    }
     out place
 }
 
@@ -88,7 +94,9 @@ skill set_stage(base, step, text) {
     @count = group.count(bytes)
     (count > STAGE_BYTES) { count = STAGE_BYTES }
     firmware.write_phys32(place, base, STAGE, step + count * 256)
-    drum (count) { firmware.write8(place, base, STAGE_TEXT + beat, group.get(bytes, beat)) }
+    drum (count) {
+        firmware.write8(place, base, STAGE_TEXT + beat, group.get(bytes, beat))
+    }
     out none
 }
 

@@ -79,13 +79,17 @@ skill send(chip, network, ethernet) {
     firmware.write_phys32(letter, chip.base, 12, at + firmware.PAGE)
     firmware.write_phys32(letter, chip.base, 16, pieces)
     firmware.write_phys32(letter, chip.base, 20, join.NO_PEER)
-    drum (fetch / 4) { firmware.write_phys32(letter, chip.base, 24 + beat * 4, firmware.read32(place, chip.base, beat * 4)) }
+    drum (fetch / 4) {
+        firmware.write_phys32(letter, chip.base, 24 + beat * 4, firmware.read32(place, chip.base, beat * 4))
+    }
     out htt.send(chip, 16 + fetch)
 }
 
 skill read_bytes(chip, place, first, count) {
     @bytes = []
-    drum (count) { bytes = group.add(bytes, firmware.read8(place, chip.base, first + beat)) }
+    drum (count) {
+        bytes = group.add(bytes, firmware.read8(place, chip.base, first + beat))
+    }
     out bytes
 }
 

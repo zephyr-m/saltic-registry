@@ -90,7 +90,9 @@ skill table(data, tag) {
     drum (count) {
         @record = 12 + beat * 16
         @name = ""
-        drum (4) { name = str.concat(name, str.from_byte(u8(data, record + beat))) }
+        drum (4) {
+            name = str.concat(name, str.from_byte(u8(data, record + beat)))
+        }
         (name == tag) { out u32(data, record + 8) }
     }
     out error.NotTrueType
@@ -185,7 +187,9 @@ skill outline(font, glyph) {
 
 skill simple(data, at, contours) {
     @ends = []
-    drum (contours) { ends = group.add(ends, u16(data, at + 10 + beat * 2)) }
+    drum (contours) {
+        ends = group.add(ends, u16(data, at + 10 + beat * 2))
+    }
     (contours == 0) { out [] }
     @total = group.get(ends, contours - 1) + 1
     @cursor = at + 10 + contours * 2
@@ -199,7 +203,9 @@ skill simple(data, at, contours) {
             (flag / REPEAT % 2 == 1) {
                 @times = u8(data, cursor)
                 cursor = cursor + 1
-                drum (times) { flags = group.add(flags, flag) }
+                drum (times) {
+                    flags = group.add(flags, flag)
+                }
             }
         }
     }
@@ -280,7 +286,10 @@ skill compound(font, at) {
             drum (group.count(entries)) {
                 @entry = group.get(entries, beat)
                 @moved = []
-                drum (entry) { moved = group.add(moved, [group.get(entry, 0) + dx, group.get(entry, 1) + dy, group.get(entry, 2)]) }
+                drum (group.count(entry)) {
+                    @point = group.get(entry, beat)
+                    moved = group.add(moved, [group.get(point, 0) + dx, group.get(point, 1) + dy, group.get(point, 2)])
+                }
                 shapes = group.add(shapes, moved)
             }
             more = flags / MORE % 2 == 1

@@ -146,7 +146,9 @@ skill open(base) {
     @kept = uefi.find_table(base, GUID)
     (kept == 0) {
         kept = uefi.pages_below_4g(base, 1)
-        drum (PAGE / 4) { firmware.write_phys32(kept, base, beat * 4, 0) }
+        drum (PAGE / 4) {
+            firmware.write_phys32(kept, base, beat * 4, 0)
+        }
         uefi.add_table(base, GUID, kept)
     }
     gpu.ring = firmware.read32(kept, base, 0)
@@ -174,7 +176,9 @@ skill open(base) {
 skill start_ring(gpu, engine, slot) {
     @base = gpu.base
     @ring = uefi.pages_below_4g(base, RING_PAGES + 1)
-    drum ((RING_PAGES + 1) * PAGE / 4) { firmware.write_phys32(ring, base, beat * 4, NOOP) }
+    drum ((RING_PAGES + 1) * PAGE / 4) {
+        firmware.write_phys32(ring, base, beat * 4, NOOP)
+    }
     map_slots(gpu, slot, ring, RING_PAGES + 1)
     @mmio = gpu.mmio
     firmware.write_phys32(mmio, base, engine + GFX_MODE, NO_EXECLISTS)
@@ -188,7 +192,9 @@ skill start_ring(gpu, engine, slot) {
 
 skill map_slots(gpu, slot, place, pages) {
     @gtt = firmware.add(gpu.mmio, GTT)
-    drum (pages) { firmware.write64(gtt, gpu.base, (slot + beat) * 8, firmware.number(firmware.add(place, beat * PAGE) + 1)) }
+    drum (pages) {
+        firmware.write64(gtt, gpu.base, (slot + beat) * 8, firmware.number(firmware.add(place, beat * PAGE) + 1))
+    }
     firmware.write_phys32(gpu.mmio, gpu.base, FLUSH_GTT, 1)
     firmware.read32(gpu.mmio, gpu.base, FLUSH_GTT)
     out slot * PAGE
@@ -241,12 +247,16 @@ skill push(gpu, engine, ring, words) {
     @base = gpu.base
     @tail = firmware.read32(gpu.mmio, base, engine + TAIL)
     (tail + group.count(all) * 4 >= RING_BYTES) {
-        drum ((RING_BYTES - tail) / 4) { firmware.write_phys32(ring, base, tail + beat * 4, NOOP) }
+        drum ((RING_BYTES - tail) / 4) {
+            firmware.write_phys32(ring, base, tail + beat * 4, NOOP)
+        }
         firmware.write_phys32(gpu.mmio, base, engine + TAIL, 0)
         drained(gpu, engine)
         tail = 0
     }
-    drum (group.count(all)) { firmware.write_phys32(ring, base, tail + beat * 4, group.get(all, beat)) }
+    drum (group.count(all)) {
+        firmware.write_phys32(ring, base, tail + beat * 4, group.get(all, beat))
+    }
     out firmware.write_phys32(gpu.mmio, base, engine + TAIL, tail + group.count(all) * 4)
 }
 

@@ -61,7 +61,9 @@ skill walk(node, place, found) {
     (node.kind == atom.Kind.BOX) { nested = yes }
     (node.kind == atom.Kind.CIRCLE) { nested = yes }
     (nested == yes) {
-        drum (jtml.children_layout(node, x, y, width, height)) { all = walk(beat.node, [beat.x, beat.y, beat.width, beat.height], all) }
+        drum (jtml.children_layout(node, x, y, width, height)) {
+            all = walk(beat.node, [beat.x, beat.y, beat.width, beat.height], all)
+        }
     }
     out all
 }
@@ -128,8 +130,12 @@ skill changes(before, after, width, height) {
         }
     }
     @found = []
-    drum (old_count - head - tail) { found = group.add(found, area(group.get(before, head + beat))) }
-    drum (new_count - head - tail) { found = group.add(found, area(group.get(after, head + beat))) }
+    drum (old_count - head - tail) {
+        found = group.add(found, area(group.get(before, head + beat)))
+    }
+    drum (new_count - head - tail) {
+        found = group.add(found, area(group.get(after, head + beat)))
+    }
     (old_count == new_count) {
         @middle = []
         drum (new_count - head - tail) {
@@ -163,10 +169,15 @@ skill pass(pile) {
 
 skill merged(rects, width, height) {
     @pile = rects
-    drum (PASSES) { pile = pass(pile) }
+    drum (PASSES) {
+        pile = pass(pile)
+    }
     (group.count(pile) > MOST) {
         @whole = group.get(pile, 0)
-        drum (pile) { whole = joined(whole, beat) }
+        drum (group.count(pile)) {
+            @entry_2 = group.get(pile, beat)
+            whole = joined(whole, entry_2)
+        }
         pile = [whole]
     }
     @inside = []

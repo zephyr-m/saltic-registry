@@ -181,7 +181,9 @@ skill quad(edges, a, b, half) {
 
 skill dot(edges, center, half) {
     @points = []
-    drum (CORNERS) { points = group.add(points, [group.get(center, 0) + half * group.get(COSINES, beat) / UNIT, group.get(center, 1) + half * group.get(SINES, beat) / UNIT]) }
+    drum (CORNERS) {
+        points = group.add(points, [group.get(center, 0) + half * group.get(COSINES, beat) / UNIT, group.get(center, 1) + half * group.get(SINES, beat) / UNIT])
+    }
     out polygon(edges, points)
 }
 
@@ -191,7 +193,10 @@ skill outline(lines, size) {
     drum (group.count(lines)) {
         @stroke = group.get(lines, beat)
         @scaled = []
-        drum (stroke) { scaled = group.add(scaled, [group.get(stroke, 0) * size * raster.FINE / GRID, 0 - group.get(stroke, 1) * size * raster.FINE / GRID]) }
+        drum (group.count(stroke)) {
+            @point = group.get(stroke, beat)
+            scaled = group.add(scaled, [group.get(point, 0) * size * raster.FINE / GRID, 0 - group.get(point, 1) * size * raster.FINE / GRID])
+        }
         @count = group.count(scaled)
         drum (count) {
             edges = dot(edges, group.get(scaled, beat), half)

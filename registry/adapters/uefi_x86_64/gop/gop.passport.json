@@ -8,7 +8,7 @@
   "effects": "пишет в видеопамять, зовёт прошивку (LocateProtocol, CopyMem, страницы), командует блиттером видеокарты",
   "hardware": "любой ПК с UEFI; видеокарта Intel Gen9 — через intel_gpu",
   "identifiers": "протокол GOP (GUID 9042a9de-23dc-4a38-96fb-7aded080516a)",
-  "own_version": "1",
+  "own_version": "2",
   "protocols": "UEFI Graphics Output Protocol, Boot Services CopyMem",
   "architectures": "x86_64-uefi",
   "primitives": "открыть экран (середина или весь), холст в памяти, положить холст на экран, задний буфер и показать дельту, залить и скопировать блиттером",
