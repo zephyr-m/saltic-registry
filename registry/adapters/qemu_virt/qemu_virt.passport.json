@@ -8,7 +8,7 @@
   "effects": "пишет в железо: регистры MMIO virtio, fw_cfg, CLINT, UART 16550; буфер кадра ramfb",
   "hardware": "QEMU virt (RV32I)",
   "identifiers": "virtio-mmio 0x10001000…, fw_cfg 0x10100000, UART 0x10000000, CLINT mtime",
-  "own_version": "1",
+  "own_version": "2",
   "protocols": "virtio 1.0 по MMIO, QEMU fw_cfg, ramfb",
   "architectures": "rv32i (qemu-virt)",
   "primitives": "найти устройство virtio, кадровый буфер и экран ink, клавиша и указатель, звук 48 кГц, время, вывод и ввод UART",

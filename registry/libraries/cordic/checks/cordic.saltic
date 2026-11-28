@@ -1,6 +1,6 @@
 -- cordic — проверка против Python math (cases.saltic, делает
 -- workbench/references/cordic.py): sin/cos по всем четвертям, края 0, ±π/2,
--- ±π, малые углы, большие с приведением до ±num.MAXIMUM; atan2 и длина на
+-- ±π, малые углы, большие с приведением до ±ANGLE_MOST; atan2 и длина на
 -- осях, в четвертях, от единиц до LIMIT. Допуски выведены из числа шагов в
 -- эталоне; показывается и наибольшее найденное отклонение. Таблица углов и
 -- константы — как у Python. Ошибки: AngleOutsideRange, ZeroVector,
@@ -96,12 +96,12 @@ program() {
     suite = testing.test_equal(suite, "таблица atan(2^-i) как у Python", cordic.ANGLES, cases.TABLE)
     suite = testing.test_equal(suite, "hypot(0, 0) — 0", wave.hypot(0, 0), 0)
     suite = testing.test_equal(suite, "hypot(3, 4) — 5", wave.hypot(3, 4), 5)
-    @far = wave.sin(num.MAXIMUM + 1) rescue |err| {
-        suite = testing.test_yes(suite, "угол за MAXIMUM — AngleOutsideRange", (err == error.AngleOutsideRange))
+    @far = wave.sin(cordic.ANGLE_MOST + 1) rescue |err| {
+        suite = testing.test_yes(suite, "угол за ANGLE_MOST — AngleOutsideRange", (err == error.AngleOutsideRange))
         none
     }
-    @near = wave.cos(0 - num.MAXIMUM - 1) rescue |err| {
-        suite = testing.test_yes(suite, "угол за −MAXIMUM — AngleOutsideRange", (err == error.AngleOutsideRange))
+    @near = wave.cos(0 - cordic.ANGLE_MOST - 1) rescue |err| {
+        suite = testing.test_yes(suite, "угол за −ANGLE_MOST — AngleOutsideRange", (err == error.AngleOutsideRange))
         none
     }
     @empty = wave.atan2(0, 0) rescue |err| {

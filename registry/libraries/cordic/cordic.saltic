@@ -1,7 +1,7 @@
 -- cordic — синус, косинус, atan2 и длина вектора по CORDIC: только сдвиги и
 -- сложения на обычных целых, на всех целях одинаково. Масштаб — ONE = 2^24:
 -- угол в радианах и синус/косинус — целое = значение · ONE (π — PI).
--- Пределы выбраны под 29 бит rv32: угол |a| ≤ num.MAXIMUM (≈ ±16 рад,
+-- Пределы выбраны под 29 бит rv32: угол |a| ≤ ANGLE_MOST = 2^28 − 1 (≈ ±16 рад,
 -- приведение к −π…π сложениями), длина и atan2 — |x|, |y| ≤ LIMIT (2^27 − 1),
 -- промежуточные числа не выше ~8·10^7 < 2^28. ITERATIONS шагов дают точность
 -- около 10^−6 (выведенные допуски — в checks/cases.saltic).
@@ -26,6 +26,7 @@ PI = 52707179
 HALF_PI = 26353589
 TWO_PI = 105414357
 LIMIT = 134217727
+ANGLE_MOST = 268435455
 LOW = 16777216
 HIGH = 33554432
 ITERATIONS = 24
@@ -71,7 +72,7 @@ Cordic = Box {
     }
 
     skill unit_point(angle) {
-        ((angle > num.MAXIMUM) ○○ (angle < 0 - num.MAXIMUM)) {
+        ((angle > ANGLE_MOST) ○○ (angle < 0 - ANGLE_MOST)) {
             out error.AngleOutsideRange
         }
         @rest = angle
