@@ -1,7 +1,7 @@
 {
-  "catalog": {"from": "git@github.com:zephyr-m/saltic-registry.git", "commit": "30198d7f694dce94682ab6b916e4160ecf7aea7f"},
+  "catalog": {"from": "git@github.com:zephyr-m/saltic-registry.git", "commit": "2487a59dbdf49dfe9511845f377e546d1a32c128"},
   "packages": {
-    "bignum": {"version": "4", "source": "registry/libraries/bignum", "fingerprint": "crc32 c08011d2", "required_by": "project"},
-    "karatsuba": {"version": "3", "source": "registry/libraries/karatsuba", "fingerprint": "crc32 b36c6bcd", "required_by": "project"}
+    "bignum": {"version": "5", "source": "registry/libraries/bignum", "fingerprint": "crc32 1f2d5636", "required_by": "project"},
+    "karatsuba": {"version": "5", "source": "registry/libraries/karatsuba", "fingerprint": "crc32 898698f5", "required_by": "project"}
   }
 }
