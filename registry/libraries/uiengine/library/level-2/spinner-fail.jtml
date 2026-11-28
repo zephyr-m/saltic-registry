@@ -1,0 +1,23 @@
+{
+  "component": {
+    "name": "spinner-fail",
+    "params": [],
+    "body": {
+      "circle": {
+        "size": 20,
+        "border": 2,
+        "edge": "down",
+        "children": [
+          {
+            "text": {
+              "value": "✕",
+              "size": 12,
+              "tone": "down",
+              "weight": "bold"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

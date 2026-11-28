@@ -1,0 +1,18 @@
+{
+  "component": {
+    "name": "hero-number",
+    "params": [
+      "text",
+      "tone"
+    ],
+    "body": {
+      "text": {
+        "value": "{text}",
+        "mono": "yes",
+        "weight": "bold",
+        "size": 96,
+        "tone": "{tone}"
+      }
+    }
+  }
+}

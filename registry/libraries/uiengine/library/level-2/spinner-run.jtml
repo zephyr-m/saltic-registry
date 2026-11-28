@@ -1,0 +1,26 @@
+{
+  "component": {
+    "name": "spinner-run",
+    "params": [
+      "start"
+    ],
+    "body": {
+      "circle": {
+        "size": 20,
+        "border": 2,
+        "edge": "line",
+        "children": [
+          {
+            "circle": {
+              "size": 20,
+              "border": 2,
+              "edge": "accent",
+              "sweep": 80,
+              "start": "{start}"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

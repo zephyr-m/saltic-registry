@@ -1,0 +1,37 @@
+{
+  "component": {
+    "name": "button-main",
+    "params": [
+      "id",
+      "text"
+    ],
+    "body": {
+      "box": {
+        "id": "{id}",
+        "flow": "row",
+        "fill": "mustard",
+        "edge": "mustard",
+        "border": 1,
+        "radius": 9,
+        "padding": [
+          8,
+          14,
+          8,
+          14
+        ],
+        "gap": 0,
+        "justify": "center",
+        "children": [
+          {
+            "text": {
+              "value": "{text}",
+              "size": 13,
+              "tone": "ground",
+              "weight": "bold"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

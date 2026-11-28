@@ -1,0 +1,63 @@
+{
+  "component": {
+    "name": "case-cell-run",
+    "params": [
+      "id",
+      "name",
+      "time",
+      "start"
+    ],
+    "body": {
+      "box": {
+        "id": "{id}",
+        "width": 162,
+        "gap": 0,
+        "children": [
+          {
+            "cell": {
+              "fill": "accent_soft",
+              "edge": "accent_rim",
+              "border": 1,
+              "children": [
+                {
+                  "box": {
+                    "flow": "row",
+                    "gap": 8,
+                    "align": "center",
+                    "padding": [
+                      7,
+                      9,
+                      7,
+                      9
+                    ],
+                    "children": [
+                      {
+                        "spinner-run": {
+                          "start": "{start}"
+                        }
+                      },
+                      {
+                        "mono-cut": {
+                          "text": "{name}",
+                          "tone": "ink",
+                          "size": 12
+                        }
+                      },
+                      {
+                        "console-line": {
+                          "text": "{time}",
+                          "tone": "accent",
+                          "size": 11
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

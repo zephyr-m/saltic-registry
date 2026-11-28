@@ -1,0 +1,46 @@
+{
+  "component": {
+    "name": "meter-share",
+    "params": [
+      "ok",
+      "bad",
+      "rest"
+    ],
+    "body": {
+      "box": {
+        "flow": "row",
+        "grow": 1,
+        "height": 6,
+        "radius": 3,
+        "fill": "well",
+        "gap": 0,
+        "children": [
+          {
+            "box": {
+              "grow": "{ok}",
+              "height": 6,
+              "radius": 3,
+              "fill": "up",
+              "gap": 0
+            }
+          },
+          {
+            "box": {
+              "grow": "{bad}",
+              "height": 6,
+              "fill": "down",
+              "gap": 0
+            }
+          },
+          {
+            "box": {
+              "grow": "{rest}",
+              "height": 6,
+              "gap": 0
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "component": {
+    "name": "counter",
+    "params": [
+      "value",
+      "label",
+      "tone"
+    ],
+    "body": {
+      "box": {
+        "gap": 2,
+        "children": [
+          {
+            "readout": {
+              "text": "{value}",
+              "tone": "{tone}",
+              "size": 34
+            }
+          },
+          {
+            "caption": {
+              "text": "{label}"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

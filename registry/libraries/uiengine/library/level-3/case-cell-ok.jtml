@@ -1,0 +1,60 @@
+{
+  "component": {
+    "name": "case-cell-ok",
+    "params": [
+      "id",
+      "name",
+      "time"
+    ],
+    "body": {
+      "box": {
+        "id": "{id}",
+        "width": 162,
+        "gap": 0,
+        "children": [
+          {
+            "cell": {
+              "fill": "well",
+              "edge": "well",
+              "border": 1,
+              "children": [
+                {
+                  "box": {
+                    "flow": "row",
+                    "gap": 8,
+                    "align": "center",
+                    "padding": [
+                      7,
+                      9,
+                      7,
+                      9
+                    ],
+                    "children": [
+                      {
+                        "spinner-ok": {}
+                      },
+                      {
+                        "mono-cut": {
+                          "text": "{name}",
+                          "tone": "ink",
+                          "size": 12
+                        }
+                      },
+                      {
+                        "console-line": {
+                          "text": "{time}",
+                          "tone": "quiet",
+                          "size": 11
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "component": {
+    "name": "mono-cut",
+    "params": [
+      "text",
+      "tone",
+      "size"
+    ],
+    "body": {
+      "text": {
+        "value": "{text}",
+        "mono": "yes",
+        "size": "{size}",
+        "tone": "{tone}",
+        "cut": "yes",
+        "grow": 1
+      }
+    }
+  }
+}

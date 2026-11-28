@@ -1,0 +1,23 @@
+{
+  "component": {
+    "name": "spinner-ok",
+    "params": [],
+    "body": {
+      "circle": {
+        "size": 20,
+        "border": 2,
+        "edge": "up",
+        "children": [
+          {
+            "text": {
+              "value": "✓",
+              "size": 12,
+              "tone": "up",
+              "weight": "bold"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

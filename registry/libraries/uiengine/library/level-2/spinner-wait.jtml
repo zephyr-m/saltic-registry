@@ -1,0 +1,21 @@
+{
+  "component": {
+    "name": "spinner-wait",
+    "params": [],
+    "body": {
+      "circle": {
+        "size": 20,
+        "border": 2,
+        "edge": "line",
+        "children": [
+          {
+            "circle": {
+              "size": 4,
+              "fill": "gutter"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
