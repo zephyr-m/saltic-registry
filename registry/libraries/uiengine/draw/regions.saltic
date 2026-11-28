@@ -61,8 +61,10 @@ skill walk(node, place, found) {
     (node.kind == atom.Kind.BOX) { nested = yes }
     (node.kind == atom.Kind.CIRCLE) { nested = yes }
     (nested == yes) {
-        drum (jtml.children_layout(node, x, y, width, height)) {
-            all = walk(beat.node, [beat.x, beat.y, beat.width, beat.height], all)
+        @placements = jtml.children_layout(node, x, y, width, height)
+        drum (placements) {
+            @placed = group.get(placements, beat)
+            all = walk(placed.node, [placed.x, placed.y, placed.width, placed.height], all)
         }
     }
     out all

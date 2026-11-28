@@ -493,8 +493,10 @@ skill draw_node(screen, runtime, palette, node, place) {
             (node.border > 1) { graphics.fill(screen, x, y, width, height, tone_color(palette, node.tone, palette.ink)) }
         }
         (str.bytes(node.icon) > 0) { (palette.iconed == yes) { draw_icon(screen, palette, node, place) } }
-        drum (jtml.children_layout(node, x, y, width, height)) {
-            draw_node(screen, runtime, palette, beat.node, [beat.x, beat.y, beat.width, beat.height])
+        @placements = jtml.children_layout(node, x, y, width, height)
+        drum (placements) {
+            @placed = group.get(placements, beat)
+            draw_node(screen, runtime, palette, placed.node, [placed.x, placed.y, placed.width, placed.height])
         }
     }
     out none
