@@ -2,10 +2,10 @@
   "project": "rsa",
   "catalog": {"from": "git@github.com:zephyr-m/saltic-registry.git"},
   "packages": {
-    "bignum": "5",
-    "karatsuba": "5",
-    "sha256": "4",
-    "hex": "3",
-    "wire": "2"
+    "bignum": "6",
+    "karatsuba": "7",
+    "sha256": "5",
+    "hex": "4",
+    "wire": "3"
   }
 }

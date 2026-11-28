@@ -1,10 +1,10 @@
 {
-  "catalog": {"from": "git@github.com:zephyr-m/saltic-registry.git", "commit": "2487a59dbdf49dfe9511845f377e546d1a32c128"},
+  "catalog": {"from": "git@github.com:zephyr-m/saltic-registry.git", "commit": "31a21ec1596dc2dbeedb95eb99d6fa5533e0bf5c"},
   "packages": {
-    "bignum": {"version": "5", "source": "registry/libraries/bignum", "fingerprint": "crc32 1f2d5636", "required_by": "project"},
-    "karatsuba": {"version": "5", "source": "registry/libraries/karatsuba", "fingerprint": "crc32 898698f5", "required_by": "project"},
-    "sha256": {"version": "4", "source": "registry/libraries/sha256", "fingerprint": "crc32 682d84af", "required_by": "project"},
-    "hex": {"version": "3", "source": "registry/libraries/hex", "fingerprint": "crc32 e5038527", "required_by": "project"},
-    "wire": {"version": "2", "source": "registry/libraries/wire", "fingerprint": "crc32 2e122a54", "required_by": "project"}
+    "bignum": {"version": "6", "source": "registry/libraries/bignum", "fingerprint": "crc32 a479cad2", "required_by": "project"},
+    "karatsuba": {"version": "7", "source": "registry/libraries/karatsuba", "fingerprint": "crc32 5e02c2c9", "required_by": "project"},
+    "sha256": {"version": "5", "source": "registry/libraries/sha256", "fingerprint": "crc32 ecee3a5a", "required_by": "project"},
+    "hex": {"version": "4", "source": "registry/libraries/hex", "fingerprint": "crc32 d3e587d8", "required_by": "project"},
+    "wire": {"version": "3", "source": "registry/libraries/wire", "fingerprint": "crc32 e030da50", "required_by": "project"}
   }
 }

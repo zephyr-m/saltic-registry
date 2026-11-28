@@ -2,7 +2,7 @@
   "project": "dh",
   "catalog": {"from": "git@github.com:zephyr-m/saltic-registry.git"},
   "packages": {
-    "bignum": "5",
-    "karatsuba": "5"
+    "bignum": "6",
+    "karatsuba": "7"
   }
 }
