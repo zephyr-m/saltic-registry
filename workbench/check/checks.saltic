@@ -37,7 +37,7 @@ skill home() {
 
 skill sources() {
     @listed = process.capture(["git", "ls-files", "registry/*/checks/*.saltic"], "", [])
-    out str.lines(listed.output)
+    out group.without(str.lines(listed.output), "")
 }
 
 skill runnable(path) {
