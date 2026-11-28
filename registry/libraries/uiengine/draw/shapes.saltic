@@ -15,7 +15,7 @@
 --     градиент от SHEEN_ALPHA к нулю на верхних 2/5 и блик LIGHT_ALPHA в
 --     первой строке под рамкой; dots(screen, [x, y, w, h], color, center) — сетка
 --     точек 2×2 с шагом GRID_STEP внутри места, у соседних мест сходится в
---     одну; center [] — свет из точки (60 %, 40 %) экрана, гаснет на 3/4 пути
+--     одну; center [] — свет из точки (60 %, 40 %) экрана, гаснет на 5/4 пути (решение автора 28.11.2026: ярче, дальше)
 --     до дальнего угла; center [x, y] — фонарик: свет из этой точки, гаснет
 --     на TORCH долях суммы сторон экрана; dots_from(…, whole) — то же на
 --     холсте-окне: whole [сдвиг x, сдвиг y, ширина, высота всего экрана]
@@ -228,7 +228,7 @@ skill dots_from(screen, place, color, center, whole) {
     @middle_x = wide * 3 / 5
     @middle_y = high * 2 / 5
     @below = high - middle_y
-    @reach = root(middle_x * middle_x + below * below) * 3 / 4
+    @reach = root(middle_x * middle_x + below * below) * 5 / 4
     (group.count(center) == 2) {
         middle_x = group.get(center, 0)
         middle_y = group.get(center, 1)
